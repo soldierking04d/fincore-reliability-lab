@@ -13,8 +13,8 @@ CREATE TABLE account (
 );
 
 CREATE TABLE settlement_order (
-    business_key VARCHAR(100) PRIMARY KEY,
-    message_id VARCHAR(100) NOT NULL UNIQUE,
+    business_key VARCHAR(100) NOT NULL,
+    message_id VARCHAR(100) NOT NULL,
     payer_account_id UUID NOT NULL REFERENCES account(account_id),
     payee_account_id UUID NOT NULL REFERENCES account(account_id),
     fee_account_id UUID NOT NULL REFERENCES account(account_id),
@@ -31,7 +31,7 @@ CREATE TABLE settlement_order (
 );
 
 CREATE TABLE inbox_message (
-    message_id VARCHAR(100) PRIMARY KEY,
+    message_id VARCHAR(100) NOT NULL,
     message_type VARCHAR(100) NOT NULL,
     payload TEXT NOT NULL,
     received_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -40,7 +40,7 @@ CREATE TABLE inbox_message (
 
 CREATE TABLE ledger_transaction (
     transaction_id UUID PRIMARY KEY,
-    business_key VARCHAR(100) NOT NULL UNIQUE,
+    business_key VARCHAR(100) NOT NULL,
     transaction_type VARCHAR(30) NOT NULL,
     asset VARCHAR(20) NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()

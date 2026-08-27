@@ -49,27 +49,18 @@ public class SettlementService {
     @Transactional
     public SettlementOutcome settle(SettlementCommand command, FenceToken fenceToken) {
         String payload = toJson(command);
-        if (jdbc.update("""
+        jdbc.update("""
                 INSERT INTO inbox_message(message_id, message_type, payload)
-                VALUES (?, 'SETTLEMENT_COMMAND', ?) ON CONFLICT (message_id) DO NOTHING
-                """, command.messageId(), payload) == 0) {
-            duplicates.increment();
-            return currentOutcomeByMessage(command.messageId());
-        }
+                VALUES (?, 'SETTLEMENT_COMMAND', ?)
+                """, command.messageId(), payload);
         if (fenceToken != null) shardLeases.requireValidFenceForUpdate(fenceToken);
 
-        int created = jdbc.update("""
+        jdbc.update("""
             INSERT INTO settlement_order(business_key, message_id, payer_account_id, payee_account_id,
                                          fee_account_id, asset, amount, fee, status)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'INIT')
-            ON CONFLICT (business_key) DO NOTHING
             """, command.businessKey(), command.messageId(), command.payerAccountId(), command.payeeAccountId(),
             command.feeAccountId(), command.asset(), command.amount(), command.fee());
-        if (created == 0) {
-            duplicates.increment();
-            markInboxProcessed(command.messageId());
-            return currentOutcome(command.businessKey(), true);
-        }
         audit(command.businessKey(), null, SettlementStatus.INIT, "order created");
         transition(command.businessKey(), SettlementStatus.INIT, SettlementStatus.PROCESSING, null);
 
