@@ -1,0 +1,51 @@
+{
+  "runId": "fc003-codex-gpt-5.6-sol-run-001",
+  "source": {
+    "branch": "benchmark/fee-hot-account",
+    "commit": "a6875d6982453f1b42cebd739b934d48fea903de",
+    "candidateHistoryCommits": 1,
+    "candidateRemotes": 0,
+    "referenceDefectPatchesVisible": false,
+    "hiddenGraderVisible": false
+  },
+  "runner": {
+    "codexCliVersion": "0.150.1",
+    "model": "gpt-5.6-sol",
+    "reasoningEffort": "high",
+    "sandbox": "workspace-write",
+    "ephemeral": true,
+    "containerEphemeral": true,
+    "hostDockerSocketMounted": false,
+    "wallClockSeconds": 310,
+    "exitCode": 0
+  },
+  "transcriptAudit": {
+    "commandExecutions": 14,
+    "outsideRepositoryOrNetworkMentions": 0,
+    "passed": true
+  },
+  "usage": {
+    "inputTokens": 906493,
+    "cachedInputTokens": 834048,
+    "uncachedInputTokens": 72445,
+    "outputTokens": 13392,
+    "reasoningOutputTokens": 6643,
+    "estimatedCostUsd": null
+  },
+  "tests": {
+    "public": {"tests": 15, "failures": 0, "errors": 0, "passed": true},
+    "private": {"tests": 5, "exactScenarioPasses": 5, "failures": 0, "errors": 0, "passed": true},
+    "calibration": {"correctMainPasses": 5, "intentionalDefectPasses": 4, "intentionalDefectFailures": 1}
+  },
+  "baselineHardening": {
+    "performedBeforeRun": true,
+    "agentPatchCredit": false,
+    "summary": "Concurrent deterministic account provisioning was corrected to use PostgreSQL ON CONFLICT DO NOTHING before the intended-defect branch was evaluated."
+  },
+  "publicationBoundary": {
+    "agentPatchPublished": false,
+    "fullTranscriptPublished": false,
+    "hiddenTestCodePublished": false,
+    "sanitizedScenarioResultsPublished": true
+  }
+}

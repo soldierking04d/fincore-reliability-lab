@@ -1,0 +1,30 @@
+{
+  "runId": "fc003-codex-gpt-5.6-sol-run-001",
+  "taskId": "FC-003",
+  "agent": {
+    "name": "OpenAI Codex CLI",
+    "model": "gpt-5.6-sol",
+    "version": "0.150.1"
+  },
+  "startedAt": "2026-08-27T21:27:57Z",
+  "completedAt": "2026-08-27T21:33:07Z",
+  "publicTestsPassed": 15,
+  "hiddenTestsPassed": 5,
+  "repairIterations": 1,
+  "wallClockSeconds": 310,
+  "dimensionScores": {
+    "functional_correctness": 20,
+    "concurrency_transactions": 15,
+    "idempotency_consistency": 15,
+    "failure_recovery": 10,
+    "financial_safety": 10,
+    "test_completeness": 10,
+    "performance_capacity": 10,
+    "maintainability": 5,
+    "observability": 5
+  },
+  "vetoes": [],
+  "finalScore": 100,
+  "evidencePath": "reports/evaluations/FC-003/codex-gpt-5.6-sol-run-001/",
+  "reviewNotes": "All public and private scenarios passed. Deterministic distribution, concurrent provisioning, duplicate aggregation, rollback-safe retry, exact balances, and single ledger effect were independently verified."
+}

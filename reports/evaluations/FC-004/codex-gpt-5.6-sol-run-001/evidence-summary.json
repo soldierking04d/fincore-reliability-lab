@@ -1,0 +1,42 @@
+{
+  "runId": "fc004-codex-gpt-5.6-sol-run-001",
+  "source": {
+    "branch": "benchmark/scale-down-takeover",
+    "commit": "fc21ebe0ddf711d3447dbbbb5c959de9488a9be5",
+    "candidateHistoryCommits": 1,
+    "candidateRemotes": 0,
+    "referenceDefectPatchesVisible": false,
+    "hiddenGraderVisible": false
+  },
+  "runner": {
+    "codexCliVersion": "0.150.1",
+    "model": "gpt-5.6-sol",
+    "reasoningEffort": "high",
+    "sandbox": "workspace-write",
+    "ephemeral": true,
+    "containerEphemeral": true,
+    "hostDockerSocketMounted": false,
+    "wallClockSeconds": 440,
+    "exitCode": 0
+  },
+  "transcriptAudit": {"commandExecutions": 13, "outsideRepositoryOrNetworkMentions": 0, "passed": true},
+  "usage": {
+    "inputTokens": 968010,
+    "cachedInputTokens": 880128,
+    "uncachedInputTokens": 87882,
+    "outputTokens": 20303,
+    "reasoningOutputTokens": 10354,
+    "estimatedCostUsd": null
+  },
+  "tests": {
+    "public": {"tests": 14, "failures": 0, "errors": 0, "passed": true},
+    "private": {"tests": 5, "exactScenarioPasses": 5, "failures": 0, "errors": 0, "passed": true},
+    "calibration": {"correctMainFreshRuns": 2, "correctMainPassesPerRun": 5, "intentionalDefectPasses": 1, "intentionalDefectFailures": 4}
+  },
+  "publicationBoundary": {
+    "agentPatchPublished": false,
+    "fullTranscriptPublished": false,
+    "hiddenTestCodePublished": false,
+    "sanitizedScenarioResultsPublished": true
+  }
+}
