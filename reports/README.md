@@ -9,4 +9,5 @@ The generated report is intentionally not committed as a golden result because e
 Controlled, sanitized benchmark reports are versioned under `evaluations/`. They publish scorecards, run metadata, token usage, and scenario-level outcomes without exposing hidden test code, full agent transcripts, or answer patches.
 
 - [FC-001 · Codex gpt-5.6-sol · run 001](evaluations/FC-001/codex-gpt-5.6-sol-run-001/README.md) — 95/100
+- [FC-002 · Codex gpt-5.6-sol · run 001](evaluations/FC-002/codex-gpt-5.6-sol-run-001/README.md) — 100/100
 
