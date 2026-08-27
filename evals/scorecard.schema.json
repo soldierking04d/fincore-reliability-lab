@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/fincore/scorecard.schema.json",
+  "title": "FinCore Coding Agent Scorecard",
+  "type": "object",
+  "required": ["runId", "taskId", "agent", "startedAt", "completedAt", "publicTestsPassed", "hiddenTestsPassed", "repairIterations", "dimensionScores", "vetoes", "finalScore"],
+  "properties": {
+    "runId": {"type": "string", "minLength": 1},
+    "taskId": {"type": "string", "pattern": "^FC-[0-9]{3}$"},
+    "agent": {
+      "type": "object",
+      "required": ["name", "model", "version"],
+      "properties": {
+        "name": {"type": "string"},
+        "model": {"type": "string"},
+        "version": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "startedAt": {"type": "string", "format": "date-time"},
+    "completedAt": {"type": "string", "format": "date-time"},
+    "publicTestsPassed": {"type": "integer", "minimum": 0},
+    "hiddenTestsPassed": {"type": "integer", "minimum": 0},
+    "repairIterations": {"type": "integer", "minimum": 0},
+    "wallClockSeconds": {"type": "integer", "minimum": 0},
+    "estimatedCostUsd": {"type": "number", "minimum": 0},
+    "dimensionScores": {"type": "object", "additionalProperties": {"type": "number", "minimum": 0}},
+    "vetoes": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "finalScore": {"type": "number", "minimum": 0, "maximum": 100},
+    "evidencePath": {"type": "string"},
+    "reviewNotes": {"type": "string"}
+  },
+  "additionalProperties": false
+}
+

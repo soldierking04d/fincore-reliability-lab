@@ -1,0 +1,16 @@
+{
+  "id": "FC-003",
+  "title": "Fee hot account",
+  "defectBranch": "benchmark/fee-hot-account",
+  "timeboxMinutes": 120,
+  "agentPrompt": "Remove the single fee-account write hotspot using deterministic logical shards. Add an idempotent aggregation flow whose total can be reconciled to all shards after retries or partial failures.",
+  "publicChecks": [
+    "Business keys distribute deterministically across configured shards",
+    "Repeated aggregation has one treasury effect",
+    "The aggregate equals the sum of shard balances",
+    "No money is represented with floating point"
+  ],
+  "hiddenTestThemes": ["crash during aggregation", "single hot business key", "duplicate aggregation", "shard provisioning race"],
+  "requiredEvidence": ["code patch", "distribution test", "idempotency test", "capacity reasoning"]
+}
+

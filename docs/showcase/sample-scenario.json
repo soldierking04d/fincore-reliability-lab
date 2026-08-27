@@ -1,0 +1,13 @@
+{
+  "runId": "public-sample",
+  "completedAt": "2026-08-27T17:02:21Z",
+  "checks": {
+    "duplicate settlement storm": "PASS",
+    "idempotent reverse journal": "PASS",
+    "fee shard aggregation": "PASS: 3.000000000000000000 USDT",
+    "scale-down stale epoch rejection": "PASS",
+    "reconciliation corruption detection": "PASS"
+  },
+  "totalOpenDifferences": 1
+}
+

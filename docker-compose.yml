@@ -1,0 +1,120 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: fincore
+      POSTGRES_USER: fincore
+      POSTGRES_PASSWORD: fincore
+    ports:
+      - "${FINCORE_BIND_ADDRESS:-127.0.0.1}:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fincore -d fincore"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - fincore-postgres:/var/lib/postgresql/data
+
+  kafka:
+    image: apache/kafka:latest
+    restart: unless-stopped
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_NUM_PARTITIONS: 8
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    ports:
+      - "${FINCORE_BIND_ADDRESS:-127.0.0.1}:9092:9092"
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  app:
+    build: .
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: lab
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/fincore
+      SPRING_DATASOURCE_USERNAME: fincore
+      SPRING_DATASOURCE_PASSWORD: fincore
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    ports:
+      - "${FINCORE_BIND_ADDRESS:-127.0.0.1}:8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+  app-test:
+    image: maven:3.9-eclipse-temurin-17
+    profiles: ["test"]
+    working_dir: /workspace
+    command: ["mvn", "test"]
+    volumes:
+      - .:/workspace
+      - fincore-maven:/root/.m2
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    restart: unless-stopped
+    command: ["--config.file=/etc/prometheus/prometheus.yml"]
+    volumes:
+      - ./infra/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "${FINCORE_BIND_ADDRESS:-127.0.0.1}:9090:9090"
+    depends_on:
+      - app
+
+  grafana:
+    image: grafana/grafana:12.1.0
+    restart: unless-stopped
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - fincore-grafana:/var/lib/grafana
+    ports:
+      - "${FINCORE_BIND_ADDRESS:-127.0.0.1}:3000:3000"
+    depends_on:
+      - prometheus
+
+  lab-runner:
+    image: curlimages/curl:latest
+    user: "${FINCORE_UID:-1000}:${FINCORE_GID:-1000}"
+    depends_on:
+      - app
+    command:
+      - sh
+      - -c
+      - >-
+        set -eu;
+        until curl -sf http://app:8080/actuator/health >/dev/null; do sleep 2; done;
+        curl -sf -X POST http://app:8080/lab/scenarios/full
+        -o /reports/latest-scenario.json;
+        echo 'FinCore automated scenario completed: reports/latest-scenario.json'
+    volumes:
+      - ./reports:/reports
+    restart: "no"
+
+volumes:
+  fincore-postgres:
+  fincore-maven:
+  fincore-grafana:
