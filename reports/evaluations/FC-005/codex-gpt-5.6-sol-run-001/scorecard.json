@@ -1,0 +1,26 @@
+{
+  "runId": "fc005-codex-gpt-5.6-sol-run-001",
+  "taskId": "FC-005",
+  "agent": {"name": "OpenAI Codex CLI", "model": "gpt-5.6-sol", "version": "0.150.1"},
+  "startedAt": "2026-08-27T22:26:05Z",
+  "completedAt": "2026-08-27T22:31:49Z",
+  "publicTestsPassed": 15,
+  "hiddenTestsPassed": 5,
+  "repairIterations": 1,
+  "wallClockSeconds": 344,
+  "dimensionScores": {
+    "functional_correctness": 20,
+    "concurrency_transactions": 15,
+    "idempotency_consistency": 15,
+    "failure_recovery": 10,
+    "financial_safety": 10,
+    "test_completeness": 10,
+    "performance_capacity": 10,
+    "maintainability": 5,
+    "observability": 5
+  },
+  "vetoes": [],
+  "finalScore": 100,
+  "evidencePath": "reports/evaluations/FC-005/codex-gpt-5.6-sol-run-001/",
+  "reviewNotes": "All public and private scenarios passed. Database-backed compensation claims, cross-context duplicate safety, exact reverse journals, stable reviewed failure, rollback/retry, and immutable original financial evidence were independently verified."
+}

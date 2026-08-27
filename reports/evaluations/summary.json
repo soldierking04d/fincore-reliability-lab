@@ -1,0 +1,55 @@
+{
+  "benchmark": "FinCore Reliability Lab v0.3",
+  "protocol": {
+    "agent": "OpenAI Codex CLI",
+    "model": "gpt-5.6-sol",
+    "reasoningEffort": "high",
+    "validRunsPerTask": 1,
+    "isolatedCandidate": true,
+    "hiddenGraderVisible": false
+  },
+  "totals": {
+    "tasksCompleted": 5,
+    "tasksAvailable": 5,
+    "perfectScoreRuns": 4,
+    "score": 495,
+    "maximumScore": 500,
+    "averageScore": 99.0,
+    "publicTestsPassed": 70,
+    "publicTestsExecuted": 70,
+    "privateScenariosPassed": 24,
+    "privateScenariosExecuted": 25,
+    "vetoesTriggered": 0,
+    "humanRepairRounds": 0,
+    "agentWallClockSeconds": 1762,
+    "averageAgentWallClockSeconds": 352.4
+  },
+  "runs": [
+    {
+      "taskId": "FC-001", "failureMode": "duplicate settlement", "score": 95,
+      "public": {"passed": 11, "executed": 11}, "private": {"passed": 4, "executed": 5},
+      "wallClockSeconds": 341, "vetoes": [], "report": "FC-001/codex-gpt-5.6-sol-run-001/README.md"
+    },
+    {
+      "taskId": "FC-002", "failureMode": "illegal terminal overwrite", "score": 100,
+      "public": {"passed": 15, "executed": 15}, "private": {"passed": 5, "executed": 5},
+      "wallClockSeconds": 327, "vetoes": [], "report": "FC-002/codex-gpt-5.6-sol-run-001/README.md"
+    },
+    {
+      "taskId": "FC-003", "failureMode": "fee hot account", "score": 100,
+      "public": {"passed": 15, "executed": 15}, "private": {"passed": 5, "executed": 5},
+      "wallClockSeconds": 310, "vetoes": [], "report": "FC-003/codex-gpt-5.6-sol-run-001/README.md"
+    },
+    {
+      "taskId": "FC-004", "failureMode": "scale-down takeover", "score": 100,
+      "public": {"passed": 14, "executed": 14}, "private": {"passed": 5, "executed": 5},
+      "wallClockSeconds": 440, "vetoes": [], "report": "FC-004/codex-gpt-5.6-sol-run-001/README.md"
+    },
+    {
+      "taskId": "FC-005", "failureMode": "duplicate compensation", "score": 100,
+      "public": {"passed": 15, "executed": 15}, "private": {"passed": 5, "executed": 5},
+      "wallClockSeconds": 344, "vetoes": [], "report": "FC-005/codex-gpt-5.6-sol-run-001/README.md"
+    }
+  ],
+  "interpretation": "Single-model benchmark completion summary; not a cross-model leaderboard."
+}
