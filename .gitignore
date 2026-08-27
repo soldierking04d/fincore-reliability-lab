@@ -1,0 +1,9 @@
+target/
+.idea/
+.vscode/
+*.iml
+*.log
+.DS_Store
+.env
+reports/latest-scenario.json
+reports/vm-deployment-scenario.json
