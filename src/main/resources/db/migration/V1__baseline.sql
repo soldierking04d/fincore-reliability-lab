@@ -99,8 +99,8 @@ CREATE UNIQUE INDEX uk_reconciliation_open_account_type
 
 CREATE TABLE compensation_order (
     compensation_id UUID PRIMARY KEY,
-    original_business_key VARCHAR(100) NOT NULL UNIQUE,
-    compensation_business_key VARCHAR(120) NOT NULL UNIQUE,
+    original_business_key VARCHAR(100) NOT NULL,
+    compensation_business_key VARCHAR(160) NOT NULL,
     status VARCHAR(30) NOT NULL,
     reason VARCHAR(500) NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),

@@ -23,13 +23,12 @@ public class CompensationService {
 
     @Transactional
     public CompensationOutcome compensate(String originalBusinessKey, String reason) {
-        String compensationKey = "COMP:" + originalBusinessKey;
         UUID compensationId = UUID.randomUUID();
-        int created = jdbc.update("""
+        String compensationKey = "COMP:" + originalBusinessKey + ":" + compensationId;
+        jdbc.update("""
             INSERT INTO compensation_order(compensation_id, original_business_key, compensation_business_key, status, reason)
-            VALUES (?, ?, ?, 'PROCESSING', ?) ON CONFLICT (original_business_key) DO NOTHING
+            VALUES (?, ?, ?, 'PROCESSING', ?)
             """, compensationId, originalBusinessKey, compensationKey, reason);
-        if (created == 0) return current(originalBusinessKey, true);
 
         OriginalSettlement original = jdbc.queryForObject("""
             SELECT business_key, payer_account_id, payee_account_id, fee_account_id, asset, amount, fee, status
