@@ -26,7 +26,8 @@
 - [x] Five applicable intentional-defect patches and reproducible branch generator
 - [x] Five public `benchmark/*` branches and v0.3.0 release
 - [x] Separate private hidden grader and isolated Codex runner
-- [x] Controlled FC-001 through FC-004 Codex reports with machine-readable scorecards
+- [x] Controlled FC-001 through FC-005 Codex reports with machine-readable scorecards
+- [x] Static five-task comparison and machine-readable benchmark summary
 
 ## Verified on the Ubuntu 24.04 ARM64 laboratory VM
 
@@ -43,6 +44,8 @@
 - FC-002 Codex run 001 passed 15/15 public tests and 5/5 private scenarios, with a 100/100 reviewed score and no financial-safety veto.
 - FC-003 Codex run 001 passed 15/15 public tests and 5/5 private scenarios, with a 100/100 reviewed score and no financial-safety veto.
 - FC-004 Codex run 001 passed 14/14 public tests and 5/5 private scenarios, with a 100/100 reviewed score and no financial-safety veto.
+- FC-005 Codex run 001 passed 15/15 public tests and 5/5 private scenarios, with a 100/100 reviewed score and no financial-safety veto.
+- The complete first pass finished 5/5 tasks at 495/500 total, 99/100 average, 70/70 public tests, and 24/25 private scenarios.
 
 ## Public-release boundary
 
@@ -51,7 +54,6 @@ The repository contains fictional data and generalized parameters. It excludes f
 ## Next work
 
 - Repeat FC-001 to measure run-to-run variance.
-- Execute FC-005 under the same isolation protocol.
 - Run controlled comparisons across multiple coding agents.
 - Add Kafka Testcontainers to listener-level integration tests.
 - Add DLT/replay, richer reconciliation batches, and failure-injection infrastructure.

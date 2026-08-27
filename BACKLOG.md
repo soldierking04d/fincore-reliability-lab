@@ -22,7 +22,8 @@
 - [x] Execute FC-002 with calibrated hidden tests and publish the second evidence-backed report.
 - [x] Execute FC-003 with calibrated hidden tests and publish the third evidence-backed report.
 - [x] Execute FC-004 with calibrated hidden tests and publish the fourth evidence-backed report.
-- [ ] Add a static comparison page generated from scorecards.
+- [x] Execute FC-005 with calibrated hidden tests and publish the fifth evidence-backed report.
+- [x] Add a static comparison page derived from the five scorecards.
 
 ## P1 — Reliability experiments
 
