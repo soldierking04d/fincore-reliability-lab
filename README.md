@@ -282,6 +282,19 @@ docker compose --profile test run --rm app-test
 
 公开仓库只保存任务、缺陷和公开检查；隐藏测试应放在独立私有 Grader 仓库，避免 Coding Agent 针对测试实现取巧。
 
+### 受控实测结果
+
+目前已完成四次有效 Codex 隔离评测。FC-001 重复结算任务得分 95/100；FC-002 状态覆盖和 FC-003 手续费热点任务均得分 100/100。FC-004 缩容接管任务得分 100/100：公开测试 14/14、私有场景 5/5 全部通过，事务内 fencing、数据库时钟、双接管竞争、in-flight drain 边界和旧 Epoch 重放均通过独立验证。四次运行均无资金安全否决。
+
+- [FC-001 完整实测报告](reports/evaluations/FC-001/codex-gpt-5.6-sol-run-001/README.md)
+- [FC-001 机器可读 Scorecard](reports/evaluations/FC-001/codex-gpt-5.6-sol-run-001/scorecard.json)
+- [FC-002 完整实测报告](reports/evaluations/FC-002/codex-gpt-5.6-sol-run-001/README.md)
+- [FC-002 机器可读 Scorecard](reports/evaluations/FC-002/codex-gpt-5.6-sol-run-001/scorecard.json)
+- [FC-003 完整实测报告](reports/evaluations/FC-003/codex-gpt-5.6-sol-run-001/README.md)
+- [FC-003 机器可读 Scorecard](reports/evaluations/FC-003/codex-gpt-5.6-sol-run-001/scorecard.json)
+- [FC-004 完整实测报告](reports/evaluations/FC-004/codex-gpt-5.6-sol-run-001/README.md)
+- [FC-004 机器可读 Scorecard](reports/evaluations/FC-004/codex-gpt-5.6-sol-run-001/scorecard.json)
+
 ## 核心不变量
 
 1. 所有金额使用 `BigDecimal` 和 PostgreSQL `NUMERIC(38,18)`。

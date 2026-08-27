@@ -141,6 +141,19 @@ Every run is scored against the same 100-point rubric covering functional correc
 
 Hidden graders should be stored separately from this public repository.
 
+### Controlled results
+
+Four valid isolated Codex runs are now published. FC-001 scored 95/100; FC-002 and FC-003 each scored 100/100. FC-004 scored 100/100 with 14/14 public tests and 5/5 private scenarios, independently verifying transaction-held fencing, database-clock expiry, concurrent takeover, the in-flight drain boundary, stale-epoch replay, and zero rejected financial effects. No run triggered a financial-safety veto.
+
+- [FC-001 evidence-backed report](reports/evaluations/FC-001/codex-gpt-5.6-sol-run-001/README.md)
+- [FC-001 machine-readable scorecard](reports/evaluations/FC-001/codex-gpt-5.6-sol-run-001/scorecard.json)
+- [FC-002 evidence-backed report](reports/evaluations/FC-002/codex-gpt-5.6-sol-run-001/README.md)
+- [FC-002 machine-readable scorecard](reports/evaluations/FC-002/codex-gpt-5.6-sol-run-001/scorecard.json)
+- [FC-003 evidence-backed report](reports/evaluations/FC-003/codex-gpt-5.6-sol-run-001/README.md)
+- [FC-003 machine-readable scorecard](reports/evaluations/FC-003/codex-gpt-5.6-sol-run-001/scorecard.json)
+- [FC-004 evidence-backed report](reports/evaluations/FC-004/codex-gpt-5.6-sol-run-001/README.md)
+- [FC-004 machine-readable scorecard](reports/evaluations/FC-004/codex-gpt-5.6-sol-run-001/scorecard.json)
+
 The intentional defect definitions are versioned under [`evals/defects/`](evals/defects/README.md). After the verified `main` commit exists, `./scripts/eval/create-defect-branches.sh` creates all five benchmark branches reproducibly.
 
 ## Financial invariants
