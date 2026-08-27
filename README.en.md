@@ -143,12 +143,14 @@ Hidden graders should be stored separately from this public repository.
 
 ### Controlled results
 
-Two valid isolated Codex runs are now published. FC-001 scored 95/100 with 11/11 public tests and 4/5 exact private scenarios; the only difference was a safe response-contract choice for conflicting-payload replay. FC-002 scored 100/100 with 15/15 public tests and 5/5 private scenarios, independently verifying terminal-state protection, database CAS, version cardinality, and audit cardinality. Neither run triggered a financial-safety veto.
+Three valid isolated Codex runs are now published. FC-001 scored 95/100 with 11/11 public tests and 4/5 exact private scenarios; the only difference was a safe response-contract choice for conflicting-payload replay. FC-002 scored 100/100 with 15/15 public tests and 5/5 private scenarios, independently verifying terminal-state protection, database CAS, version cardinality, and audit cardinality. FC-003 scored 100/100 with 15/15 public tests and 5/5 private scenarios, independently verifying deterministic distribution, concurrent provisioning, duplicate aggregation, rollback-safe retry, and exact journal effects. No run triggered a financial-safety veto.
 
 - [FC-001 evidence-backed report](reports/evaluations/FC-001/codex-gpt-5.6-sol-run-001/README.md)
 - [FC-001 machine-readable scorecard](reports/evaluations/FC-001/codex-gpt-5.6-sol-run-001/scorecard.json)
 - [FC-002 evidence-backed report](reports/evaluations/FC-002/codex-gpt-5.6-sol-run-001/README.md)
 - [FC-002 machine-readable scorecard](reports/evaluations/FC-002/codex-gpt-5.6-sol-run-001/scorecard.json)
+- [FC-003 evidence-backed report](reports/evaluations/FC-003/codex-gpt-5.6-sol-run-001/README.md)
+- [FC-003 machine-readable scorecard](reports/evaluations/FC-003/codex-gpt-5.6-sol-run-001/scorecard.json)
 
 The intentional defect definitions are versioned under [`evals/defects/`](evals/defects/README.md). After the verified `main` commit exists, `./scripts/eval/create-defect-branches.sh` creates all five benchmark branches reproducibly.
 
