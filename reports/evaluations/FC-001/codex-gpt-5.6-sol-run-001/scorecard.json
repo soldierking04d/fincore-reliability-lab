@@ -1,0 +1,30 @@
+{
+  "runId": "fc001-codex-gpt-5.6-sol-run-001",
+  "taskId": "FC-001",
+  "agent": {
+    "name": "OpenAI Codex CLI",
+    "model": "gpt-5.6-sol",
+    "version": "0.150.1"
+  },
+  "startedAt": "2026-08-27T20:08:36Z",
+  "completedAt": "2026-08-27T20:14:17Z",
+  "publicTestsPassed": 11,
+  "hiddenTestsPassed": 4,
+  "repairIterations": 1,
+  "wallClockSeconds": 341,
+  "dimensionScores": {
+    "functional_correctness": 18,
+    "concurrency_transactions": 15,
+    "idempotency_consistency": 15,
+    "failure_recovery": 10,
+    "financial_safety": 10,
+    "test_completeness": 9,
+    "performance_capacity": 9,
+    "maintainability": 5,
+    "observability": 4
+  },
+  "vetoes": [],
+  "finalScore": 95,
+  "evidencePath": "reports/evaluations/FC-001/codex-gpt-5.6-sol-run-001/",
+  "reviewNotes": "One private scenario returned an explicit exception for a reused message ID with changed payload, while the grader expected the original duplicate outcome. No second financial effect was possible, so no financial-safety veto applied."
+}

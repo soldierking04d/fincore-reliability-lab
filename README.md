@@ -282,6 +282,13 @@ docker compose --profile test run --rm app-test
 
 公开仓库只保存任务、缺陷和公开检查；隐藏测试应放在独立私有 Grader 仓库，避免 Coding Agent 针对测试实现取巧。
 
+### 首次受控实测
+
+FC-001 的首次有效 Codex 运行已经完成：公开测试 11/11 通过，私有场景 4/5 按预期通过，最终评分 95/100，无资金安全否决。唯一扣分是冲突载荷重放被明确拒绝，而评分器期望返回第一次结算的重复结果；没有产生第二次资金效果。
+
+- [完整实测报告](reports/evaluations/FC-001/codex-gpt-5.6-sol-run-001/README.md)
+- [机器可读 Scorecard](reports/evaluations/FC-001/codex-gpt-5.6-sol-run-001/scorecard.json)
+
 ## 核心不变量
 
 1. 所有金额使用 `BigDecimal` 和 PostgreSQL `NUMERIC(38,18)`。
