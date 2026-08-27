@@ -284,7 +284,7 @@ docker compose --profile test run --rm app-test
 
 ### 受控实测结果
 
-目前已完成三次有效 Codex 隔离评测。FC-001 重复结算任务得分 95/100：公开测试 11/11、私有场景 4/5 按预期通过，唯一差异是冲突载荷重放的响应契约，没有第二次资金效果。FC-002 状态覆盖任务得分 100/100：公开测试 15/15、私有场景 5/5 全部通过。FC-003 手续费热点任务得分 100/100：公开测试 15/15、私有场景 5/5 全部通过，确定性分片、并发建账、重复归集、失败回滚和精确账务结果均通过独立验证。三次运行均无资金安全否决。
+目前已完成四次有效 Codex 隔离评测。FC-001 重复结算任务得分 95/100；FC-002 状态覆盖和 FC-003 手续费热点任务均得分 100/100。FC-004 缩容接管任务得分 100/100：公开测试 14/14、私有场景 5/5 全部通过，事务内 fencing、数据库时钟、双接管竞争、in-flight drain 边界和旧 Epoch 重放均通过独立验证。四次运行均无资金安全否决。
 
 - [FC-001 完整实测报告](reports/evaluations/FC-001/codex-gpt-5.6-sol-run-001/README.md)
 - [FC-001 机器可读 Scorecard](reports/evaluations/FC-001/codex-gpt-5.6-sol-run-001/scorecard.json)
@@ -292,6 +292,8 @@ docker compose --profile test run --rm app-test
 - [FC-002 机器可读 Scorecard](reports/evaluations/FC-002/codex-gpt-5.6-sol-run-001/scorecard.json)
 - [FC-003 完整实测报告](reports/evaluations/FC-003/codex-gpt-5.6-sol-run-001/README.md)
 - [FC-003 机器可读 Scorecard](reports/evaluations/FC-003/codex-gpt-5.6-sol-run-001/scorecard.json)
+- [FC-004 完整实测报告](reports/evaluations/FC-004/codex-gpt-5.6-sol-run-001/README.md)
+- [FC-004 机器可读 Scorecard](reports/evaluations/FC-004/codex-gpt-5.6-sol-run-001/scorecard.json)
 
 ## 核心不变量
 
