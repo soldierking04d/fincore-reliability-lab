@@ -141,6 +141,13 @@ Every run is scored against the same 100-point rubric covering functional correc
 
 Hidden graders should be stored separately from this public repository.
 
+### First controlled result
+
+The first valid FC-001 Codex run passed 11/11 public tests and 4/5 private scenarios exactly, scoring 95/100 with no financial-safety veto. The only deduction was a response-contract difference for a conflicting-payload replay; no second financial effect was possible.
+
+- [Evidence-backed evaluation report](reports/evaluations/FC-001/codex-gpt-5.6-sol-run-001/README.md)
+- [Machine-readable scorecard](reports/evaluations/FC-001/codex-gpt-5.6-sol-run-001/scorecard.json)
+
 The intentional defect definitions are versioned under [`evals/defects/`](evals/defects/README.md). After the verified `main` commit exists, `./scripts/eval/create-defect-branches.sh` creates all five benchmark branches reproducibly.
 
 ## Financial invariants
