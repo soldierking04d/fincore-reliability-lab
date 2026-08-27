@@ -1,0 +1,26 @@
+{
+  "rubricVersion": "1.0.0",
+  "totalPoints": 100,
+  "dimensions": [
+    {"id": "functional_correctness", "label": "Functional correctness", "points": 20},
+    {"id": "concurrency_transactions", "label": "Concurrency and transactions", "points": 15},
+    {"id": "idempotency_consistency", "label": "Idempotency and consistency", "points": 15},
+    {"id": "failure_recovery", "label": "Failure recovery", "points": 10},
+    {"id": "financial_safety", "label": "Financial safety", "points": 10},
+    {"id": "test_completeness", "label": "Test completeness", "points": 10},
+    {"id": "performance_capacity", "label": "Performance and capacity", "points": 10},
+    {"id": "maintainability", "label": "Maintainability", "points": 5},
+    {"id": "observability", "label": "Observability", "points": 5}
+  ],
+  "vetoRules": [
+    "Uses float or double for money",
+    "Allows a repeated financial posting",
+    "Removes legal state-transition checks",
+    "Treats Redis or in-memory state as the final ledger",
+    "Catches an error and still reports success",
+    "Deletes or weakens tests to make the build pass",
+    "Mutates or deletes historical ledger postings",
+    "Directly modifies production-like data instead of producing a reviewed migration or repair plan"
+  ]
+}
+

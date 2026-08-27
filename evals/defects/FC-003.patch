@@ -1,0 +1,12 @@
+diff --git a/src/main/java/dev/fincore/domain/FeeShardRouter.java b/src/main/java/dev/fincore/domain/FeeShardRouter.java
+--- a/src/main/java/dev/fincore/domain/FeeShardRouter.java
++++ b/src/main/java/dev/fincore/domain/FeeShardRouter.java
+@@ -15,7 +15,5 @@ public final class FeeShardRouter {
+ 
+     public int shardFor(String businessKey) {
+         if (businessKey == null || businessKey.isBlank()) throw new IllegalArgumentException("businessKey is required");
+-        int hash = businessKey.hashCode();
+-        hash ^= (hash >>> 16);
+-        return hash & (shardCount - 1);
++        return 0;
+     }

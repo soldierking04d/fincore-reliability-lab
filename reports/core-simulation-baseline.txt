@@ -1,0 +1,9 @@
+FinCore self-contained reliability simulation
+[PASS] 100 concurrent duplicate deliveries
+[PASS] exactly one financial effect
+[PASS] terminal settlement status
+[PASS] idempotent reverse journal
+[PASS] ledger reconciliation detects corruption
+[PASS] deterministic fee sharding
+[PASS] stale epoch fencing
+duplicates=99, journals=2, reconciliationDifferences=1

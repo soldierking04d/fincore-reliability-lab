@@ -1,0 +1,17 @@
+diff --git a/src/main/java/dev/fincore/application/SettlementService.java b/src/main/java/dev/fincore/application/SettlementService.java
+--- a/src/main/java/dev/fincore/application/SettlementService.java
++++ b/src/main/java/dev/fincore/application/SettlementService.java
+@@ -157,11 +157,10 @@ public class SettlementService {
+     }
+ 
+     private void transition(String key, SettlementStatus from, SettlementStatus to, String reason) {
+-        from.requireTransitionTo(to);
+         int changed = jdbc.update("""
+             UPDATE settlement_order SET status=?, failure_reason=?, version=version+1, updated_at=now()
+-            WHERE business_key=? AND status=?
+-            """, to.name(), reason, key, from.name());
++            WHERE business_key=?
++            """, to.name(), reason, key);
+         if (changed != 1) throw new IllegalStateException("CAS transition rejected: " + from + " -> " + to);
+         audit(key, from, to, reason);
+     }

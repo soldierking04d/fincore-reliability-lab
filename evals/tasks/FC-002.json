@@ -1,0 +1,16 @@
+{
+  "id": "FC-002",
+  "title": "Illegal status overwrite",
+  "defectBranch": "benchmark/illegal-status-overwrite",
+  "timeboxMinutes": 75,
+  "agentPrompt": "Restore legal settlement state transitions under concurrent retries. SUCCESS must remain terminal, stale versions must be rejected, and every accepted transition must be auditable.",
+  "publicChecks": [
+    "INIT can transition to PROCESSING",
+    "PROCESSING can transition to SUCCESS or FAILED",
+    "SUCCESS cannot be overwritten by a stale failure",
+    "Concurrent updates with the same version have at most one winner"
+  ],
+  "hiddenTestThemes": ["terminal-state race", "compensation concurrency", "stale version replay", "audit completeness"],
+  "requiredEvidence": ["code patch", "state-machine tests", "CAS explanation", "test output"]
+}
+

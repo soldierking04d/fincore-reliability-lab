@@ -1,0 +1,16 @@
+{
+  "id": "FC-004",
+  "title": "Scale-down takeover",
+  "defectBranch": "benchmark/scale-down-takeover",
+  "timeboxMinutes": 120,
+  "agentPrompt": "Prevent a stale worker from writing after a shard is drained and taken over. Enforce owner and monotonically increasing epoch fencing in the same database transaction as financial writes.",
+  "publicChecks": [
+    "A new owner receives a larger epoch after lease expiry",
+    "The old epoch is rejected after takeover",
+    "DRAINING prevents new work",
+    "Fence validation cannot be bypassed through a public settlement endpoint"
+  ],
+  "hiddenTestThemes": ["clock skew", "two takeover contenders", "old epoch replay", "in-flight transaction during drain"],
+  "requiredEvidence": ["code patch", "takeover integration test", "failure timeline", "test output"]
+}
+

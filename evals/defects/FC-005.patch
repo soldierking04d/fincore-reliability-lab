@@ -1,0 +1,32 @@
+diff --git a/src/main/java/dev/fincore/application/CompensationService.java b/src/main/java/dev/fincore/application/CompensationService.java
+--- a/src/main/java/dev/fincore/application/CompensationService.java
++++ b/src/main/java/dev/fincore/application/CompensationService.java
+@@ -24,11 +24,10 @@ public class CompensationService {
+     @Transactional
+     public CompensationOutcome compensate(String originalBusinessKey, String reason) {
+-        String compensationKey = "COMP:" + originalBusinessKey;
+         UUID compensationId = UUID.randomUUID();
+-        int created = jdbc.update("""
++        String compensationKey = "COMP:" + originalBusinessKey + ":" + compensationId;
++        jdbc.update("""
+             INSERT INTO compensation_order(compensation_id, original_business_key, compensation_business_key, status, reason)
+-            VALUES (?, ?, ?, 'PROCESSING', ?) ON CONFLICT (original_business_key) DO NOTHING
++            VALUES (?, ?, ?, 'PROCESSING', ?)
+             """, compensationId, originalBusinessKey, compensationKey, reason);
+-        if (created == 0) return current(originalBusinessKey, true);
+ 
+         OriginalSettlement original = jdbc.queryForObject("""
+diff --git a/src/main/resources/db/migration/V1__baseline.sql b/src/main/resources/db/migration/V1__baseline.sql
+--- a/src/main/resources/db/migration/V1__baseline.sql
++++ b/src/main/resources/db/migration/V1__baseline.sql
+@@ -99,8 +99,8 @@ CREATE UNIQUE INDEX uk_reconciliation_open_account_type
+ 
+ CREATE TABLE compensation_order (
+     compensation_id UUID PRIMARY KEY,
+-    original_business_key VARCHAR(100) NOT NULL UNIQUE,
+-    compensation_business_key VARCHAR(120) NOT NULL UNIQUE,
++    original_business_key VARCHAR(100) NOT NULL,
++    compensation_business_key VARCHAR(160) NOT NULL,
+     status VARCHAR(30) NOT NULL,
+     reason VARCHAR(500) NOT NULL,
+     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),

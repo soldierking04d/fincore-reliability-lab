@@ -1,0 +1,15 @@
+{
+  "id": "FC-001",
+  "title": "Duplicate settlement",
+  "defectBranch": "benchmark/duplicate-settlement",
+  "timeboxMinutes": 90,
+  "agentPrompt": "Repair settlement idempotency so concurrent duplicate deliveries produce exactly one financial effect without relying on JVM memory, Redis, or Kafka offsets. Preserve retry safety across restarts and explain the transaction boundary.",
+  "publicChecks": [
+    "The same message ID delivered 100 times produces one ledger transaction",
+    "The same business key with a different message ID remains idempotent",
+    "A database rollback does not leave a completed inbox record"
+  ],
+  "hiddenTestThemes": ["service restart", "commit-before-offset failure", "two application instances", "duplicate business key race"],
+  "requiredEvidence": ["code patch", "concurrency test", "transaction explanation", "test output"]
+}
+

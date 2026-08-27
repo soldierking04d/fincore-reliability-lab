@@ -1,0 +1,16 @@
+{
+  "id": "FC-005",
+  "title": "Duplicate compensation",
+  "defectBranch": "benchmark/duplicate-compensation",
+  "timeboxMinutes": 90,
+  "agentPrompt": "Make reversal idempotent under concurrent and repeated requests. Preserve the original journal, create one linked reverse journal, reject invalid source states, and keep an audit trail.",
+  "publicChecks": [
+    "Concurrent requests create one compensation order",
+    "The original SUCCESS journal remains unchanged",
+    "The reverse journal balances debit and credit",
+    "A non-SUCCESS source cannot be compensated"
+  ],
+  "hiddenTestThemes": ["partial failure", "recipient balance changed", "duplicate compensation message", "original order not terminal"],
+  "requiredEvidence": ["code patch", "concurrency test", "journal proof", "test output"]
+}
+

@@ -1,0 +1,310 @@
+# FinCore Reliability Lab
+
+[English](README.en.md) | 简体中文
+
+![Java 17](https://img.shields.io/badge/Java-17-ED8B00?logo=openjdk&logoColor=white)
+![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.5-6DB33F?logo=springboot&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
+![Kafka](https://img.shields.io/badge/Kafka-KRaft-231F20?logo=apachekafka&logoColor=white)
+![CI](https://img.shields.io/badge/CI-Maven_%2B_Testcontainers-2088FF?logo=githubactions&logoColor=white)
+
+一个可运行的金融结算可靠性实验项目，用于研究资金账本、重复消息、状态竞争、补偿、对账、热点账户以及服务缩容时的 fencing 问题。项目使用完全虚构的数据，不包含任何前雇主代码或内部参数。
+
+它的判断标准不是“接口能返回成功”，而是：在并发、重试、重复投递、部分失败、Worker 接管和服务恢复之后，资金结果是否仍然唯一、平衡、可审计并且可对账。
+
+## 60 秒看懂项目
+
+| 生产风险 | 项目中的保护机制 | 自动证明 |
+|---|---|---|
+| Kafka 重复投递导致重复入账 | Inbox + 业务键数据库唯一约束 | 并发重复结算风暴 |
+| 余额和账本部分提交 | 单个 PostgreSQL 事务 | Testcontainers 集成测试 |
+| 成功状态被旧线程覆盖 | CAS + 合法状态机 + 审计 | 状态竞争测试 |
+| 冲正执行两次 | 独立补偿单 + 反向账本唯一约束 | 重复补偿实验 |
+| 手续费账户热点 | 确定性分片 + 幂等归集 | 分片总额实验 |
+| 缩容后旧 Worker 恢复写入 | Lease + Epoch + 数据面 Fencing | 接管与旧 Epoch 拒写实验 |
+| 余额遭到异常修改 | 余额—账本重算对账 | 故障注入和差异发现 |
+
+![FinCore Grafana 仪表盘](docs/showcase/grafana-dashboard.png)
+
+## 已实现的第一版闭环
+
+- PostgreSQL 账户、余额和不可变账本；
+- 借贷平衡校验；
+- Kafka 结算命令；
+- Inbox 消息幂等和业务键唯一约束；
+- 同事务完成账户锁定、账本落库、余额更新、状态更新和 Outbox；
+- 固定 UUID 顺序锁账户，降低死锁风险；
+- CAS 状态转换与状态审计；
+- 独立反向账本补偿，不修改原始成功流水；
+- 余额与账本对账，差异默认标记高风险并等待人工审核；
+- Outbox 原子抢占与失败重试；
+- 分片 Lease、Epoch、DRAINING 和 Fencing Token 实验接口；
+- 手续费分片路由；
+- Prometheus 指标；
+- 仅在 `lab` Profile 开放的故障注入接口；
+- JUnit、Testcontainers 和不依赖第三方库的核心验证脚本。
+
+## 一键启动
+
+Mac 安装并启动 Docker Desktop 后，在项目根目录运行：
+
+```bash
+docker compose up --build
+```
+
+无需继续手工操作。`lab-runner` 会等待应用健康，然后自动执行完整实验，并把结果写入：
+
+```text
+reports/latest-scenario.json
+```
+
+项目固定使用 Spring Boot 3.5.16，并采用 Apache 官方 Kafka Docker 镜像。Kafka 的单节点 KRaft 配置只用于本地实验，不代表生产部署方案。
+
+服务地址：
+
+| 服务 | 地址 |
+|---|---|
+| FinCore API | http://localhost:8080 |
+| 健康检查 | http://localhost:8080/actuator/health |
+| Prometheus | http://localhost:9090 |
+| Grafana | http://localhost:3000 |
+| PostgreSQL | localhost:5432 |
+| Kafka | localhost:9092 |
+
+默认只绑定回环地址，避免实验接口暴露到局域网。从另一台主机访问虚拟机时，应通过 SSH 本地转发，而不是把 `lab` Profile 直接开放到 LAN。
+
+## Ubuntu 虚拟机部署
+
+在 UTM 网络已与物理局域网隔离后，先在虚拟机内执行安全准备，再部署：
+
+```bash
+./scripts/deploy/prepare-ubuntu-vm.sh
+./scripts/deploy/deploy-and-verify.sh
+```
+
+第一条命令会保存变更前状态，关闭并禁用 `dnsmasq.service` 与 `split-gateway.service`，确认 UDP/67 没有 DHCP 服务监听，然后安装 Docker、Compose、Java 和 Maven。第二条命令会运行核心校验、Maven/Testcontainers 测试，启动服务并执行完整自动实验。
+
+Mac 访问虚拟机内服务时，可用下面的通用脚本建立仅限本机的 SSH 隧道：
+
+```bash
+./scripts/deploy/open-local-tunnel.sh /path/to/key SSH_USER VM_HOST SSH_PORT
+```
+
+建立后 API、Prometheus 和 Grafana 地址仍分别为 `http://127.0.0.1:8080`、`http://127.0.0.1:9090` 和 `http://127.0.0.1:3000`。
+
+环境启动完成后，不需要手工创建账户或逐条调用接口。直接执行全自动验收：
+
+```bash
+curl -s -X POST http://localhost:8080/lab/scenarios/full
+```
+
+系统会自行创建隔离账户并完成：20 次重复投递、唯一资金效果、反向补偿、手续费分片归集、旧 Epoch 拒写、新 Worker 接管和对账差异发现。响应中的每项检查都应为 `PASS`。
+
+停止环境：
+
+```bash
+docker compose down
+```
+
+如需删除本项目生成的本地实验数据：
+
+```bash
+docker compose down -v
+```
+
+`-v` 会删除该 Compose 项目的 PostgreSQL Volume，只应在明确不再需要实验数据时使用。
+
+## 第一次完整实验
+
+### 1. 创建付款账户
+
+```bash
+curl -s http://localhost:8080/api/accounts \
+  -H 'Content-Type: application/json' \
+  -d '{"ownerId":"user-a","asset":"USDT","accountType":"USER","openingBalance":1000}'
+```
+
+### 2. 创建收款账户和手续费账户
+
+分别执行：
+
+```bash
+curl -s http://localhost:8080/api/accounts \
+  -H 'Content-Type: application/json' \
+  -d '{"ownerId":"user-b","asset":"USDT","accountType":"USER","openingBalance":0}'
+```
+
+```bash
+curl -s http://localhost:8080/api/accounts \
+  -H 'Content-Type: application/json' \
+  -d '{"ownerId":"SYSTEM_FEE_00","asset":"USDT","accountType":"SYSTEM_FEE","openingBalance":0}'
+```
+
+记录三个响应中的 `accountId`。
+
+### 3. 提交结算
+
+```bash
+curl -s http://localhost:8080/api/settlements \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "messageId":"msg-0001",
+    "businessKey":"order-0001",
+    "payerAccountId":"替换为付款账户ID",
+    "payeeAccountId":"替换为收款账户ID",
+    "feeAccountId":"替换为手续费账户ID",
+    "asset":"USDT",
+    "amount":100,
+    "fee":1
+  }'
+```
+
+查询处理结果：
+
+```bash
+curl -s http://localhost:8080/api/settlements/order-0001
+```
+
+### 4. 验证重复消息
+
+把同一份请求发送十次，或者调用实验接口：
+
+```bash
+curl -s 'http://localhost:8080/lab/faults/duplicate-message?copies=10' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "messageId":"msg-0002",
+    "businessKey":"order-0002",
+    "payerAccountId":"替换为付款账户ID",
+    "payeeAccountId":"替换为收款账户ID",
+    "feeAccountId":"替换为手续费账户ID",
+    "asset":"USDT",
+    "amount":10,
+    "fee":0.1
+  }'
+```
+
+预期结果：Kafka 中出现十份消息，但数据库只有一笔结算、一个账本交易和一次余额变化。
+
+### 5. 制造并发现对账差异
+
+只在 `lab` Profile 中可以故意绕过账本修改余额：
+
+```bash
+curl -s -X POST 'http://localhost:8080/lab/faults/accounts/替换账户ID/corrupt-balance?delta=3'
+curl -s -X POST http://localhost:8080/api/reconciliation/run
+```
+
+预期结果：对账返回一条 `BALANCE_LEDGER_MISMATCH`，不会自动修改资金。
+
+### 6. 发起反向补偿
+
+```bash
+curl -s http://localhost:8080/api/compensations/order-0001 \
+  -H 'Content-Type: application/json' \
+  -d '{"reason":"laboratory reversal test"}'
+```
+
+重复执行同一个补偿请求时，只返回已有补偿结果，不会生成第二份资金效果。
+
+## 缩容与 Fencing 实验
+
+节点 A 领取分片 7：
+
+```bash
+curl -s http://localhost:8080/api/shards/7/claim \
+  -H 'Content-Type: application/json' \
+  -d '{"ownerId":"worker-a","ttlSeconds":30}'
+```
+
+响应包含 `epoch`。进入缩容排空：
+
+```bash
+curl -s http://localhost:8080/api/shards/7/drain \
+  -H 'Content-Type: application/json' \
+  -d '{"ownerId":"worker-a","epoch":1}'
+```
+
+Lease 过期后，节点 B 再次领取该分片会获得更大的 Epoch。此后用节点 A 的旧 Epoch 调用 fence 检查应返回 `false`：
+
+```bash
+curl -s 'http://localhost:8080/api/shards/7/fence?ownerId=worker-a&epoch=1'
+```
+
+当前版本已经把 `shardId + epoch` 接入 Kafka 消费链路，并在每次账务提交前共享锁定 Lease、强制校验 Fence，完成控制面与数据面闭环。
+
+## 本地验证
+
+有 Maven 和 Docker 时：
+
+```bash
+mvn test
+```
+
+没有本机 Maven、但有 Docker 时：
+
+```bash
+docker compose --profile test run --rm app-test
+```
+
+完整检查入口：
+
+```bash
+./scripts/full-check.sh
+```
+
+已经启动环境时，可单独运行标准展示实验：
+
+```bash
+./scripts/run-demo.sh
+```
+
+脚本会等待应用健康、执行完整场景、校验所有结果为 `PASS`，并生成 `reports/latest-scenario.json`。
+
+该脚本依次执行纯 JDK 并发模拟、项目结构校验、Maven/Testcontainers 测试、容器启动和自动实验报告检查。仓库同时包含 CI 工作流，代码推送后会自动执行相同的核心与 Maven 验证。
+
+压测脚本位于 `benchmarks/settlement.js`。创建三个账户后，把账户 ID 通过环境变量传给 k6，并从较低 `RATE` 开始建立本机基线。
+
+只有 JDK 17 时，仍可验证纯领域规则：
+
+```bash
+./scripts/verify-core.sh
+```
+
+## Coding Agent 评测包
+
+`evals/` 提供五个生产级修复任务、统一的 100 分 Rubric、结果 Schema，以及五份可校验的故意缺陷补丁。`main` 完成验证并提交后，可重复生成独立评测分支：
+
+```bash
+./scripts/eval/validate-eval-kit.sh
+./scripts/eval/create-defect-branches.sh
+```
+
+公开仓库只保存任务、缺陷和公开检查；隐藏测试应放在独立私有 Grader 仓库，避免 Coding Agent 针对测试实现取巧。
+
+## 核心不变量
+
+1. 所有金额使用 `BigDecimal` 和 PostgreSQL `NUMERIC(38,18)`。
+2. 每个账本交易的 Debit 总和必须等于 Credit 总和。
+3. 历史账本只追加，不修改、不删除。
+4. `message_id` 和 `business_key` 都有数据库唯一约束。
+5. 资金写入不能依赖 JVM 内存、Redis 或 Kafka Offset 保证唯一性。
+6. 成功结算是终态；冲正使用独立补偿单和反向流水。
+7. 对账差异默认冻结审查，不静默自动修复。
+8. 故障注入接口只能存在于 `lab` Profile。
+
+## 文档入口
+
+- [架构说明](docs/architecture/overview.md)
+- [资金安全决策](docs/adr/0001-financial-invariants.md)
+- [消息幂等决策](docs/adr/0002-inbox-outbox.md)
+- [缩容与 Fencing](docs/adr/0003-shard-fencing.md)
+- [AI Coding 评测任务](docs/agent-evaluations/tasks.md)
+- [Coding Agent 标准化评测包](evals/README.md)
+- [中英文演示讲解](docs/showcase/demo-walkthrough.md)
+- [Grafana 仪表盘](infra/grafana/dashboards/fincore-overview.json)
+- [后续路线](BACKLOG.md)
+
+## 重要声明
+
+这是教学、研究和面试展示项目，不可直接用于真实资金生产环境。真实生产系统还需要完整的权限控制、密钥管理、数据加密、灾备、多活、审计合规、容量验证、运维流程和独立安全评审。

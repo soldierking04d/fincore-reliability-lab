@@ -1,0 +1,65 @@
+diff --git a/src/main/java/dev/fincore/application/SettlementService.java b/src/main/java/dev/fincore/application/SettlementService.java
+--- a/src/main/java/dev/fincore/application/SettlementService.java
++++ b/src/main/java/dev/fincore/application/SettlementService.java
+@@ -49,25 +49,16 @@ public class SettlementService {
+     @Transactional
+     public SettlementOutcome settle(SettlementCommand command, FenceToken fenceToken) {
+         String payload = toJson(command);
+-        if (jdbc.update("""
++        jdbc.update("""
+                 INSERT INTO inbox_message(message_id, message_type, payload)
+-                VALUES (?, 'SETTLEMENT_COMMAND', ?) ON CONFLICT (message_id) DO NOTHING
+-                """, command.messageId(), payload) == 0) {
+-            duplicates.increment();
+-            return currentOutcomeByMessage(command.messageId());
+-        }
++                VALUES (?, 'SETTLEMENT_COMMAND', ?)
++                """, command.messageId(), payload);
+         if (fenceToken != null) shardLeases.requireValidFenceForUpdate(fenceToken);
+ 
+-        int created = jdbc.update("""
++        jdbc.update("""
+             INSERT INTO settlement_order(business_key, message_id, payer_account_id, payee_account_id,
+                                          fee_account_id, asset, amount, fee, status)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'INIT')
+-            ON CONFLICT (business_key) DO NOTHING
+             """, command.businessKey(), command.messageId(), command.payerAccountId(), command.payeeAccountId(),
+             command.feeAccountId(), command.asset(), command.amount(), command.fee());
+-        if (created == 0) {
+-            duplicates.increment();
+-            markInboxProcessed(command.messageId());
+-            return currentOutcome(command.businessKey(), true);
+-        }
+         audit(command.businessKey(), null, SettlementStatus.INIT, "order created");
+diff --git a/src/main/resources/db/migration/V1__baseline.sql b/src/main/resources/db/migration/V1__baseline.sql
+--- a/src/main/resources/db/migration/V1__baseline.sql
++++ b/src/main/resources/db/migration/V1__baseline.sql
+@@ -13,8 +13,8 @@ CREATE TABLE account (
+ );
+ 
+ CREATE TABLE settlement_order (
+-    business_key VARCHAR(100) PRIMARY KEY,
+-    message_id VARCHAR(100) NOT NULL UNIQUE,
++    business_key VARCHAR(100) NOT NULL,
++    message_id VARCHAR(100) NOT NULL,
+     payer_account_id UUID NOT NULL REFERENCES account(account_id),
+     payee_account_id UUID NOT NULL REFERENCES account(account_id),
+     fee_account_id UUID NOT NULL REFERENCES account(account_id),
+@@ -31,7 +31,7 @@ CREATE TABLE settlement_order (
+ );
+ 
+ CREATE TABLE inbox_message (
+-    message_id VARCHAR(100) PRIMARY KEY,
++    message_id VARCHAR(100) NOT NULL,
+     message_type VARCHAR(100) NOT NULL,
+     payload TEXT NOT NULL,
+     received_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+@@ -40,7 +40,7 @@ CREATE TABLE inbox_message (
+ 
+ CREATE TABLE ledger_transaction (
+     transaction_id UUID PRIMARY KEY,
+-    business_key VARCHAR(100) NOT NULL UNIQUE,
++    business_key VARCHAR(100) NOT NULL,
+     transaction_type VARCHAR(30) NOT NULL,
+     asset VARCHAR(20) NOT NULL,
+     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
