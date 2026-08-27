@@ -28,7 +28,7 @@ public class FeeAggregationService {
             jdbc.update("""
                 INSERT INTO account(account_id, owner_id, asset, account_type, opening_balance, balance)
                 VALUES (?, ?, ?, 'SYSTEM_FEE_SHARD', 0, 0)
-                ON CONFLICT (owner_id, asset, account_type) DO NOTHING
+                ON CONFLICT DO NOTHING
                 """, id, owner, asset);
         }
         return jdbc.query("""
@@ -54,7 +54,7 @@ public class FeeAggregationService {
         jdbc.update("""
             INSERT INTO account(account_id, owner_id, asset, account_type, opening_balance, balance)
             VALUES (?, 'SYSTEM_FEE_TREASURY', ?, 'SYSTEM_FEE_TREASURY', 0, 0)
-            ON CONFLICT (owner_id, asset, account_type) DO NOTHING
+            ON CONFLICT DO NOTHING
             """, id, asset);
         return jdbc.queryForObject("""
             SELECT account_id, owner_id, asset, balance FROM account
