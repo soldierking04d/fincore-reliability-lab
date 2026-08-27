@@ -1,0 +1,46 @@
+{
+  "runId": "fc001-codex-gpt-5.6-sol-run-001",
+  "source": {
+    "branch": "benchmark/duplicate-settlement",
+    "commit": "587a591869497a90f0d8628239d3fc48521d09eb",
+    "candidateHistoryCommits": 1,
+    "candidateRemotes": 0,
+    "referenceDefectPatchesVisible": false,
+    "hiddenGraderVisible": false
+  },
+  "runner": {
+    "codexCliVersion": "0.150.1",
+    "model": "gpt-5.6-sol",
+    "reasoningEffort": "high",
+    "sandbox": "workspace-write",
+    "ephemeral": true,
+    "containerEphemeral": true,
+    "hostDockerSocketMounted": false,
+    "wallClockSeconds": 341,
+    "exitCode": 0
+  },
+  "transcriptAudit": {
+    "commandExecutions": 13,
+    "outsideRepositoryOrNetworkMentions": 0,
+    "passed": true
+  },
+  "usage": {
+    "inputTokens": 756956,
+    "cachedInputTokens": 702208,
+    "uncachedInputTokens": 54748,
+    "outputTokens": 15615,
+    "reasoningOutputTokens": 7720,
+    "estimatedCostUsd": null
+  },
+  "tests": {
+    "public": {"tests": 11, "failures": 0, "errors": 0, "passed": true},
+    "private": {"tests": 5, "exactScenarioPasses": 4, "failures": 0, "errors": 1, "passed": false},
+    "privateExceptionClassification": "Safe conflicting-payload rejection; response contract mismatch; no repeated financial effect"
+  },
+  "publicationBoundary": {
+    "agentPatchPublished": false,
+    "fullTranscriptPublished": false,
+    "hiddenTestCodePublished": false,
+    "sanitizedScenarioResultsPublished": true
+  }
+}
