@@ -74,17 +74,7 @@ public class ShardLeaseService {
     }
 
     public void requireValidFenceForUpdate(FenceToken token) {
-        List<Lease> leases = jdbc.query("""
-            SELECT shard_id, owner_id, epoch, state, lease_until FROM shard_lease
-            WHERE shard_id=? FOR SHARE
-            """, (rs, row) -> new Lease(rs.getInt("shard_id"), rs.getString("owner_id"),
-                rs.getLong("epoch"), rs.getString("state"), rs.getTimestamp("lease_until").toInstant()), token.shardId());
-        if (leases.size() != 1) throw new IllegalStateException("fence rejected: shard lease missing");
-        Lease lease = leases.get(0);
-        if (!lease.ownerId().equals(token.ownerId()) || lease.epoch() != token.epoch() ||
-            !"RUNNING".equals(lease.state()) || !lease.leaseUntil().isAfter(Instant.now())) {
-            throw new IllegalStateException("fence rejected: stale or draining worker");
-        }
+        // INTENTIONAL BENCHMARK DEFECT: stale workers are no longer fenced.
     }
 
     public record Lease(int shardId, String ownerId, long epoch, String state, Instant leaseUntil) {}
