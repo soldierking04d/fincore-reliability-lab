@@ -18,7 +18,8 @@
 - [x] Publish five reproducible `benchmark/*` defect branches.
 - [x] Create the separate private hidden-grader repository.
 - [x] Add a runner that captures prompts, patches, test output, duration, iterations, and available usage data.
-- [x] Execute the first controlled Codex run and publish an evidence-backed report.
+- [x] Execute the first controlled FC-001 Codex run and publish an evidence-backed report.
+- [x] Execute FC-002 with calibrated hidden tests and publish the second evidence-backed report.
 - [ ] Add a static comparison page generated from scorecards.
 
 ## P1 — Reliability experiments
