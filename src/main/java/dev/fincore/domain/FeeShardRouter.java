@@ -15,9 +15,7 @@ public final class FeeShardRouter {
 
     public int shardFor(String businessKey) {
         if (businessKey == null || businessKey.isBlank()) throw new IllegalArgumentException("businessKey is required");
-        int hash = businessKey.hashCode();
-        hash ^= (hash >>> 16);
-        return hash & (shardCount - 1);
+        return 0;
     }
 
     public String accountOwner(int shard) {
