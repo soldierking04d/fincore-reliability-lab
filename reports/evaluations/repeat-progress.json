@@ -1,0 +1,32 @@
+{
+  "benchmark": "FinCore Reliability Lab repeatability phase",
+  "generatedAt": "2026-08-29T19:10:00Z",
+  "plannedRuns": 30,
+  "completedRuns": 1,
+  "runs": [
+    {
+      "runId": "fc001-codex-gpt-5.6-sol-run-002",
+      "agent": "OpenAI Codex CLI 0.150.1",
+      "model": "gpt-5.6-sol",
+      "taskId": "FC-001",
+      "sourceCommit": "587a591869497a90f0d8628239d3fc48521d09eb",
+      "durationSeconds": 390,
+      "status": "complete",
+      "public": {"passed": true},
+      "private": {"passed": 5, "executed": 5},
+      "usage": {
+        "inputTokens": 875659,
+        "cachedInputTokens": 811264,
+        "outputTokens": 16820,
+        "reasoningOutputTokens": 8460,
+        "estimatedCostUsd": null
+      },
+      "score": null,
+      "scoreStatus": "pending rubric review",
+      "vetoes": [],
+      "agentPatchSha256": "3a66831ee0c57a04bb79ff6c5d103b655b006a283d47c4551a63f3ac603d42a5",
+      "privateTranscriptSha256": "38c724b0cd62daa2a321f0e691af668d1283663313d39b63a81a2c54e413725b",
+      "privateArtifactSha256": "38c724b0cd62daa2a321f0e691af668d1283663313d39b63a81a2c54e413725b"
+    }
+  ]
+}

@@ -30,6 +30,8 @@ Public test counts include agent-authored tests and are therefore not a direct c
 - [Evidence-backed three-agent comparison, design references, and limitations](coding-agent-comparison.md)
 - [Business and engineering benchmark introduction](../../docs/agent-evaluations/benchmark-introduction.md)
 - [Three-run repeatability protocol](repeatability-protocol.md)
+- [Repeated-run evidence notes](repeated-runs/README.md)
+- [Current repeated-run progress](repeat-progress.json)
 - [Sanitized repeated-run index schema](run-index.schema.json)
 - [Machine-readable comparison](comparison.json)
 - [Codex five-task summary](summary.json)
