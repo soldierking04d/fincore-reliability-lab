@@ -14,6 +14,8 @@
 
 ## 60 秒看懂项目
 
+项目介绍现在分为[业务风险与工程边界](docs/agent-evaluations/benchmark-introduction.md)和[可重复评测协议](reports/evaluations/repeatability-protocol.md)两部分：前者说明为什么这些故障重要，后者说明证据如何产生。
+
 | 生产风险 | 项目中的保护机制 | 自动证明 |
 |---|---|---|
 | Kafka 重复投递导致重复入账 | Inbox + 业务键数据库唯一约束 | 并发重复结算风暴 |
