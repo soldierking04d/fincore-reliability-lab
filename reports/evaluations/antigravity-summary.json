@@ -1,0 +1,67 @@
+{
+  "benchmark": "FinCore Reliability Lab v0.3",
+  "protocol": {
+    "agent": "Google Antigravity CLI",
+    "model": "Gemini 3.7 Flash (High)",
+    "cliVersion": "1.1.22",
+    "validRunsPerTask": 1,
+    "isolatedCandidate": true,
+    "hiddenGraderVisible": false,
+    "sandboxMode": "accept-edits",
+    "networkAccess": "authentication endpoint only"
+  },
+  "totals": {
+    "tasksCompleted": 5,
+    "tasksAvailable": 5,
+    "perfectScoreRuns": 3,
+    "score": 485,
+    "maximumScore": 500,
+    "averageScore": 97.0,
+    "publicTestsPassed": 80,
+    "publicTestsExecuted": 81,
+    "privateScenariosPassed": 23,
+    "privateScenariosExecuted": 25,
+    "vetoesTriggered": 0,
+    "humanRepairRounds": 0,
+    "agentWallClockSeconds": 1004,
+    "averageAgentWallClockSeconds": 200.8,
+    "reportedCostUsd": null,
+    "tokens": {
+      "input": 1924971,
+      "output": 239251,
+      "thinking": 177191,
+      "cacheRead": 14247164,
+      "total": 2164222
+    }
+  },
+  "runs": [
+    {
+      "taskId": "FC-001", "failureMode": "duplicate settlement", "score": 90,
+      "public": {"passed": 13, "executed": 13}, "private": {"passed": 3, "executed": 5},
+      "wallClockSeconds": 208, "vetoes": [],
+      "reviewNotes": "A conflicting replay did not preserve the original payload contract, and settlement_order.message_id lacked a database uniqueness boundary. No repeated financial effect was observed."
+    },
+    {
+      "taskId": "FC-002", "failureMode": "illegal terminal overwrite", "score": 100,
+      "public": {"passed": 19, "executed": 19}, "private": {"passed": 5, "executed": 5},
+      "wallClockSeconds": 227, "vetoes": []
+    },
+    {
+      "taskId": "FC-003", "failureMode": "fee hot account", "score": 100,
+      "public": {"passed": 17, "executed": 17}, "private": {"passed": 5, "executed": 5},
+      "wallClockSeconds": 138, "vetoes": []
+    },
+    {
+      "taskId": "FC-004", "failureMode": "scale-down takeover", "score": 100,
+      "public": {"passed": 16, "executed": 16}, "private": {"passed": 5, "executed": 5},
+      "wallClockSeconds": 234, "vetoes": []
+    },
+    {
+      "taskId": "FC-005", "failureMode": "duplicate compensation", "score": 95,
+      "public": {"passed": 15, "executed": 16}, "private": {"passed": 5, "executed": 5},
+      "wallClockSeconds": 197, "vetoes": [],
+      "reviewNotes": "The compensation safety contract passed every hidden scenario. One agent-authored public assertion assumed a reconciliation scope not provided by the task, so first-pass test quality lost five points."
+    }
+  ],
+  "interpretation": "One valid run per task. Token counters are CLI telemetry and are not directly comparable across vendors. No per-run dollar amount was exposed for the Google AI Pro authenticated session."
+}
