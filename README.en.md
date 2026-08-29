@@ -16,7 +16,7 @@ All accounts, transactions, and operating parameters are fictional. The reposito
 
 A financial service is not correct merely because an endpoint returns `200 OK`. It must preserve its invariants when the same command is delivered twice, when two nodes race, when a database transaction rolls back, when an outbox publisher crashes, or when a stale worker resumes after scale-down.
 
-This repository turns those failure modes into executable experiments.
+This repository turns those failure modes into executable experiments. The public explanation is split into [business risk and engineering boundaries](docs/agent-evaluations/benchmark-introduction.md) and the [repeatability protocol](reports/evaluations/repeatability-protocol.md): why the failures matter, then how the evidence is produced.
 
 | Production risk | Protection in this lab | Executable proof |
 |---|---|---|

@@ -28,6 +28,9 @@ Public test counts include agent-authored tests and are therefore not a direct c
 
 - [Bilingual evaluation note](https://fincore-agent-benchmark.soldierking04d.chatgpt.site)
 - [Evidence-backed three-agent comparison, design references, and limitations](coding-agent-comparison.md)
+- [Business and engineering benchmark introduction](../../docs/agent-evaluations/benchmark-introduction.md)
+- [Three-run repeatability protocol](repeatability-protocol.md)
+- [Sanitized repeated-run index schema](run-index.schema.json)
 - [Machine-readable comparison](comparison.json)
 - [Codex five-task summary](summary.json)
 - [Claude five-task summary](claude-summary.json)
