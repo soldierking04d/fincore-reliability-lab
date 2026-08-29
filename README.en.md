@@ -143,13 +143,15 @@ Hidden graders should be stored separately from this public repository.
 
 ### Controlled results
 
-Codex and Claude Code have completed a controlled five-task comparison using matched defect commits, prompts, hidden graders, and scoring rules. Codex scored 495/500 with 24/25 private scenarios; Claude scored 490/500 with 23/25. Each produced four perfect runs, passed every public test in its candidate, and triggered no financial-safety veto. The difference was confined to FC-001 conflicting-replay behavior and database defense-in-depth uniqueness.
+Codex, Claude Code, and Google Antigravity have completed a controlled five-task comparison using matched defect commits, prompts, hidden graders, and scoring rules. They scored 495/500, 490/500, and 485/500 respectively. Antigravity was fastest at 1,004 seconds. None triggered a financial-safety veto.
 
-- [Two-agent five-task comparison](reports/evaluations/README.md)
-- [Claude Code vs Codex report](reports/evaluations/claude-vs-codex.md)
+- [Three-agent five-task comparison](reports/evaluations/README.md)
+- [Codex vs Claude Code vs Antigravity report](reports/evaluations/coding-agent-comparison.md)
+- [Frozen Claude Code vs Codex snapshot](reports/evaluations/claude-vs-codex.md)
 - [Machine-readable comparison](reports/evaluations/comparison.json)
 - [Codex summary](reports/evaluations/summary.json)
 - [Claude summary](reports/evaluations/claude-summary.json)
+- [Antigravity summary](reports/evaluations/antigravity-summary.json)
 - [FC-001 evidence-backed report](reports/evaluations/FC-001/codex-gpt-5.6-sol-run-001/README.md)
 - [FC-001 machine-readable scorecard](reports/evaluations/FC-001/codex-gpt-5.6-sol-run-001/scorecard.json)
 - [FC-002 evidence-backed report](reports/evaluations/FC-002/codex-gpt-5.6-sol-run-001/README.md)

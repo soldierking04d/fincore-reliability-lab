@@ -1,6 +1,6 @@
 {
   "benchmark": "FinCore Reliability Lab v0.3",
-  "comparisonType": "controlled two-agent first-pass comparison",
+  "comparisonType": "controlled three-agent first-pass comparison",
   "agents": [
     {
       "id": "codex-gpt-5.6-sol",
@@ -22,27 +22,52 @@
       "model": "sonnet",
       "score": 490,
       "maximumScore": 500,
-      "perfectRuns": 4,      "public": {"passed": 83, "executed": 83},
+      "perfectRuns": 4,
+      "public": {"passed": 83, "executed": 83},
       "private": {"passed": 23, "executed": 25},
       "wallClockSeconds": 2335,
       "vetoes": 0,
       "humanRepairRounds": 0,
       "cliReportedEstimatedCostUsd": 5.3438274
+    },
+    {
+      "id": "antigravity-gemini-3.7-flash-high",
+      "agent": "Google Antigravity CLI",
+      "model": "Gemini 3.7 Flash (High)",
+      "cliVersion": "1.1.22",
+      "score": 485,
+      "maximumScore": 500,
+      "perfectRuns": 3,
+      "public": {"passed": 80, "executed": 81},
+      "private": {"passed": 23, "executed": 25},
+      "wallClockSeconds": 1004,
+      "vetoes": 0,
+      "humanRepairRounds": 0,
+      "reportedCostUsd": null,
+      "tokens": {"input":1924971,"output":239251,"thinking":177191,"cacheRead":14247164,"total":2164222}
     }
   ],
   "taskScores": [
-    {"taskId":"FC-001","codex":95,"claude":90},
-    {"taskId":"FC-002","codex":100,"claude":100},
-    {"taskId":"FC-003","codex":100,"claude":100},
-    {"taskId":"FC-004","codex":100,"claude":100},
-    {"taskId":"FC-005","codex":100,"claude":100}
+    {"taskId":"FC-001","codex":95,"claude":90,"antigravity":90},
+    {"taskId":"FC-002","codex":100,"claude":100,"antigravity":100},
+    {"taskId":"FC-003","codex":100,"claude":100,"antigravity":100},
+    {"taskId":"FC-004","codex":100,"claude":100,"antigravity":100},
+    {"taskId":"FC-005","codex":100,"claude":100,"antigravity":95}
   ],
+  "rankings": {
+    "score": ["codex-gpt-5.6-sol","claude-code-sonnet","antigravity-gemini-3.7-flash-high"],
+    "wallClockFastest": ["antigravity-gemini-3.7-flash-high","codex-gpt-5.6-sol","claude-code-sonnet"]
+  },
   "deltas": {
     "scoreCodexMinusClaude": 5,
-    "privateScenarioPassesCodexMinusClaude": 1,
-    "wallClockSecondsClaudeMinusCodex": 573,
-    "claudeWallClockPercentAboveCodex": 32.5
-  },  "controls": {
+    "scoreCodexMinusAntigravity": 10,
+    "scoreClaudeMinusAntigravity": 5,
+    "wallClockSecondsCodexMinusAntigravity": 758,
+    "wallClockSecondsClaudeMinusAntigravity": 1331,
+    "antigravityPercentFasterThanCodex": 43.0,
+    "antigravityPercentFasterThanClaude": 57.0
+  },
+  "controls": {
     "sameDefectSourceCommits": true,
     "sameTaskPrompts": true,
     "sameHiddenGraders": true,
@@ -53,9 +78,11 @@
   },
   "caveats": [
     "Public test counts are not a direct quality comparison because each agent could author additional tests.",
-    "Codex did not expose a dollar charge, while Claude emitted a CLI-reported estimate; cost is not ranked.",
-    "The Claude model was recorded as the sonnet alias exactly as invoked.",
+    "CLI token counters are vendor-specific and are not directly comparable.",
+    "Only Claude exposed a CLI-estimated dollar amount; cost is not ranked.",
+    "Model names and aliases are recorded exactly as invoked without inferring hidden snapshots.",
     "One run per task does not measure run-to-run variance or statistical significance."
   ],
-  "report": "claude-vs-codex.md"
+  "report": "coding-agent-comparison.md",
+  "legacyTwoAgentReport": "claude-vs-codex.md"
 }
