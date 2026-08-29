@@ -45,7 +45,9 @@
 - FC-003 Codex run 001 passed 15/15 public tests and 5/5 private scenarios, with a 100/100 reviewed score and no financial-safety veto.
 - FC-004 Codex run 001 passed 14/14 public tests and 5/5 private scenarios, with a 100/100 reviewed score and no financial-safety veto.
 - FC-005 Codex run 001 passed 15/15 public tests and 5/5 private scenarios, with a 100/100 reviewed score and no financial-safety veto.
-- The complete first pass finished 5/5 tasks at 495/500 total, 99/100 average, 70/70 public tests, and 24/25 private scenarios.
+- The complete Codex pass finished 5/5 tasks at 495/500 total, 99/100 average, 70/70 public tests, and 24/25 private scenarios.
+- Claude Code completed the same five tasks at 490/500 total, 98/100 average, 83/83 public tests, and 23/25 private scenarios.
+- The first controlled two-agent comparison is published with matched source commits, prompts, hidden graders, and scoring rules; neither agent triggered a financial-safety veto.
 
 ## Public-release boundary
 
@@ -54,7 +56,7 @@ The repository contains fictional data and generalized parameters. It excludes f
 ## Next work
 
 - Repeat FC-001 to measure run-to-run variance.
-- Run controlled comparisons across multiple coding agents.
+- Add a third coding agent and repeat runs to measure variance.
 - Add Kafka Testcontainers to listener-level integration tests.
 - Add DLT/replay, richer reconciliation batches, and failure-injection infrastructure.
 - Add authentication and authorization before any non-lab exposure.

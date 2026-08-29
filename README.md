@@ -284,10 +284,13 @@ docker compose --profile test run --rm app-test
 
 ### 受控实测结果
 
-首轮五任务 Codex 隔离评测已经完整结束：5/5 任务完成，4 次满分，总分 495/500、平均 99/100，公开测试合计 70/70、私有场景 24/25，全部运行均无资金安全否决。FC-005 重复补偿任务得分 100/100，跨实例并发、稳定失败结果、回滚重试、反向账本唯一性和原始流水不可变均通过独立验证。
+Codex 与 Claude Code 已在相同缺陷提交、任务提示、隐藏测试和 Rubric 下完成五任务受控对比。Codex 为 495/500、私有场景 24/25；Claude Code 为 490/500、私有场景 23/25。两者各有四题满分，全部公开测试通过，且均未触发资金安全一票否决。差异集中在 FC-001 重复结算的冲突载荷返回契约与数据库纵深唯一性。
 
-- [五任务总对比](reports/evaluations/README.md)
-- [机器可读汇总](reports/evaluations/summary.json)
+- [双 Agent 五任务总对比](reports/evaluations/README.md)
+- [Claude Code vs Codex 详细报告](reports/evaluations/claude-vs-codex.md)
+- [机器可读对比](reports/evaluations/comparison.json)
+- [Codex 机器可读汇总](reports/evaluations/summary.json)
+- [Claude 机器可读汇总](reports/evaluations/claude-summary.json)
 - [FC-001 完整实测报告](reports/evaluations/FC-001/codex-gpt-5.6-sol-run-001/README.md)
 - [FC-001 机器可读 Scorecard](reports/evaluations/FC-001/codex-gpt-5.6-sol-run-001/scorecard.json)
 - [FC-002 完整实测报告](reports/evaluations/FC-002/codex-gpt-5.6-sol-run-001/README.md)

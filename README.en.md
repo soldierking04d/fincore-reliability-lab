@@ -143,10 +143,13 @@ Hidden graders should be stored separately from this public repository.
 
 ### Controlled results
 
-The first five-task isolated Codex pass is complete: 5/5 tasks completed, four perfect scores, 495/500 total and 99/100 average, 70/70 public tests, and 24/25 private scenarios. FC-005 scored 100/100 and independently verified cross-instance compensation concurrency, stable failure outcomes, rollback/retry, unique reverse journals, and immutable original evidence. No run triggered a financial-safety veto.
+Codex and Claude Code have completed a controlled five-task comparison using matched defect commits, prompts, hidden graders, and scoring rules. Codex scored 495/500 with 24/25 private scenarios; Claude scored 490/500 with 23/25. Each produced four perfect runs, passed every public test in its candidate, and triggered no financial-safety veto. The difference was confined to FC-001 conflicting-replay behavior and database defense-in-depth uniqueness.
 
-- [Five-task comparison](reports/evaluations/README.md)
-- [Machine-readable summary](reports/evaluations/summary.json)
+- [Two-agent five-task comparison](reports/evaluations/README.md)
+- [Claude Code vs Codex report](reports/evaluations/claude-vs-codex.md)
+- [Machine-readable comparison](reports/evaluations/comparison.json)
+- [Codex summary](reports/evaluations/summary.json)
+- [Claude summary](reports/evaluations/claude-summary.json)
 - [FC-001 evidence-backed report](reports/evaluations/FC-001/codex-gpt-5.6-sol-run-001/README.md)
 - [FC-001 machine-readable scorecard](reports/evaluations/FC-001/codex-gpt-5.6-sol-run-001/scorecard.json)
 - [FC-002 evidence-backed report](reports/evaluations/FC-002/codex-gpt-5.6-sol-run-001/README.md)

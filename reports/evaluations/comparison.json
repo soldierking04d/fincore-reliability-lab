@@ -1,0 +1,61 @@
+{
+  "benchmark": "FinCore Reliability Lab v0.3",
+  "comparisonType": "controlled two-agent first-pass comparison",
+  "agents": [
+    {
+      "id": "codex-gpt-5.6-sol",
+      "agent": "OpenAI Codex CLI",
+      "model": "gpt-5.6-sol",
+      "score": 495,
+      "maximumScore": 500,
+      "perfectRuns": 4,
+      "public": {"passed": 70, "executed": 70},
+      "private": {"passed": 24, "executed": 25},
+      "wallClockSeconds": 1762,
+      "vetoes": 0,
+      "humanRepairRounds": 0,
+      "reportedCostUsd": null
+    },
+    {
+      "id": "claude-code-sonnet",
+      "agent": "Anthropic Claude Code",
+      "model": "sonnet",
+      "score": 490,
+      "maximumScore": 500,
+      "perfectRuns": 4,      "public": {"passed": 83, "executed": 83},
+      "private": {"passed": 23, "executed": 25},
+      "wallClockSeconds": 2335,
+      "vetoes": 0,
+      "humanRepairRounds": 0,
+      "cliReportedEstimatedCostUsd": 5.3438274
+    }
+  ],
+  "taskScores": [
+    {"taskId":"FC-001","codex":95,"claude":90},
+    {"taskId":"FC-002","codex":100,"claude":100},
+    {"taskId":"FC-003","codex":100,"claude":100},
+    {"taskId":"FC-004","codex":100,"claude":100},
+    {"taskId":"FC-005","codex":100,"claude":100}
+  ],
+  "deltas": {
+    "scoreCodexMinusClaude": 5,
+    "privateScenarioPassesCodexMinusClaude": 1,
+    "wallClockSecondsClaudeMinusCodex": 573,
+    "claudeWallClockPercentAboveCodex": 32.5
+  },  "controls": {
+    "sameDefectSourceCommits": true,
+    "sameTaskPrompts": true,
+    "sameHiddenGraders": true,
+    "sameRubric": true,
+    "oneValidRunPerTask": true,
+    "noHumanRepair": true,
+    "cliSpecificRunners": true
+  },
+  "caveats": [
+    "Public test counts are not a direct quality comparison because each agent could author additional tests.",
+    "Codex did not expose a dollar charge, while Claude emitted a CLI-reported estimate; cost is not ranked.",
+    "The Claude model was recorded as the sonnet alias exactly as invoked.",
+    "One run per task does not measure run-to-run variance or statistical significance."
+  ],
+  "report": "claude-vs-codex.md"
+}
