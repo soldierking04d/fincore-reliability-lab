@@ -286,7 +286,7 @@ docker compose --profile test run --rm app-test
 
 Codex、Claude Code 与 Google Antigravity 已在相同缺陷提交、任务提示、隐藏测试和 Rubric 下完成五任务受控对比。总分依次为 495/500、490/500、485/500；Antigravity 以 1,004 秒成为本轮最快。三者均未触发资金安全一票否决。
 
-- [中英文可视化作品展示页](https://fincore-agent-benchmark.soldierking04d.chatgpt.site)
+- [中英文评测手记：五个故障、三个 Agent](https://fincore-agent-benchmark.soldierking04d.chatgpt.site)
 - [三 Agent 五任务总对比](reports/evaluations/README.md)
 - [Codex vs Claude Code vs Antigravity 详细报告](reports/evaluations/coding-agent-comparison.md)
 - [原 Claude Code vs Codex 双 Agent 快照](reports/evaluations/claude-vs-codex.md)

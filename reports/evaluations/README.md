@@ -1,6 +1,6 @@
 # Controlled coding-agent evaluations
 
-Three coding agents have completed the full five-task benchmark under matched source commits, prompts, hidden graders, and scoring rules.
+Three coding agents completed the same five transaction-safety repairs under matched source commits, prompts, hidden graders, and scoring rules. This is a narrow case study, not a universal leaderboard: five tasks, one valid run per agent/task, no human baseline, and no confidence interval.
 
 > 中文摘要：Codex、Claude Code 与 Google Antigravity 均完成五个金融可靠性修复任务。总分依次为 495、490、485；Antigravity 用时最短。三者均未触发资金安全一票否决。
 
@@ -26,7 +26,8 @@ Public test counts include agent-authored tests and are therefore not a direct c
 
 ## Reports and data
 
-- [Evidence-backed three-agent comparison](coding-agent-comparison.md)
+- [Bilingual evaluation note](https://fincore-agent-benchmark.soldierking04d.chatgpt.site)
+- [Evidence-backed three-agent comparison, design references, and limitations](coding-agent-comparison.md)
 - [Machine-readable comparison](comparison.json)
 - [Codex five-task summary](summary.json)
 - [Claude five-task summary](claude-summary.json)

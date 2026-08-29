@@ -4,6 +4,12 @@ OpenAI Codex CLI, Anthropic Claude Code, and Google Antigravity CLI each complet
 
 > 中文摘要：三套 Coding Agent 使用相同缺陷提交、任务提示、隐藏测试和 100 分 Rubric 完成五题首轮实测。Codex 495/500，Claude 490/500，Antigravity 485/500。Antigravity 总耗时仅 1,004 秒，是本轮最快；三者均未触发资金安全一票否决。
 
+## Why this benchmark exists
+
+Most coding-agent demos stop when the generated code compiles or passes the visible tests. In a transaction system, that is where the uncomfortable questions begin: what if the same message returns with a changed payload, an old worker wakes after takeover, or two retries claim the same compensation?
+
+I built this benchmark to turn those review questions into executable failures. Its claim is deliberately narrow: it is a five-task case study in Java/PostgreSQL transaction safety, not a general model leaderboard.
+
 ## Results
 
 | Task | Failure mode | Codex | Claude | Antigravity | Codex private | Claude private | Antigravity private |
@@ -51,11 +57,30 @@ The private grader, hidden test implementations, raw transcript, model patch, an
 
 Antigravity CLI 1.1.22 ran with the exact recorded model name `Gemini 3.7 Flash (High)`, accept-edits mode, an unprivileged container, a read-only root filesystem, dropped Linux capabilities, no-new-privileges, explicit workspace-only file permissions, and authentication-only network access. The report does not infer an unverified underlying model snapshot.
 
+## Relationship to established benchmarks
+
+| Benchmark | What it does well | What this project adopts |
+|---|---|---|
+| [SWE-bench](https://www.swebench.com/) | Real repository issues and reproducible container evaluation | Repository-level repair tasks and isolated execution |
+| [Aider Polyglot](https://aider.chat/docs/leaderboards/) | Publishes command, commit, cost, tokens, timing, and edit-format details | Exact CLI/model labels, runtime evidence, and machine-readable summaries |
+| [Terminal-Bench](https://www.tbench.ai/) | Separates model from agent scaffold and reports resolution rate with uncertainty | Agent and model are recorded separately; repeated runs remain future work |
+| [METR time horizons](https://metr.org/time-horizons/) | Explains the metric, human baseline, task distribution, and reliability limits beside the result | Scope limits are explicit and the report avoids extrapolating to general work |
+
+FinCore Reliability Lab does not compete on task count. Its useful difference is domain depth: database-owned uniqueness, immutable journals, state-machine legality, fencing, and financial-safety vetoes.
+
+## Known limitations
+
+- There are five tasks and one valid run per agent/task, so no confidence interval or run-to-run variance can be estimated.
+- There is no measured human baseline. Agent elapsed time is reported, but it is not a human-equivalent task duration.
+- The task set is a synthetic, production-shaped Java/PostgreSQL system rather than issues sampled from many independent repositories.
+- Public test totals are not directly comparable because agents could author additional tests.
+- Vendor token accounting differs, and only Claude exposed an estimated dollar cost; neither metric supports a fair three-way efficiency ranking yet.
+
 ## Interpretation
 
 Codex led this single pass by ten points and covered one more hidden scenario. Claude finished second. Antigravity finished third on score but first on elapsed time, while still producing production-shaped solutions for state-machine CAS, deterministic fee sharding, fencing, and compensation uniqueness.
 
-This is not a universal model ranking. One run per model and task does not measure variance, and the benchmark covers Java/PostgreSQL financial reliability rather than general software engineering.
+The result I would carry forward is not the ten-point spread. It is FC-001: all three agents prevented a second posting, but a changed replay payload still separated application-level idempotency from a stable replay contract and database-owned uniqueness. That is a review distinction a normal happy-path demo rarely exposes.
 
 Machine-readable files:
 

@@ -145,7 +145,7 @@ Hidden graders should be stored separately from this public repository.
 
 Codex, Claude Code, and Google Antigravity have completed a controlled five-task comparison using matched defect commits, prompts, hidden graders, and scoring rules. They scored 495/500, 490/500, and 485/500 respectively. Antigravity was fastest at 1,004 seconds. None triggered a financial-safety veto.
 
-- [Interactive bilingual project showcase](https://fincore-agent-benchmark.soldierking04d.chatgpt.site)
+- [Evaluation note: five failures, three agents](https://fincore-agent-benchmark.soldierking04d.chatgpt.site)
 - [Three-agent five-task comparison](reports/evaluations/README.md)
 - [Codex vs Claude Code vs Antigravity report](reports/evaluations/coding-agent-comparison.md)
 - [Frozen Claude Code vs Codex snapshot](reports/evaluations/claude-vs-codex.md)
