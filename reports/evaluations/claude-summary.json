@@ -1,0 +1,90 @@
+{
+  "benchmark": "FinCore Reliability Lab v0.3",
+  "protocol": {
+    "agent": "Anthropic Claude Code",
+    "model": "sonnet",
+    "cliVersion": "2.1.250",
+    "reasoningEffort": "high",
+    "validRunsPerTask": 1,
+    "isolatedCandidate": true,
+    "hiddenGraderVisible": false,
+    "networkToolsDisabled": true
+  },
+  "totals": {
+    "tasksCompleted": 5,
+    "tasksAvailable": 5,
+    "perfectScoreRuns": 4,
+    "score": 490,
+    "maximumScore": 500,
+    "averageScore": 98.0,
+    "publicTestsPassed": 83,
+    "publicTestsExecuted": 83,
+    "privateScenariosPassed": 23,
+    "privateScenariosExecuted": 25,
+    "vetoesTriggered": 0,
+    "humanRepairRounds": 0,    "agentWallClockSeconds": 2335,
+    "averageAgentWallClockSeconds": 467.0,
+    "cliReportedEstimatedCostUsd": 5.3438274
+  },
+  "runs": [
+    {
+      "taskId": "FC-001",
+      "failureMode": "duplicate settlement",
+      "score": 90,
+      "public": {"passed": 12, "executed": 12},
+      "private": {"passed": 3, "executed": 5},
+      "wallClockSeconds": 408,
+      "cliReportedEstimatedCostUsd": 1.1703174,
+      "vetoes": [],
+      "reviewNotes": "Conflicting-payload replay queried the incoming business key instead of returning the original outcome; the patch also omitted a ledger-level business-key uniqueness boundary. No repeated financial effect was observed."
+    },
+    {
+      "taskId": "FC-002",
+      "failureMode": "illegal terminal overwrite",
+      "score": 100,
+      "public": {"passed": 17, "executed": 17},
+      "private": {"passed": 5, "executed": 5},
+      "wallClockSeconds": 241,
+      "cliReportedEstimatedCostUsd": 0.5140474,
+      "vetoes": []
+    },    {
+      "taskId": "FC-003",
+      "failureMode": "fee hot account",
+      "score": 100,
+      "public": {"passed": 22, "executed": 22},
+      "private": {"passed": 5, "executed": 5},
+      "wallClockSeconds": 357,
+      "cliReportedEstimatedCostUsd": 0.827665,
+      "vetoes": []
+    },
+    {
+      "taskId": "FC-004",
+      "failureMode": "scale-down takeover",
+      "score": 100,
+      "public": {"passed": 16, "executed": 16},
+      "private": {"passed": 5, "executed": 5},
+      "wallClockSeconds": 707,
+      "cliReportedEstimatedCostUsd": 1.6557534,
+      "vetoes": []
+    },
+    {
+      "taskId": "FC-005",
+      "failureMode": "duplicate compensation",
+      "score": 100,
+      "public": {"passed": 16, "executed": 16},
+      "private": {"passed": 5, "executed": 5},
+      "wallClockSeconds": 622,
+      "cliReportedEstimatedCostUsd": 1.1760442,
+      "vetoes": []
+    }
+  ],  "timingCorrections": [
+    {
+      "taskId": "FC-005",
+      "rawDurationSeconds": 80901,
+      "correctedDurationSeconds": 622,
+      "source": "outer controller process runtime",
+      "reason": "The laboratory VM clock stepped forward after a suspended host resumed. Raw evidence is retained privately; the runner now uses Bash monotonic elapsed seconds."
+    }
+  ],
+  "interpretation": "One valid run per task. The sonnet alias was recorded exactly as invoked; no unverified underlying snapshot name is claimed. Public totals include agent-authored tests."
+}

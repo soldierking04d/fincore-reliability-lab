@@ -1,31 +1,41 @@
-# Controlled coding-agent evaluation summary
+# Controlled coding-agent evaluations
 
-This page aggregates the machine-readable scorecards for the first complete five-task benchmark pass. Every row is one isolated `gpt-5.6-sol` run with high reasoning; the candidate had one source snapshot, no Git remote, no private grader, and no answer patch.
+Two coding agents have completed the full five-task benchmark under matched source commits, prompts, hidden graders, and scoring rules.
 
-> 中文摘要：首轮五任务基准已经完整跑通，5/5 任务完成，4 次满分，总分 495/500，平均 99/100；公开测试合计 70/70，通过 24/25 个私有场景，全部运行均未触发资金安全一票否决。
+> 中文摘要：Codex 与 Claude Code 均完成五个金融可靠性修复任务。Codex 总分 495/500，Claude 总分 490/500；两者各有四题满分，均未触发资金安全一票否决。
 
-## Results
+## Agent totals
 
-| Task | Failure mode | Score | Public tests | Private scenarios | Agent time | Report |
-|---|---|---:|---:|---:|---:|---|
-| FC-001 | Duplicate settlement | 95/100 | 11/11 | 4/5 | 341 s | [Evidence](FC-001/codex-gpt-5.6-sol-run-001/README.md) |
-| FC-002 | Illegal terminal overwrite | 100/100 | 15/15 | 5/5 | 327 s | [Evidence](FC-002/codex-gpt-5.6-sol-run-001/README.md) |
-| FC-003 | Fee hot account | 100/100 | 15/15 | 5/5 | 310 s | [Evidence](FC-003/codex-gpt-5.6-sol-run-001/README.md) |
-| FC-004 | Scale-down takeover | 100/100 | 14/14 | 5/5 | 440 s | [Evidence](FC-004/codex-gpt-5.6-sol-run-001/README.md) |
-| FC-005 | Duplicate compensation | 100/100 | 15/15 | 5/5 | 344 s | [Evidence](FC-005/codex-gpt-5.6-sol-run-001/README.md) |
-| **Total / average** | **Five tasks** | **495/500 · 99.0 avg** | **70/70** | **24/25** | **1,762 s · 352.4 avg** | |
+| Agent | Score | Perfect runs | Public tests | Private scenarios | Agent time | Vetoes |
+|---|---:|---:|---:|---:|---:|---:|
+| OpenAI Codex CLI · gpt-5.6-sol | 495/500 | 4/5 | 70/70 | 24/25 | 1,762 s | 0 |
+| Anthropic Claude Code · sonnet | 490/500 | 4/5 | 83/83 | 23/25 | 2,335 s | 0 |
 
-## What this first pass shows
+Public test counts include agent-authored tests and are therefore not a direct cross-agent quality metric.
 
-- The model completed all five valid runs without human repair and triggered no financial-safety veto.
-- Four tasks achieved full public and private coverage. FC-001 lost five points because a reused message ID with conflicting payload was explicitly rejected instead of returning the first settlement outcome; no duplicate posting occurred.
-- Database-backed idempotency, legal state transitions, deterministic sharding, transaction-held fencing, and unique compensation effects were independently exercised.
-- Public test totals include agent-authored tests and therefore describe these exact candidate runs, not a fixed cross-model test count.
+## Task scores
+
+| Task | Failure mode | Codex | Claude |
+|---|---|---:|---:|
+| FC-001 | Duplicate settlement | 95 | 90 |
+| FC-002 | Illegal terminal overwrite | 100 | 100 |
+| FC-003 | Fee hot account | 100 | 100 |
+| FC-004 | Scale-down takeover | 100 | 100 |
+| FC-005 | Duplicate compensation | 100 | 100 |
+## Reports and data
+
+- [Evidence-backed Claude vs Codex comparison](claude-vs-codex.md)
+- [Machine-readable comparison](comparison.json)
+- [Codex five-task summary](summary.json)
+- [Claude five-task summary](claude-summary.json)
+- [FC-001 Codex evidence](FC-001/codex-gpt-5.6-sol-run-001/README.md)
+- [FC-002 Codex evidence](FC-002/codex-gpt-5.6-sol-run-001/README.md)
+- [FC-003 Codex evidence](FC-003/codex-gpt-5.6-sol-run-001/README.md)
+- [FC-004 Codex evidence](FC-004/codex-gpt-5.6-sol-run-001/README.md)
+- [FC-005 Codex evidence](FC-005/codex-gpt-5.6-sol-run-001/README.md)
 
 ## Interpretation boundary
 
-This is a benchmark completion summary, not a general leaderboard. It covers one model, one valid run per task, one repository, and one runtime protocol. Cross-model claims require the same source commits, prompts, isolation, graders, and scoring review for every additional agent.
+This is one valid run per model and task, not a universal leaderboard. Cross-agent conclusions are limited to this Java/PostgreSQL financial-reliability benchmark. Additional valid runs are needed to measure variance.
 
-Raw transcripts, hidden test implementations, and answer patches remain private. Public evidence is intentionally limited to scorecards, runtime metadata, token totals, calibration summaries, and scenario-level outcomes.
-
-The same data is available as [machine-readable JSON](summary.json).
+Raw transcripts, hidden test implementations, answer patches, and authentication material remain private. Public evidence is intentionally limited to scorecards, runtime metadata, token/cost summaries, timing corrections, and sanitized scenario outcomes.
