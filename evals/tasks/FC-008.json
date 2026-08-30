@@ -10,6 +10,6 @@
     "重复修复只生成一张修复单 / idempotent repair record",
     "只修派生投影，不修改权威事实与资金账本 / projection-only repair"
   ],
-  "hiddenTestThemes": ["late authoritative insert", "concurrent repair retry", "snapshot consistency", "ghost quarantine", "mismatch rebuild"],
+  "hiddenTestThemes": ["late authoritative insert", "in-flight authoritative transaction", "concurrent repair retry", "snapshot consistency", "ghost quarantine", "mismatch rebuild"],
   "requiredEvidence": ["代码补丁 / code patch", "竞态测试 / race tests", "修复审计证明 / repair audit proof", "安全边界说明 / safety-boundary explanation"]
 }
