@@ -83,7 +83,7 @@ public class TradeReliabilityService {
             projected == 1, "PROCESSED");
     }
 
-    @Transactional(isolation = Isolation.REPEATABLE_READ)
+    @Transactional
     public ReconciliationReport reconcile(String rawSymbol) {
         String symbol = normalizeSymbol(rawSymbol);
         lock("trade-reconcile:" + symbol);
@@ -224,10 +224,7 @@ public class TradeReliabilityService {
         int rebuilt = 0;
         int quarantined = 0;
         for (Difference item : open) {
-            Integer sourceExists = jdbc.queryForObject("""
-                SELECT COUNT(*) FROM trade_execution WHERE trade_id=?
-                """, Integer.class, item.tradeId());
-            if (sourceExists == null || sourceExists == 0) {
+            if ("EXTRA".equals(item.type())) {
                 quarantined += jdbc.update("""
                     UPDATE trade_projection projection
                     SET status='QUARANTINED', version=version+1, updated_at=now()
