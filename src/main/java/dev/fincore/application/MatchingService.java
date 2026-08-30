@@ -65,7 +65,6 @@ public class MatchingService {
 
     @Transactional
     public MatchingResult place(PlaceOrderCommand command) {
-        lockSymbol(command.symbol());
         Optional<OrderView> replay = findByClientOrder(command.userId(), command.clientOrderId());
         if (replay.isPresent()) {
             requireSameRequest(command, replay.get());
