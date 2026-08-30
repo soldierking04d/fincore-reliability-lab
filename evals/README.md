@@ -1,8 +1,8 @@
 # FinCore Coding Agent 公开评测套件
 
-这套公开套件定义了 5 个接近生产问题的 Coding Agent 修复任务。每个任务从一个故意制造缺陷的分支开始，并使用同一套 100 分 Rubric。公开检查描述行为契约；隐藏测试位于独立的私有评分仓库，防止 Agent 针对具体实现寻找捷径。
+这套公开套件定义了 8 个接近生产问题的 Coding Agent 修复任务。前五题覆盖资金与状态安全；新增三题覆盖热门交易对并发、成交同步重放和对账修复竞态。每个任务从一个故意制造缺陷的分支开始，并使用同一套 100 分 Rubric。公开检查描述行为契约；隐藏测试位于独立的私有评分仓库，防止 Agent 针对具体实现寻找捷径。
 
-> **English summary:** Five controlled financial-reliability repair tasks share one rubric. Public tests define the contract; hidden scenarios remain in a separate private grader.
+> **English summary:** Eight controlled financial-reliability repair tasks share one rubric, including three advanced traffic and reconciliation scenarios. Public tests define the contract; hidden scenarios remain in a separate private grader.
 
 ## 任务分支
 
@@ -13,6 +13,9 @@
 | 手续费热点账户 · Fee hot account | `benchmark/fee-hot-account` | 锁竞争与不安全归集 |
 | 缩容接管 · Scale-down takeover | `benchmark/scale-down-takeover` | 过期 Worker 越权写入 |
 | 重复补偿 · Duplicate compensation | `benchmark/duplicate-compensation` | 重复冲正 |
+| 热门交易对并发撮合 · Hot-symbol matching | `benchmark/hot-symbol-matching` | 重复选单与成交竞争 |
+| 成交同步重放 · Trade-sync replay | `benchmark/trade-sync-replay` | 重复、乱序与冲突事件 |
+| 对账修复竞态 · Reconciliation repair race | `benchmark/reconciliation-repair-race` | 迟到权威数据被误隔离 |
 
 ## 评测协议
 

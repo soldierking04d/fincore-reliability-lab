@@ -13,7 +13,7 @@ jq -e '([.dimensions[].points] | add) == .totalPoints' "$rubric" >/dev/null
 jq -e '.vetoRules | length >= 5' "$rubric" >/dev/null
 
 mapfile -t tasks < <(find "$tasks_dir" -maxdepth 1 -name 'FC-*.json' -type f | sort)
-[[ "${#tasks[@]}" -eq 5 ]] || { echo "expected 5 tasks, found ${#tasks[@]}" >&2; exit 1; }
+[[ "${#tasks[@]}" -eq 8 ]] || { echo "expected 8 tasks, found ${#tasks[@]}" >&2; exit 1; }
 
 for task in "${tasks[@]}"; do
   jq -e '
@@ -31,7 +31,7 @@ duplicate_ids="$(jq -r '.id' "${tasks[@]}" | sort | uniq -d)"
 [[ -z "$duplicate_ids" ]] || { echo "duplicate task IDs: ${duplicate_ids}" >&2; exit 1; }
 
 mapfile -t patches < <(find "$defects_dir" -maxdepth 1 -name 'FC-*.patch' -type f | sort)
-[[ "${#patches[@]}" -eq 5 ]] || { echo "expected 5 defect patches, found ${#patches[@]}" >&2; exit 1; }
+[[ "${#patches[@]}" -eq 8 ]] || { echo "expected 8 defect patches, found ${#patches[@]}" >&2; exit 1; }
 
 if git -C "$project_root" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   current_branch="$(git -C "$project_root" rev-parse --abbrev-ref HEAD 2>/dev/null ||
@@ -45,4 +45,4 @@ if git -C "$project_root" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   done
 fi
 
-echo "Evaluation kit valid: 5 tasks, 5 applicable defects, 100-point rubric, unique IDs."
+echo "Evaluation kit valid: 8 tasks, 8 applicable defects, 100-point rubric, unique IDs."

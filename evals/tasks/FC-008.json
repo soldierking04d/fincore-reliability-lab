@@ -1,0 +1,15 @@
+{
+  "id": "FC-008",
+  "title": "对账差异修复竞态 · Reconciliation repair race",
+  "defectBranch": "benchmark/reconciliation-repair-race",
+  "timeboxMinutes": 120,
+  "agentPrompt": "修复全量对账与投影修复之间的竞态。对账必须基于一致快照；执行修复时必须重新核验当前权威成交，避免把迟到但合法的成交隔离。修复仅作用于派生投影，并且可幂等重试。 / Repair reconciliation and projection-repair races without mutating authoritative trades or financial ledgers.",
+  "publicChecks": [
+    "稳定识别 MISSING、MISMATCH、EXTRA / stable difference classification",
+    "迟到权威成交不会被错误隔离 / late authoritative trade is not quarantined",
+    "重复修复只生成一张修复单 / idempotent repair record",
+    "只修派生投影，不修改权威事实与资金账本 / projection-only repair"
+  ],
+  "hiddenTestThemes": ["late authoritative insert", "concurrent repair retry", "snapshot consistency", "ghost quarantine", "mismatch rebuild"],
+  "requiredEvidence": ["代码补丁 / code patch", "竞态测试 / race tests", "修复审计证明 / repair audit proof", "安全边界说明 / safety-boundary explanation"]
+}

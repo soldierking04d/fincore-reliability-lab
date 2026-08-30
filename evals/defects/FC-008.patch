@@ -1,0 +1,16 @@
+diff --git a/src/main/java/dev/fincore/application/TradeReliabilityService.java b/src/main/java/dev/fincore/application/TradeReliabilityService.java
+--- a/src/main/java/dev/fincore/application/TradeReliabilityService.java
++++ b/src/main/java/dev/fincore/application/TradeReliabilityService.java
+@@ -86,2 +86,2 @@
+-    @Transactional(isolation = Isolation.REPEATABLE_READ)
++    @Transactional
+     public ReconciliationReport reconcile(String rawSymbol) {
+@@ -219,7 +219,4 @@
+         for (Difference item : open) {
+-            Integer sourceExists = jdbc.queryForObject("""
+-                SELECT COUNT(*) FROM trade_execution WHERE trade_id=?
+-                """, Integer.class, item.tradeId());
+-            if (sourceExists == null || sourceExists == 0) {
++            if ("EXTRA".equals(item.type())) {
+                 quarantined += jdbc.update("""
+                     UPDATE trade_projection
