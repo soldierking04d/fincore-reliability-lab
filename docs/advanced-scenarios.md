@@ -2,7 +2,7 @@
 
 这组场景把项目从“单笔功能正确”推进到“高峰、乱序、漏数和重复修复后仍然收敛”。所有说明以业务判断为主，英文只保留必要术语。
 
-> **English summary:** Advanced scenarios cover hot-symbol traffic, duplicated and out-of-order trade events, missing or corrupted projections, ghost trades, idempotent repair and post-repair convergence.
+> **English summary:** Advanced scenarios cover hot-symbol traffic, duplicated and out-of-order trade events, missing or corrupted projections, ghost trades, in-flight authoritative transactions, idempotent repair and post-repair convergence.
 
 ## 负责人先看结论
 
@@ -22,6 +22,7 @@
 | AS-003 重复与冲突重放 | Kafka 重投或上游重试导致重复统计；相同事件号被换了载荷 | 同一 eventId 重放相同与不同内容 | 相同内容幂等返回，冲突内容拒绝 |
 | AS-004 漏同步与错值 | 某条成交丢失，或价格、数量、Maker/Taker 被错误覆盖 | 故意跳过一条事件并篡改投影数量 | 全量对账识别 MISSING 与 MISMATCH |
 | AS-005 幽灵成交与重复修复 | 下游多出权威成交表不存在的数据；修复任务重试产生二次修改 | 注入 EXTRA 投影并重复提交同一修复键 | 幽灵数据进入隔离区；修复单唯一；再次对账收敛到 CLEAN |
+| AS-006 权威成交在途提交 | 对账判定 EXTRA 后，合法成交事务尚未提交，修复抢先隔离投影 | 写事务持有交易对锁并暂不提交，同时启动修复 | 修复等待同交易对写入提交，重新读取权威成交并把投影保持为 ACTIVE |
 
 ## 数据流与安全边界
 
@@ -44,6 +45,8 @@ flowchart TD
 - `trade_id` 是不可变成交事实的唯一标识；
 - 同一交易对的活动投影序列唯一；
 - 对账使用权威成交与活动投影的全量外连接，不能只比较总金额；
+- 修复与权威成交写入共享交易对级数据库锁，等待在途事务提交后再核验；
+- 隔离 SQL 还要使用 NOT EXISTS 再次确认当前没有权威成交背书；
 - 修复批次有独立幂等键，重试只返回第一次结果；
 - MISSING 与 MISMATCH 从权威成交重建；
 - EXTRA 先隔离，不物理删除，不反向污染权威事实；

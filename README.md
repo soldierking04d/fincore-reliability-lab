@@ -81,7 +81,7 @@ flowchart LR
 
 ## 复杂场景：高峰流量与异常同步修复
 
-新增五组生产式故障实验：
+新增六组生产式故障实验：
 
 | 场景 | 需要守住的结果 |
 |---|---|
@@ -90,6 +90,7 @@ flowchart LR
 | 重复与冲突事件 | 相同载荷幂等；同一事件号更换内容立即拒绝 |
 | 漏同步与字段错值 | 全量对账分别识别 `MISSING` 与 `MISMATCH` |
 | 幽灵成交与修复重试 | 额外投影进入隔离区；同一修复键只执行一次；再次对账必须 `CLEAN` |
+| 权威成交事务在途提交 | 修复与撮合共享交易对锁，提交后重新核验，合法成交不能被误隔离 |
 
 修复边界有意做了限制：成交表是权威事实，系统只自动重建派生投影或隔离幽灵数据，**不会为了让数字相等直接修改资金余额或历史账本**。复杂实验说明、API 和 k6 热点冲击方法见[大流量与对账修复场景](docs/advanced-scenarios.md)。
 
@@ -332,7 +333,7 @@ docker compose --profile test run --rm app-test
 
 ## Coding Agent 评测包
 
-`evals/` 提供五个生产级修复任务、统一的 100 分 Rubric、结果 Schema，以及五份可校验的故意缺陷补丁。`main` 完成验证并提交后，可重复生成独立评测分支：
+`evals/` 提供八个生产级修复任务、统一的 100 分 Rubric、结果 Schema，以及八份可校验的故意缺陷补丁。`main` 完成验证并提交后，可重复生成独立评测分支：
 
 ```bash
 ./scripts/eval/validate-eval-kit.sh
@@ -343,10 +344,12 @@ docker compose --profile test run --rm app-test
 
 ### 受控实测结果
 
-Codex、Claude Code 与 Google Antigravity 已在相同缺陷提交、任务提示、隐藏测试和 Rubric 下完成五任务受控对比。总分依次为 495/500、490/500、485/500；Antigravity 以 1,004 秒成为本轮最快。三者均未触发资金安全一票否决。
+评测分成两批：FC-001～FC-005 已完成 45 次三轮重复性实验；FC-006～FC-008 已完成 9 次复杂场景首轮实验。复杂场景中 Codex 为 290/300 且 3/3 达到接受线，Claude 为 195/300，Antigravity 为 175/300。后两者在 FC-008 的“权威成交事务仍在提交”强化场景中触发错误隔离安全否决。
 
-- [中英文评测手记：五个故障、三个 Agent](https://fincore-agent-benchmark.soldierking04d.chatgpt.site)
-- [三 Agent 五任务总对比](reports/evaluations/README.md)
+- [中英文评测网站](https://fincore-agent-benchmark.soldierking04d.chatgpt.site)
+- [三项复杂场景首轮报告](reports/evaluations/advanced-scenarios-results.md)
+- [复杂场景机器可读结果](reports/evaluations/advanced-scenarios-results.json)
+- [全部评测总入口](reports/evaluations/README.md)
 - [Codex vs Claude Code vs Antigravity 详细报告](reports/evaluations/coding-agent-comparison.md)
 - [原 Claude Code vs Codex 双 Agent 快照](reports/evaluations/claude-vs-codex.md)
 - [机器可读对比](reports/evaluations/comparison.json)
