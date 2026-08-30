@@ -53,7 +53,7 @@ This repository turns those failure modes into executable experiments. The publi
 - Lab-only duplicate-delivery and balance-corruption endpoints
 - Prometheus metrics and a provisioned Grafana dashboard
 - JUnit, PostgreSQL Testcontainers, pure-JDK simulation, and k6 workload
-- Five standardized coding-agent repair tasks and a 100-point rubric
+- Eight standardized coding-agent repair tasks and a 100-point rubric
 
 ## Matching module
 
@@ -65,7 +65,7 @@ See the Chinese-first [matching module guide](docs/matching-engine.md) for busin
 
 ## Advanced traffic and reconciliation scenarios
 
-The lab now covers hot-symbol bursts, out-of-order and duplicate trade events, conflicting replays, missing or corrupted projections, ghost trades, idempotent repair, and mandatory post-repair reconciliation.
+The lab now covers hot-symbol bursts, out-of-order and duplicate trade events, conflicting replays, missing or corrupted projections, ghost trades, idempotent repair, in-flight authoritative transactions, and mandatory post-repair reconciliation.
 
 The repair boundary is deliberate: authoritative trades and financial ledgers are never overwritten to make totals match. Only derived trade projections can be rebuilt from authoritative facts; unmatched ghost projections are quarantined with an audit trail. See the Chinese-first [advanced scenarios guide](docs/advanced-scenarios.md).
 
@@ -153,13 +153,16 @@ The Maven suite uses a real PostgreSQL Testcontainer and applies Flyway migratio
 
 ## Coding-agent benchmark
 
-The public evaluation kit is under [`evals/`](evals/README.md). It defines five defect branches:
+The public evaluation kit is under [`evals/`](evals/README.md). It defines eight defect branches:
 
 1. Duplicate settlement
 2. Illegal terminal-state overwrite
 3. Fee hot account
 4. Stale worker after scale-down takeover
 5. Duplicate compensation
+6. Hot-symbol cross-symbol contention
+7. Conflicting trade-sync replay
+8. Reconciliation repair race
 
 Every run is scored against the same 100-point rubric covering functional correctness, transactions, idempotency, recovery, financial safety, tests, capacity, maintainability, and observability. Veto rules reject solutions that use floating-point money, allow repeated posting, mutate historical journals, hide errors, weaken tests, or treat memory/Redis as the ledger.
 
@@ -167,10 +170,12 @@ Hidden graders should be stored separately from this public repository.
 
 ### Controlled results
 
-Codex, Claude Code, and Google Antigravity have completed a controlled five-task comparison using matched defect commits, prompts, hidden graders, and scoring rules. They scored 495/500, 490/500, and 485/500 respectively. Antigravity was fastest at 1,004 seconds. None triggered a financial-safety veto.
+The benchmark now has two evidence sets: 45 repeated attempts on FC-001 through FC-005, and nine first-pass attempts on FC-006 through FC-008. In the advanced set, Codex scored 290/300 and cleared all three acceptance thresholds; Claude scored 195/300 and Antigravity 175/300. The latter two triggered the FC-008 veto when the authoritative trade transaction was still in flight.
 
-- [Evaluation note: five failures, three agents](https://fincore-agent-benchmark.soldierking04d.chatgpt.site)
-- [Three-agent five-task comparison](reports/evaluations/README.md)
+- [Bilingual evaluation site](https://fincore-agent-benchmark.soldierking04d.chatgpt.site)
+- [Advanced-scenario first-pass report](reports/evaluations/advanced-scenarios-results.md)
+- [Advanced machine-readable results](reports/evaluations/advanced-scenarios-results.json)
+- [All evaluation reports](reports/evaluations/README.md)
 - [Codex vs Claude Code vs Antigravity report](reports/evaluations/coding-agent-comparison.md)
 - [Frozen Claude Code vs Codex snapshot](reports/evaluations/claude-vs-codex.md)
 - [Machine-readable comparison](reports/evaluations/comparison.json)
@@ -188,7 +193,7 @@ Codex, Claude Code, and Google Antigravity have completed a controlled five-task
 - [FC-005 evidence-backed report](reports/evaluations/FC-005/codex-gpt-5.6-sol-run-001/README.md)
 - [FC-005 machine-readable scorecard](reports/evaluations/FC-005/codex-gpt-5.6-sol-run-001/scorecard.json)
 
-The intentional defect definitions are versioned under [`evals/defects/`](evals/defects/README.md). After the verified `main` commit exists, `./scripts/eval/create-defect-branches.sh` creates all five benchmark branches reproducibly.
+The intentional defect definitions are versioned under [`evals/defects/`](evals/defects/README.md). After the verified `main` commit exists, `./scripts/eval/create-defect-branches.sh` creates all eight benchmark branches reproducibly.
 
 ## Financial invariants
 

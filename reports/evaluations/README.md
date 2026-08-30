@@ -1,8 +1,25 @@
 # Coding Agent 受控评测
 
-FinCore 使用相同缺陷提交、任务说明、公开测试、隐藏评分器和评分规则，对三种 Coding Agent 进行了 45 次隔离修复：5 个金融可靠性任务 × 3 种 Agent × 每组 3 次，全程不进行人工修补。
+FinCore 使用相同缺陷提交、任务说明、公开测试、隐藏评分器和评分规则完成了两批受控评测：FC-001～FC-005 的 45 次三轮重复修复，以及 FC-006～FC-008 的 9 次复杂场景首轮修复，全程不进行人工修补候选补丁。
 
-> **English summary:** This release covers 45 controlled Java/PostgreSQL repair attempts. Codex achieved the highest clean-run rate, Claude passed the most planned hidden scenarios, and Antigravity was fastest but produced two non-compiling patches.
+> **English summary:** This release covers 45 controlled Java/PostgreSQL repeat attempts plus nine first-pass advanced-scenario attempts. Codex achieved the strongest advanced safety result; Claude and Antigravity exposed an in-flight reconciliation race despite passing the original hidden checks.
+
+## 新增：三个复杂场景首轮实测
+
+FC-006～FC-008 已完成 3 个 Agent × 每题 1 次的 9 次隔离首轮评测，覆盖热门交易对全局锁、成交同步冲突重放，以及权威成交在途提交时的对账修复竞态。
+
+| Agent | 完整绿灯 | Rubric 接受 | 分数 | 最终隐藏场景 | 安全否决 |
+|---|---:|---:|---:|---:|---:|
+| Codex · gpt-5.6-sol | 2/3 | 3/3 | 290/300 | 17/17 | 0 |
+| Claude Code · sonnet | 1/3 | 2/3 | 195/300 | 15/17 | 1 |
+| Antigravity · Gemini 3.7 Flash (High) | 1/3 | 1/3 | 175/300 | 10/17 | 1 |
+
+最关键的发现不是分数，而是原始 FC-008 隐藏测试的盲区：Claude 和 Antigravity 原先均为 5/5，但在增加“权威成交事务未提交”场景后降为 5/7，并触发错误隔离安全否决；Codex 和强化后的参考实现均为 7/7。
+
+- [复杂场景完整报告](advanced-scenarios-results.md)
+- [复杂场景机器可读结果](advanced-scenarios-results.json)
+
+这 9 次是每题一次的首轮样本，尚未并入下方 45 次三轮重复性统计。
 
 ## 负责人先看结论
 
