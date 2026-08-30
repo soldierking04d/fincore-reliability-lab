@@ -1,0 +1,203 @@
+{
+  "benchmark": "FinCore Reliability Lab v0.4 repeatability report",
+  "generatedAt": "2026-08-30T09:38:55Z",
+  "method": {
+    "agents": 3,
+    "tasks": 5,
+    "runsPerAgentTask": 3,
+    "totalAttempts": 45,
+    "cleanPassDefinition": "agent exits, public suite passes, and all five hidden scenarios pass",
+    "sequentialSameVm": true,
+    "humanRepairRounds": 0
+  },
+  "agents": {
+    "codex": {
+      "agent": "Codex CLI",
+      "model": "gpt-5.6-sol",
+      "attempts": 15,
+      "cleanPasses": 12,
+      "cleanPassRatePercent": 80.0,
+      "hidden": {
+        "passed": 66,
+        "executed": 75,
+        "planned": 75,
+        "plannedPassRatePercent": 88.0,
+        "executedPassRatePercent": 88.0
+      },
+      "statuses": {
+        "clean_pass": 12,
+        "hidden_test_failed": 3,
+        "public_test_failed": 0,
+        "build_failed": 0,
+        "agent_failed": 0
+      },
+      "timeSeconds": {
+        "total": 5862,
+        "average": 390.8,
+        "median": 369,
+        "minimum": 241,
+        "maximum": 603
+      },
+      "stableTasks": [
+        "FC-003",
+        "FC-004"
+      ],
+      "firstRunScore": 495,
+      "firstRunMaximum": 500,
+      "cliReportedEstimatedCostUsd": null
+    },
+    "claude": {
+      "agent": "Claude Code",
+      "model": "sonnet",
+      "attempts": 15,
+      "cleanPasses": 11,
+      "cleanPassRatePercent": 73.3,
+      "hidden": {
+        "passed": 70,
+        "executed": 75,
+        "planned": 75,
+        "plannedPassRatePercent": 93.3,
+        "executedPassRatePercent": 93.3
+      },
+      "statuses": {
+        "clean_pass": 11,
+        "hidden_test_failed": 2,
+        "public_test_failed": 2,
+        "build_failed": 0,
+        "agent_failed": 0
+      },
+      "timeSeconds": {
+        "total": 7523,
+        "average": 501.5,
+        "median": 447,
+        "minimum": 241,
+        "maximum": 847
+      },
+      "stableTasks": [
+        "FC-002",
+        "FC-003",
+        "FC-004"
+      ],
+      "firstRunScore": 490,
+      "firstRunMaximum": 500,
+      "cliReportedEstimatedCostUsd": 16.577909
+    },
+    "antigravity": {
+      "agent": "Antigravity",
+      "model": "Gemini 3.7 Flash (High)",
+      "attempts": 15,
+      "cleanPasses": 10,
+      "cleanPassRatePercent": 66.7,
+      "hidden": {
+        "passed": 61,
+        "executed": 65,
+        "planned": 75,
+        "plannedPassRatePercent": 81.3,
+        "executedPassRatePercent": 93.8
+      },
+      "statuses": {
+        "clean_pass": 10,
+        "hidden_test_failed": 2,
+        "public_test_failed": 1,
+        "build_failed": 2,
+        "agent_failed": 0
+      },
+      "timeSeconds": {
+        "total": 2771,
+        "average": 184.7,
+        "median": 188,
+        "minimum": 138,
+        "maximum": 234
+      },
+      "stableTasks": [
+        "FC-003",
+        "FC-004"
+      ],
+      "firstRunScore": 485,
+      "firstRunMaximum": 500,
+      "cliReportedEstimatedCostUsd": null
+    }
+  },
+  "tasks": [
+    {
+      "taskId": "FC-001",
+      "attempts": 9,
+      "cleanPasses": 2,
+      "cleanPassRatePercent": 22.2,
+      "byAgent": {
+        "codex": 2,
+        "claude": 0,
+        "antigravity": 0
+      }
+    },
+    {
+      "taskId": "FC-002",
+      "attempts": 9,
+      "cleanPasses": 7,
+      "cleanPassRatePercent": 77.8,
+      "byAgent": {
+        "codex": 2,
+        "claude": 3,
+        "antigravity": 2
+      }
+    },
+    {
+      "taskId": "FC-003",
+      "attempts": 9,
+      "cleanPasses": 9,
+      "cleanPassRatePercent": 100.0,
+      "byAgent": {
+        "codex": 3,
+        "claude": 3,
+        "antigravity": 3
+      }
+    },
+    {
+      "taskId": "FC-004",
+      "attempts": 9,
+      "cleanPasses": 9,
+      "cleanPassRatePercent": 100.0,
+      "byAgent": {
+        "codex": 3,
+        "claude": 3,
+        "antigravity": 3
+      }
+    },
+    {
+      "taskId": "FC-005",
+      "attempts": 9,
+      "cleanPasses": 6,
+      "cleanPassRatePercent": 66.7,
+      "byAgent": {
+        "codex": 2,
+        "claude": 2,
+        "antigravity": 2
+      }
+    }
+  ],
+  "overall": {
+    "cleanPasses": 33,
+    "attempts": 45,
+    "cleanPassRatePercent": 73.3,
+    "hiddenPassed": 197,
+    "hiddenExecuted": 215,
+    "hiddenPlanned": 225
+  },
+  "observations": {
+    "bestEndToEndCleanRate": "codex",
+    "bestHiddenScenarioRate": "claude",
+    "fastestMedian": "antigravity",
+    "universallyStableTasks": [
+      "FC-003",
+      "FC-004"
+    ],
+    "hardestTask": "FC-001"
+  },
+  "caveats": [
+    "Three runs expose variance but do not establish a population-level confidence interval.",
+    "A build failure is a valid agent failure and counts as zero of five planned hidden scenarios; it is not relabeled as infrastructure failure.",
+    "Token counters are vendor-specific and are not compared across agents.",
+    "Only Claude exposed a CLI-estimated dollar amount for every run, so cost is not ranked.",
+    "Repeat patches have not received full subjective 100-point rubric review; repeated-run ranking uses deterministic clean-pass, hidden-case, and timing evidence."
+  ]
+}

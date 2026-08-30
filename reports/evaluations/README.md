@@ -1,51 +1,41 @@
 # Controlled coding-agent evaluations
 
-Three coding agents completed the same five transaction-safety repairs under matched source commits, prompts, hidden graders, and scoring rules. This is a narrow case study, not a universal leaderboard: five tasks, one valid run per agent/task, no human baseline, and no confidence interval.
+Three coding agents completed the same five Java/PostgreSQL transaction-safety repairs under matched source commits, prompts, hidden graders, and scoring rules. The first publication used one run per agent/task. The repeatability release now covers **45 controlled attempts**: three runs for every agent/task pair, with no human repair round.
 
-> 中文摘要：Codex、Claude Code 与 Google Antigravity 均完成五个金融可靠性修复任务。总分依次为 495、490、485；Antigravity 用时最短。三者均未触发资金安全一票否决。
+> 中文摘要：45 次重复评测没有产生一个“全能冠军”。Codex 的端到端完整通过率最高（12/15），Claude 的计划隐藏场景通过率最高（70/75），Antigravity 中位耗时最短（188 秒），但出现两次无法编译的补丁。
 
-## Agent totals
+## Repeatability totals
 
-| Agent | Score | Perfect runs | Public tests | Private scenarios | Agent time | Vetoes |
-|---|---:|---:|---:|---:|---:|---:|
-| OpenAI Codex CLI · gpt-5.6-sol | 495/500 | 4/5 | 70/70 | 24/25 | 1,762 s | 0 |
-| Anthropic Claude Code · sonnet | 490/500 | 4/5 | 83/83 | 23/25 | 2,335 s | 0 |
-| Google Antigravity CLI · Gemini 3.7 Flash (High) | 485/500 | 3/5 | 80/81 | 23/25 | 1,004 s | 0 |
+| Agent | Clean runs | Planned hidden scenarios | Median agent time | Build failures |
+|---|---:|---:|---:|---:|
+| OpenAI Codex CLI · gpt-5.6-sol | 12/15 (80.0%) | 66/75 (88.0%) | 369 s | 0 |
+| Anthropic Claude Code · sonnet | 11/15 (73.3%) | 70/75 (93.3%) | 447 s | 0 |
+| Google Antigravity CLI · Gemini 3.7 Flash (High) | 10/15 (66.7%) | 61/75 (81.3%) | 188 s | 2 |
 
-Public test counts include agent-authored tests and are therefore not a direct cross-agent quality metric.
+A clean run requires a successful agent exit, a passing complete public suite, and all five hidden scenarios. Build failures count against the planned hidden-case denominator. Public test counts are not compared across agents because agents may add tests.
 
-## Task scores
+## First-run scorecard
 
-| Task | Failure mode | Codex | Claude | Antigravity |
-|---|---|---:|---:|---:|
-| FC-001 | Duplicate settlement | 95 | 90 | 90 |
-| FC-002 | Illegal terminal overwrite | 100 | 100 | 100 |
-| FC-003 | Fee hot account | 100 | 100 | 100 |
-| FC-004 | Scale-down takeover | 100 | 100 | 100 |
-| FC-005 | Duplicate compensation | 100 | 100 | 95 |
+The original subjective Rubric scores remain historical evidence: Codex 495/500, Claude 490/500, and Antigravity 485/500. They are no longer the primary ranking because the 30 repeat patches have deterministic test and timing results but have not received a full subjective 100-point review.
 
 ## Reports and data
 
-- [Bilingual evaluation note](https://fincore-agent-benchmark.soldierking04d.chatgpt.site)
-- [Evidence-backed three-agent comparison, design references, and limitations](coding-agent-comparison.md)
-- [Business and engineering benchmark introduction](../../docs/agent-evaluations/benchmark-introduction.md)
-- [Three-run repeatability protocol](repeatability-protocol.md)
+- [Bilingual benchmark site](https://fincore-agent-benchmark.soldierking04d.chatgpt.site)
+- [Three-run repeatability report](repeatability-results.md)
+- [Machine-readable repeatability aggregate](repeatability-results.json)
+- [Sanitized 30-run index](repeat-progress.json)
+- [Repeatability protocol](repeatability-protocol.md)
 - [Repeated-run evidence notes](repeated-runs/README.md)
-- [Current repeated-run progress](repeat-progress.json)
-- [Sanitized repeated-run index schema](run-index.schema.json)
-- [Machine-readable comparison](comparison.json)
-- [Codex five-task summary](summary.json)
-- [Claude five-task summary](claude-summary.json)
-- [Antigravity five-task summary](antigravity-summary.json)
-- [Frozen Claude vs Codex snapshot](claude-vs-codex.md)
-- [FC-001 Codex evidence](FC-001/codex-gpt-5.6-sol-run-001/README.md)
-- [FC-002 Codex evidence](FC-002/codex-gpt-5.6-sol-run-001/README.md)
-- [FC-003 Codex evidence](FC-003/codex-gpt-5.6-sol-run-001/README.md)
-- [FC-004 Codex evidence](FC-004/codex-gpt-5.6-sol-run-001/README.md)
-- [FC-005 Codex evidence](FC-005/codex-gpt-5.6-sol-run-001/README.md)
+- [Sanitized index schema](run-index.schema.json)
+- [First-run three-agent comparison](coding-agent-comparison.md)
+- [Business and engineering benchmark introduction](../../docs/agent-evaluations/benchmark-introduction.md)
+- [First-run machine comparison](comparison.json)
+- [Codex first-run summary](summary.json)
+- [Claude first-run summary](claude-summary.json)
+- [Antigravity first-run summary](antigravity-summary.json)
 
 ## Interpretation boundary
 
-This is one valid run per model and task, not a universal leaderboard. Cross-agent conclusions are limited to this Java/PostgreSQL financial-reliability benchmark. Additional valid runs are needed to measure variance.
+This is a narrow case study in Java, Spring Boot, PostgreSQL and financial reliability, not a universal coding-agent leaderboard. Three attempts per agent/task expose meaningful run-to-run variance but do not establish a population confidence interval or a general software-engineering ranking.
 
-Raw transcripts, hidden test implementations, answer patches, and authentication material remain private. Public evidence is intentionally limited to scorecards, runtime metadata, token/cost summaries, timing corrections, and sanitized scenario outcomes.
+Raw transcripts, hidden test implementations, answer patches, and authentication material remain private. Public evidence is intentionally limited to scorecards, runtime metadata, available usage/cost summaries, deterministic scenario outcomes, hashes and methodology.
