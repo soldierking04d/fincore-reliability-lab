@@ -34,12 +34,12 @@ for item in "${tasks[@]}"; do
     continue
   fi
 
-  git switch main
-  git switch -c "$branch"
+  git checkout main
+  git checkout -b "$branch"
   git apply "evals/defects/${task_id}.patch"
   git add src
   git commit -m "benchmark(${task_id}): INTENTIONAL BENCHMARK DEFECT"
 done
 
-git switch main
+git checkout main
 echo "Created missing intentional benchmark branches for the 8-task suite and returned to main."
