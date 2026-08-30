@@ -65,6 +65,7 @@ public class MatchingService {
 
     @Transactional
     public MatchingResult place(PlaceOrderCommand command) {
+        lockSymbol(command.symbol());
         Optional<OrderView> replay = findByClientOrder(command.userId(), command.clientOrderId());
         if (replay.isPresent()) {
             requireSameRequest(command, replay.get());
@@ -223,7 +224,7 @@ public class MatchingService {
             FROM matching_order
             WHERE symbol=? AND side=? AND status IN ('OPEN', 'PARTIALLY_FILLED')
               AND remaining_quantity>0
-            ORDER BY price %s, order_sequence ASC LIMIT 1
+            ORDER BY price %s, order_sequence ASC LIMIT 1 FOR UPDATE
             """).formatted(direction);
         return jdbc.query(sql, ORDER_MAPPER, symbol, side.name()).stream().findFirst();
     }
@@ -306,7 +307,7 @@ public class MatchingService {
     private void lockSymbol(String symbol) {
         jdbc.queryForObject(
             "SELECT pg_advisory_xact_lock(hashtextextended(?, 0))",
-            (rs, row) -> Boolean.TRUE, symbol);
+            (rs, row) -> Boolean.TRUE, "GLOBAL");
     }
 
     private long nextSequence(String symbol) {
