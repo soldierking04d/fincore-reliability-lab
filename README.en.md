@@ -63,6 +63,19 @@ The current correctness baseline serializes one symbol with a PostgreSQL advisor
 
 See the Chinese-first [matching module guide](docs/matching-engine.md) for business boundaries, APIs, and production upgrade paths.
 
+## Advanced traffic and reconciliation scenarios
+
+The lab now covers hot-symbol bursts, out-of-order and duplicate trade events, conflicting replays, missing or corrupted projections, ghost trades, idempotent repair, and mandatory post-repair reconciliation.
+
+The repair boundary is deliberate: authoritative trades and financial ledgers are never overwritten to make totals match. Only derived trade projections can be rebuilt from authoritative facts; unmatched ghost projections are quarantined with an audit trail. See the Chinese-first [advanced scenarios guide](docs/advanced-scenarios.md).
+
+```bash
+curl -s -X POST \
+  'http://127.0.0.1:8080/lab/scenarios/matching-burst?makers=80&takers=16'
+curl -s -X POST \
+  http://127.0.0.1:8080/lab/scenarios/trade-sync-recovery
+```
+
 ## Architecture
 
 ```mermaid

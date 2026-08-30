@@ -32,6 +32,18 @@ public class CoreVerification {
                 .compareTo(new BigDecimal("24.690")) != 0) fail("quote amount lost precision");
         new PlaceOrderCommand("client-1", "user-1", "BTC-USDT", OrderSide.BUY,
             OrderType.LIMIT, new BigDecimal("65000"), new BigDecimal("0.1"));
+        UUID maker = UUID.randomUUID();
+        UUID taker = UUID.randomUUID();
+        new TradeSyncCommand(UUID.randomUUID(), UUID.randomUUID(), "BTC-USDT",
+            maker, taker, new BigDecimal("100"), new BigDecimal("2"),
+            new BigDecimal("200"), 1);
+        boolean badTradeRejected = false;
+        try {
+            new TradeSyncCommand(UUID.randomUUID(), UUID.randomUUID(), "BTC-USDT",
+                maker, taker, new BigDecimal("100"), new BigDecimal("2"),
+                new BigDecimal("199"), 2);
+        } catch (IllegalArgumentException expected) { badTradeRejected = true; }
+        if (!badTradeRejected) fail("conflicting trade amount accepted");
         ReliabilitySimulation.runAndAssert();
         System.out.println("Core verification passed");
     }
