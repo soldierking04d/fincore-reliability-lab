@@ -2,6 +2,7 @@ package dev.fincore;
 
 import static org.junit.jupiter.api.Assertions.*;
 import dev.fincore.application.LabScenarioService;
+import dev.fincore.application.MarketCrashScenarioService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -34,11 +35,23 @@ class LabScenarioIntegrationTest {
     }
 
     @Autowired LabScenarioService scenarios;
+    @Autowired MarketCrashScenarioService marketCrash;
 
     @Test void fullAutomatedScenarioPasses() {
         var report = scenarios.runFullScenario();
         assertFalse(report.checks().isEmpty());
         assertTrue(report.checks().values().stream().allMatch(value -> value.startsWith("PASS")));
+    }
+
+    @Test void marketCrashDayRecoversAndPreservesAllInvariants() {
+        var report = marketCrash.runMarketCrashDay();
+        assertEquals("RECOVERED", report.finalStatus());
+        assertEquals(60, report.metrics().tradeCount());
+        assertEquals(60, report.metrics().uniqueTradeSequences());
+        assertEquals("CLEAN", report.recovery().finalStatus());
+        assertTrue(report.recovery().duplicateRepairDetected());
+        assertTrue(report.checks().values().stream()
+            .allMatch(value -> value.startsWith("PASS")));
     }
 }
 
