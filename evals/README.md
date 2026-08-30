@@ -13,7 +13,7 @@
 | 手续费热点账户 · Fee hot account | `benchmark/fee-hot-account` | 锁竞争与不安全归集 |
 | 缩容接管 · Scale-down takeover | `benchmark/scale-down-takeover` | 过期 Worker 越权写入 |
 | 重复补偿 · Duplicate compensation | `benchmark/duplicate-compensation` | 重复冲正 |
-| 热门交易对并发撮合 · Hot-symbol matching | `benchmark/hot-symbol-matching` | 重复选单与成交竞争 |
+| 热门交易对并发撮合 · Hot-symbol matching | `benchmark/hot-symbol-matching` | 全局锁导致跨交易对吞吐塌陷 |
 | 成交同步重放 · Trade-sync replay | `benchmark/trade-sync-replay` | 重复、乱序与冲突事件 |
 | 对账修复竞态 · Reconciliation repair race | `benchmark/reconciliation-repair-race` | 迟到权威数据被误隔离 |
 

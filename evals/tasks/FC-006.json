@@ -3,13 +3,13 @@
   "title": "热门交易对并发撮合 · Hot-symbol concurrent matching",
   "defectBranch": "benchmark/hot-symbol-matching",
   "timeboxMinutes": 120,
-  "agentPrompt": "修复同一热门交易对并发撮合时的重复选单、失败回滚和价格时间优先问题。使用数据库事务保证多实例一致性，同时保持成交、订单、序列、审计和 Outbox 原子一致。 / Repair hot-symbol matching so concurrent takers preserve exactly-once fills and price-time priority across instances.",
+  "agentPrompt": "修复撮合锁退化为全局锁后造成的跨交易对相互阻塞，同时保留热门交易对内的成交唯一、价格时间优先和事务原子性。 / Remove cross-symbol blocking caused by a global matching lock while preserving safe hot-symbol serialization.",
   "publicChecks": [
     "并发 Taker 不会重复成交同一 Maker / no maker is double-filled",
     "成交数量守恒且序列唯一递增 / quantity conservation and unique sequences",
     "订单、成交、审计与 Outbox 原子提交 / atomic order, trade, audit and Outbox",
     "不得使用 JVM 全局锁作为最终边界 / no JVM-global final lock"
   ],
-  "hiddenTestThemes": ["concurrent taker storm", "price-time priority", "rollback and retry", "duplicate client order", "outbox cardinality"],
+  "hiddenTestThemes": ["cross-symbol lock independence", "concurrent taker storm", "price-time priority", "quantity conservation", "outbox cardinality"],
   "requiredEvidence": ["代码补丁 / code patch", "并发测试 / concurrency tests", "守恒证明 / invariant proof", "容量说明 / capacity reasoning"]
 }
