@@ -1,0 +1,8 @@
+diff --git a/src/main/java/dev/fincore/application/TradeReliabilityService.java b/src/main/java/dev/fincore/application/TradeReliabilityService.java
+--- a/src/main/java/dev/fincore/application/TradeReliabilityService.java
++++ b/src/main/java/dev/fincore/application/TradeReliabilityService.java
+@@ -53,3 +53,2 @@ public class TradeReliabilityService {
+-        if (inbox == null || !inbox.tradeId().equals(command.tradeId())
+-            || !inbox.payloadHash().equals(payloadHash)) {
++        if (inbox == null) {
+             throw new IllegalArgumentException(

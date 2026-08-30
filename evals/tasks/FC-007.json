@@ -1,0 +1,15 @@
+{
+  "id": "FC-007",
+  "title": "成交同步幂等与冲突重放 · Trade-sync replay safety",
+  "defectBranch": "benchmark/trade-sync-replay",
+  "timeboxMinutes": 90,
+  "agentPrompt": "修复成交事件重复、乱序和冲突重放。相同事件相同载荷必须幂等；相同事件或成交号携带不同不可变字段必须拒绝；Inbox 与成交投影必须处于同一事务。 / Repair duplicate, out-of-order and conflicting trade-event delivery with database-backed idempotency.",
+  "publicChecks": [
+    "同事件同载荷只产生一个投影 / identical replay creates one projection",
+    "同事件不同载荷明确失败 / conflicting replay is rejected",
+    "乱序事件可独立收敛 / out-of-order delivery converges",
+    "Inbox 与投影原子提交 / inbox and projection commit atomically"
+  ],
+  "hiddenTestThemes": ["concurrent duplicate storm", "event payload conflict", "trade identity conflict", "out-of-order delivery", "projection failure rollback"],
+  "requiredEvidence": ["代码补丁 / code patch", "数据库唯一性说明 / uniqueness proof", "并发与回滚测试 / concurrency and rollback tests", "测试输出 / test output"]
+}

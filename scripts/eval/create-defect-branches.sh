@@ -20,6 +20,9 @@ tasks=(
   "FC-003:benchmark/fee-hot-account"
   "FC-004:benchmark/scale-down-takeover"
   "FC-005:benchmark/duplicate-compensation"
+  "FC-006:benchmark/hot-symbol-matching"
+  "FC-007:benchmark/trade-sync-replay"
+  "FC-008:benchmark/reconciliation-repair-race"
 )
 
 for item in "${tasks[@]}"; do
@@ -27,8 +30,8 @@ for item in "${tasks[@]}"; do
   branch="${item#*:}"
 
   if git show-ref --verify --quiet "refs/heads/${branch}"; then
-    echo "branch already exists: ${branch}" >&2
-    exit 1
+    echo "branch already exists, skipping: ${branch}"
+    continue
   fi
 
   git switch main
@@ -39,4 +42,4 @@ for item in "${tasks[@]}"; do
 done
 
 git switch main
-echo "Created 5 intentional benchmark branches and returned to main."
+echo "Created missing intentional benchmark branches for the 8-task suite and returned to main."
