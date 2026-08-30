@@ -178,10 +178,12 @@ public class TradeReliabilityService {
                 "修复幂等键不能为空且不能超过 120 字符 / invalid idempotency key");
         }
         lock("trade-repair:" + runId);
-        String runStatus = jdbc.queryForObject("""
-            SELECT status FROM trade_reconciliation_run WHERE run_id=? FOR UPDATE
-            """, String.class, runId);
-        if (!"DIFFERENCE_FOUND".equals(runStatus)) {
+        RepairableRun run = jdbc.queryForObject("""
+            SELECT symbol, status
+            FROM trade_reconciliation_run WHERE run_id=? FOR UPDATE
+            """, (rs, row) -> new RepairableRun(
+                rs.getString("symbol"), rs.getString("status")), runId);
+        if (run == null || !"DIFFERENCE_FOUND".equals(run.status())) {
             throw new IllegalStateException(
                 "只有存在差异的对账批次允许修复 / run has no repairable differences");
         }
@@ -196,6 +198,11 @@ public class TradeReliabilityService {
                 previous.idempotencyKey(), previous.status(), previous.repairedCount(),
                 previous.quarantinedCount(), true);
         }
+
+        // 与撮合写入使用同一交易对级数据库锁：在途权威成交提交后再重新核验。
+        // Share the symbol-scoped database lock with matching writers so repair
+        // rechecks only after any in-flight authoritative trade has committed.
+        lock(run.symbol());
 
         UUID repairId = UUID.randomUUID();
         jdbc.update("""
@@ -222,9 +229,13 @@ public class TradeReliabilityService {
                 """, Integer.class, item.tradeId());
             if (sourceExists == null || sourceExists == 0) {
                 quarantined += jdbc.update("""
-                    UPDATE trade_projection
+                    UPDATE trade_projection projection
                     SET status='QUARANTINED', version=version+1, updated_at=now()
-                    WHERE trade_id=? AND status='ACTIVE'
+                    WHERE projection.trade_id=? AND projection.status='ACTIVE'
+                      AND NOT EXISTS (
+                          SELECT 1 FROM trade_execution authoritative
+                          WHERE authoritative.trade_id=projection.trade_id
+                      )
                     """, item.tradeId());
             } else {
                 int changed = jdbc.update("""
@@ -408,6 +419,7 @@ public class TradeReliabilityService {
                               BigDecimal quoteAmount, long sequence, String status) {}
     private record DetectedDifference(UUID tradeId, String type,
                                       String expectedPayload, String actualPayload) {}
+    private record RepairableRun(String symbol, String status) {}
     private record ReconciliationSummary(UUID runId, String symbol, String status,
                                          long sourceCount, long projectionCount,
                                          int missingCount, int mismatchCount, int extraCount,
