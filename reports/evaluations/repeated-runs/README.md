@@ -1,21 +1,23 @@
-# Repeated-run evidence
+# 重复运行证据 · Repeated-run evidence
 
-The repeat phase is complete: 30 fresh runs were added to the original 15, producing three attempts for every agent/task pair and 45 controlled attempts overall. Runs executed sequentially on the same Ubuntu ARM64 laboratory VM to limit CPU, Docker and database contention.
+重复阶段已经完成：在原有 15 次首轮运行基础上增加 30 次独立修复，使每个 Agent/任务组合都有 3 次结果，共计 45 次受控运行。所有新增运行在同一台 Ubuntu ARM64 实验虚拟机上顺序执行，尽量降低 CPU、Docker 和数据库竞争对耗时的影响。
 
-## Outcome
+> **English summary:** The completed release contains 45 attempts. Codex led clean-run rate, Claude led planned hidden-case passes, and Antigravity was fastest but less reliable end to end.
 
-Of the 45 total attempts, 33 were clean. Four failed only hidden scenarios, three failed a public suite, and two produced patches that did not compile. The public-suite count is three rather than two when the original Antigravity FC-005 run is included.
+## 结果
 
-Repetition changed the interpretation of the benchmark. Codex had the highest clean-run rate, Claude passed the most planned hidden scenarios, and Antigravity was fastest but less reliable end to end. FC-003 and FC-004 were clean in all nine attempts; FC-001 was clean in only two.
+45 次运行中，33 次端到端完整通过；4 次只在隐藏场景失败；3 次没有通过完整公开测试；2 次生成的补丁无法编译。公开测试失败总数为 3，是因为除新增运行的 2 次外，还包括首轮 Antigravity FC-005。
 
-Numeric 100-point Rubric scores remain limited to the first publication. The repeat ranking uses deterministic clean-run, hidden-scenario and timing evidence because the 30 captured patches have not received a full subjective rubric review.
+重复运行改变了首轮结果的解释：Codex 的完整通过率最高，Claude 通过的计划隐藏场景最多，Antigravity 最快但端到端稳定性较低。FC-003 和 FC-004 的九次尝试全部通过；FC-001 只有两次完整通过。
 
-## Public and private evidence
+100 分主观 Rubric 仍只覆盖首轮 15 次。30 份重复补丁已有确定性测试和耗时结果，但尚未逐份完成完整主观评分，因此重复排名使用完整通过、隐藏场景和耗时证据，不虚构数值分数。
 
-The public index records source commit, agent/model identity, elapsed time, available usage, test outcomes and SHA-256 digests. Active-task patches, transcripts and hidden tests remain private so a later candidate cannot retrieve a solution.
+## 公开与私有证据
 
-- [Three-run report](../repeatability-results.md)
-- [Machine-readable aggregate](../repeatability-results.json)
-- [Sanitized 30-run index](../repeat-progress.json)
-- [Run-index schema](../run-index.schema.json)
-- [Full repeatability protocol](../repeatability-protocol.md)
+公开索引记录源码提交、Agent/模型身份、耗时、可用使用量、测试结果和 SHA-256 摘要。候选补丁、原始对话和隐藏测试保持私有，避免后续 Agent 取得答案。
+
+- [三轮重复评测报告](../repeatability-results.md)
+- [机器可读聚合结果](../repeatability-results.json)
+- [30 次新增运行脱敏索引](../repeat-progress.json)
+- [运行索引 Schema](../run-index.schema.json)
+- [完整重复评测协议](../repeatability-protocol.md)

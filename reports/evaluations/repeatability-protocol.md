@@ -1,46 +1,49 @@
-# Repeatability protocol
+# 重复评测协议 · Repeatability protocol
 
-The first FinCore comparison froze one valid run for each of three agents across five tasks. The next phase measures whether those outcomes repeat.
+首轮 FinCore 对比为三种 Agent、五个任务各冻结了一次有效运行。重复评测阶段用于判断这些结果能否稳定复现，而不是继续追加一次性高分。
 
-## Run matrix
+## 运行矩阵
 
-- Agents: Codex CLI, Claude Code and Google Antigravity CLI.
-- Tasks: FC-001 through FC-005.
-- Valid runs: three per agent/task combination.
-- Source: the same frozen intentional-defect commit for every repeat.
-- Interaction: one prompt, no human repair round and no second attempt after grading.
+- Agent：Codex CLI、Claude Code、Google Antigravity CLI。
+- 任务：FC-001 至 FC-005。
+- 有效运行：每个 Agent/任务组合 3 次。
+- 源码：每次都使用同一个冻结的故意缺陷提交。
+- 交互：单次提示，不进行人工修补，评分后不允许第二次尝试。
 
-Runs are sequential on the same Ubuntu ARM64 laboratory VM. This avoids CPU, Docker and database contention changing elapsed-time comparisons. Model, CLI, reasoning setting, container image and source commit are recorded per run.
+所有运行在同一台 Ubuntu ARM64 实验虚拟机上顺序执行，避免 CPU、Docker 和数据库竞争干扰耗时比较。每次记录模型、CLI、推理设置、容器镜像和源码提交。
 
-## Validity rules
+> **English summary:** Every agent/task pair runs three times from the same frozen defect commit, sequentially on one VM, with one prompt and zero human repair rounds.
 
-A run is valid only when:
+## 有效性规则
 
-1. the candidate repository contains one commit, no remotes and no reference patches;
-2. the hidden grader is absent until the agent process has exited;
-3. the patch and runtime metadata are captured before private tests begin;
-4. the runner exits normally or records a model failure as an observed result;
-5. no human changes the candidate between agent exit and grading.
+一次运行只有同时满足以下条件才有效：
 
-Infrastructure failures are retained for runner debugging but excluded from model pass-rate calculations. Exclusions must state the reason; they are never silently replaced.
+1. 候选仓库只有一个提交，没有远程地址和参考补丁；
+2. Agent 进程退出前，隐藏评分器不在候选环境中；
+3. 私有测试开始前，补丁和运行元数据已经冻结；
+4. 运行器正常结束，或者把模型失败明确记录为观察结果；
+5. Agent 退出到评分之间没有人工修改候选代码。
 
-## Reported measures
+基础设施失败保留用于运行器排错，但不混入模型通过率。排除必须明确写出原因，不能静默替换。编译失败和测试失败属于模型交付结果，不按基础设施失败排除。
 
-| Measure | Calculation |
+## 报告指标
+
+| 指标 | 计算方式 |
 |---|---|
-| Valid-run completion | Completed valid runs / planned valid runs |
-| Exact hidden pass rate | Private scenarios passed / private scenarios executed |
-| First-attempt task success | Runs meeting the task's passing threshold without a veto |
-| Score distribution | Minimum, median and maximum rubric score |
-| Elapsed time | Minimum, median and maximum agent wall time |
-| Usage | Input, cached input, output and reasoning tokens when exposed |
-| Cost | Tool-reported currency cost only; no invented conversion for subscription sessions |
-| Safety veto rate | Runs triggering at least one financial-safety veto / valid runs |
+| 有效运行完成率 | 已完成有效运行 / 计划有效运行 |
+| 计划隐藏场景通过率 | 私有场景通过数 / 计划场景数 |
+| 端到端完整通过率 | Agent 正常退出、公开测试通过且 5 个隐藏场景全过 / 有效运行 |
+| 首次任务成功率 | 未触发一票否决且达到任务门槛的运行 / 有效运行 |
+| 分数分布 | Rubric 分数的最小值、中位数和最大值 |
+| 耗时 | Agent 墙钟时间的最小值、中位数和最大值 |
+| 使用量 | 工具提供时记录输入、缓存输入、输出和推理 Token |
+| 成本 | 只使用工具直接报告的金额，不为订阅会话虚构换算 |
+| 一票否决率 | 至少触发一个资金安全否决的运行 / 有效运行 |
 
-With three runs, these statistics describe observed variance but still do not justify broad population claims or a confidence interval. The report will say that explicitly.
+三次运行可以描述已观察到的波动，但仍不足以支持总体置信区间或广泛模型结论，公开报告必须明确说明这一点。
 
-## Publication boundary
+## 公开边界
 
-The public run index will include run identity, frozen source commit, runner/model settings, timing, usage totals, public-test totals, sanitized private-scenario counts, score and vetoes. It will not publish active-task answer patches, raw transcripts, hidden test code or authentication material.
+公开运行索引包含运行身份、冻结源码提交、Agent/模型配置、耗时、使用量、公开测试结果、脱敏私有场景计数、分数状态、一票否决项和证据哈希。
 
-Cryptographic digests may be published for retained private artifacts. They prove that a later file matches the retained evidence; they do not make the hidden content independently auditable.
+不会公开仍在使用中的答案补丁、原始对话、隐藏测试代码或认证材料，防止后续候选者获取参考解法。
