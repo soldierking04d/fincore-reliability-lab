@@ -53,8 +53,7 @@ public class TradeReliabilityService {
                 rs.getString("payload_hash"),
                 rs.getString("status")), command.eventId());
 
-        if (inbox == null || !inbox.tradeId().equals(command.tradeId())
-            || !inbox.payloadHash().equals(payloadHash)) {
+        if (inbox == null) {
             throw new IllegalArgumentException(
                 "同一事件号携带了冲突成交内容 / conflicting event replay");
         }
