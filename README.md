@@ -79,6 +79,30 @@ flowchart LR
 
 实现包含限价单、市价单、Maker 价格、部分成交、撤单、自成交保护、持久化订单/成交序列、按交易对的 PostgreSQL advisory transaction lock、乐观版本检查和独立 `matching.events.v1` 事件流。完整边界、接口和非目标见[撮合模块说明](docs/matching-engine.md)。
 
+## 复杂场景：高峰流量与异常同步修复
+
+新增五组生产式故障实验：
+
+| 场景 | 需要守住的结果 |
+|---|---|
+| 热点交易对订单洪峰 | 并发成交不重复、序列不冲突、订单数量守恒、Outbox 不丢 |
+| 成交事件乱序 | 下游投影不依赖消息到达顺序 |
+| 重复与冲突事件 | 相同载荷幂等；同一事件号更换内容立即拒绝 |
+| 漏同步与字段错值 | 全量对账分别识别 `MISSING` 与 `MISMATCH` |
+| 幽灵成交与修复重试 | 额外投影进入隔离区；同一修复键只执行一次；再次对账必须 `CLEAN` |
+
+修复边界有意做了限制：成交表是权威事实，系统只自动重建派生投影或隔离幽灵数据，**不会为了让数字相等直接修改资金余额或历史账本**。复杂实验说明、API 和 k6 热点冲击方法见[大流量与对账修复场景](docs/advanced-scenarios.md)。
+
+快速执行：
+
+```bash
+curl -s -X POST \
+  'http://127.0.0.1:8080/lab/scenarios/matching-burst?makers=80&takers=16'
+
+curl -s -X POST \
+  http://127.0.0.1:8080/lab/scenarios/trade-sync-recovery
+```
+
 ## 一键启动
 
 Mac 安装并启动 Docker Desktop 后，在项目根目录运行：

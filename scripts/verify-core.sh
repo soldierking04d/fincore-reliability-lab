@@ -24,6 +24,8 @@ fi
   "$project_dir/src/main/java/dev/fincore/domain/OrderStatus.java" \
   "$project_dir/src/main/java/dev/fincore/domain/MatchingPolicy.java" \
   "$project_dir/src/main/java/dev/fincore/domain/PlaceOrderCommand.java" \
+  "$project_dir/src/main/java/dev/fincore/domain/TradeView.java" \
+  "$project_dir/src/main/java/dev/fincore/domain/TradeSyncCommand.java" \
   "$project_dir/src/main/java/dev/fincore/simulation/ReliabilitySimulation.java" \
   "$project_dir/scripts/CoreVerification.java"
 java -cp "$build_dir" CoreVerification
