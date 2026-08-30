@@ -8,7 +8,7 @@
 ![Kafka](https://img.shields.io/badge/Kafka-KRaft-231F20?logo=apachekafka&logoColor=white)
 ![CI](https://img.shields.io/badge/CI-Maven_%2B_Testcontainers-2088FF?logo=githubactions&logoColor=white)
 
-FinCore Reliability Lab is a runnable financial-settlement reliability system and coding-agent evaluation foundation. It tests whether money remains unique, balanced, auditable, and reconcilable after concurrency, retries, duplicate delivery, partial failure, worker takeover, and recovery.
+FinCore Reliability Lab is a runnable matching-and-settlement reliability system and coding-agent evaluation foundation. It tests whether trade facts remain deterministic and whether money remains unique, balanced, auditable, and reconcilable after concurrency, retries, duplicate delivery, partial failure, worker takeover, and recovery.
 
 All accounts, transactions, and operating parameters are fictional. The repository contains no former-employer source code or confidential production data.
 
@@ -20,6 +20,7 @@ This repository turns those failure modes into executable experiments. The publi
 
 | Production risk | Protection in this lab | Executable proof |
 |---|---|---|
+| Concurrent orders violate price-time priority or duplicate trades | Per-symbol serialization, durable sequence, quantity conservation | Priority, idempotency, and concurrency tests |
 | Duplicate Kafka delivery posts money twice | Database Inbox plus unique business key | Concurrent duplicate storm |
 | Balance and journal partially commit | Single PostgreSQL transaction | Testcontainers integration tests |
 | A stale request overwrites SUCCESS | CAS, legal state machine, audit trail | State-race tests |
@@ -36,6 +37,8 @@ This repository turns those failure modes into executable experiments. The publi
 - `BigDecimal` and `NUMERIC(38,18)` money representation
 - Balanced debit/credit validation before persistence
 - Kafka settlement commands
+- Limit and market orders, price-time priority, maker pricing, partial fills, cancellation, and self-trade prevention
+- Durable order/trade sequence, matching audit, and a dedicated matching event topic
 - Transactional Inbox and Outbox
 - Message-ID and business-key idempotency
 - Deterministic UUID account-lock ordering
@@ -51,6 +54,14 @@ This repository turns those failure modes into executable experiments. The publi
 - Prometheus metrics and a provisioned Grafana dashboard
 - JUnit, PostgreSQL Testcontainers, pure-JDK simulation, and k6 workload
 - Five standardized coding-agent repair tasks and a 100-point rubric
+
+## Matching module
+
+Matching, clearing, and settlement are intentionally separate. Matching produces deterministic trade facts; clearing derives obligations; settlement changes the asset ledger.
+
+The current correctness baseline serializes one symbol with a PostgreSQL advisory transaction lock. It supports limit/market orders, price-time priority, maker-price executions, partial fills, idempotent client order IDs, cancellation, `CANCEL_TAKER` self-trade prevention, durable sequencing, audit records, and transactional trade Outbox events. It does not claim microsecond in-memory performance.
+
+See the Chinese-first [matching module guide](docs/matching-engine.md) for business boundaries, APIs, and production upgrade paths.
 
 ## Architecture
 

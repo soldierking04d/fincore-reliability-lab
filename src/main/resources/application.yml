@@ -41,3 +41,4 @@ fincore:
   kafka:
     settlement-topic: settlement.commands.v1
     outbox-topic: settlement.events.v1
+    matching-topic: matching.events.v1

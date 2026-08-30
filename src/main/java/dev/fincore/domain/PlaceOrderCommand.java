@@ -1,0 +1,46 @@
+package dev.fincore.domain;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.Locale;
+
+public record PlaceOrderCommand(
+    String clientOrderId,
+    String userId,
+    String symbol,
+    OrderSide side,
+    OrderType type,
+    BigDecimal price,
+    BigDecimal quantity
+) {
+    public PlaceOrderCommand {
+        if (clientOrderId == null || clientOrderId.isBlank()) {
+            throw new IllegalArgumentException("clientOrderId is required");
+        }
+        if (userId == null || userId.isBlank()) {
+            throw new IllegalArgumentException("userId is required");
+        }
+        if (symbol == null || symbol.isBlank()) {
+            throw new IllegalArgumentException("symbol is required");
+        }
+        symbol = symbol.trim().toUpperCase(Locale.ROOT);
+        if (!symbol.matches("[A-Z0-9]{2,20}-[A-Z0-9]{2,20}")) {
+            throw new IllegalArgumentException("symbol must use BASE-QUOTE format");
+        }
+        if (side == null || type == null) {
+            throw new IllegalArgumentException("side and type are required");
+        }
+        if (quantity == null || quantity.signum() <= 0) {
+            throw new IllegalArgumentException("quantity must be positive");
+        }
+        quantity = quantity.setScale(18, RoundingMode.UNNECESSARY);
+        if (type == OrderType.LIMIT) {
+            if (price == null || price.signum() <= 0) {
+                throw new IllegalArgumentException("limit price must be positive");
+            }
+            price = price.setScale(18, RoundingMode.UNNECESSARY);
+        } else if (price != null) {
+            throw new IllegalArgumentException("market order must not contain price");
+        }
+    }
+}

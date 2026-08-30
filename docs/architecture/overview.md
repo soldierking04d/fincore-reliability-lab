@@ -1,6 +1,18 @@
-# Architecture Overview
+# 架构概览 / Architecture Overview
 
-## 写入链路
+## 撮合到结算的系统边界
+
+```mermaid
+flowchart LR
+    A[订单接入] --> B[交易对串行化]
+    B --> C[价格时间优先]
+    C --> D[成交 + Outbox]
+    D --> E[清算与结算]
+```
+
+撮合负责生成确定性的成交事实，不直接修改资金余额。当前实现把订单、成交、状态审计和 Outbox 放在同一 PostgreSQL 事务中，并把成交发布到独立 `matching.events.v1`；下游清算根据成交计算应收应付，结算服务再通过不可变账本完成资产交割。撮合的完整接口、约束和非目标见[撮合模块说明](../matching-engine.md)。
+
+## 结算写入链路
 
 ```mermaid
 flowchart TD
