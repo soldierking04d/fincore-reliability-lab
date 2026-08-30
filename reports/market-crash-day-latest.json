@@ -1,0 +1,120 @@
+{
+  "scenario": "市场暴跌日 / Market Crash Day",
+  "runId": "09a45161",
+  "symbol": "CRASH09A45161-USDT",
+  "startedAt": "2026-08-30T15:09:33.028690560Z",
+  "completedAt": "2026-08-30T15:09:33.429013977Z",
+  "finalStatus": "RECOVERED",
+  "designBasis": [
+    "高波动与惊群：并发市价单、客户端集中重试和深度耗尽",
+    "错误版本或旧节点：Lease 接管后用 Epoch Fencing 拒绝迟到写入",
+    "接管链路失败：显式排空、过期、领取新 Epoch，并在数据面校验",
+    "信息同步异常：乱序、重复、缺失、错值、幽灵数据与幂等修复",
+    "边界：未模拟 DNS、真实网络分区、存储硬件故障或生产容量"
+  ],
+  "timeline": [
+    {
+      "relativeTime": "T-05m",
+      "businessState": "预置三档买方流动性",
+      "injectedFailure": "60 张买单分布在 100、99、98 三个价位",
+      "systemResponse": "订单按交易对持久化排序",
+      "evidence": "60 张 OPEN Maker，价格/时间优先"
+    },
+    {
+      "relativeTime": "T+00s",
+      "businessState": "价格连续吃穿三档深度",
+      "injectedFailure": "12 路市价卖单同时进入同一热门交易对",
+      "systemResponse": "交易对级数据库锁串行确定成交顺序",
+      "evidence": "60 条成交、60 个唯一序列、订单数量守恒"
+    },
+    {
+      "relativeTime": "T+01s",
+      "businessState": "客户端超时后集中重试",
+      "injectedFailure": "同一业务键重复提交，并尝试篡改数量",
+      "systemResponse": "相同载荷返回原结果；冲突载荷立即拒绝",
+      "evidence": "成交事实仍为 60 条"
+    },
+    {
+      "relativeTime": "T+02s",
+      "businessState": "买盘完全耗尽",
+      "injectedFailure": "额外 10 单位市价卖单进入空订单簿",
+      "systemResponse": "订单进入 REJECTED 终态，不伪造成交",
+      "evidence": "0 新成交，余额和持仓不受影响"
+    },
+    {
+      "relativeTime": "T+03s",
+      "businessState": "结算 Worker 接管",
+      "injectedFailure": "旧节点在排空、Lease 过期后恢复写入",
+      "systemResponse": "Epoch Fencing 在资金事务内拒绝旧节点",
+      "evidence": "旧 Epoch 被拒；新 Epoch=2"
+    },
+    {
+      "relativeTime": "T+04s",
+      "businessState": "消息系统重复投递",
+      "injectedFailure": "同一结算消息并发投递 17 次",
+      "systemResponse": "Inbox、message_id、business_key 三层幂等",
+      "evidence": "6 笔结算、6 个账本交易、无重复入账"
+    },
+    {
+      "relativeTime": "T+05s",
+      "businessState": "行情与成交查询出现偏差",
+      "injectedFailure": "乱序、重复、漏同步、错值和幽灵成交同时注入",
+      "systemResponse": "事件指纹幂等；全量外连接对账",
+      "evidence": "MISSING=1、MISMATCH=1、EXTRA=1"
+    },
+    {
+      "relativeTime": "T+06s",
+      "businessState": "恢复任务可能重复执行",
+      "injectedFailure": "相同 repair key 连续提交两次",
+      "systemResponse": "只重建派生投影，EXTRA 进入隔离区",
+      "evidence": "重建 2、隔离 1，第二次 duplicate=true"
+    },
+    {
+      "relativeTime": "T+07s",
+      "businessState": "恢复后复市判定",
+      "injectedFailure": "再次比较权威成交与活动投影",
+      "systemResponse": "只有 CLEAN 才允许闭环",
+      "evidence": "60 条权威成交 = 60 条活动投影"
+    }
+  ],
+  "metrics": {
+    "makerOrders": 60,
+    "concurrentMarketSellers": 12,
+    "tradeCount": 60,
+    "uniqueTradeSequences": 60,
+    "tradeOutboxEvents": 60,
+    "settlementCommands": 6,
+    "duplicateSettlementDeliveries": 17,
+    "ledgerTransactions": 6,
+    "repairedProjections": 2,
+    "quarantinedProjections": 1,
+    "matchingElapsedMs": 151,
+    "observedTradesPerSecond": 397.35,
+    "endToEndElapsedMs": 399
+  },
+  "recovery": {
+    "dirtyRunId": "fbf76512-2d60-4f9a-8d36-920ba439ac37",
+    "missingCount": 1,
+    "mismatchCount": 1,
+    "extraCount": 1,
+    "repairId": "bc64fe2d-dbb5-4c2a-a3e7-5eeba13ac729",
+    "repairedCount": 2,
+    "quarantinedCount": 1,
+    "duplicateRepairDetected": true,
+    "cleanRunId": "6c0a4c3f-557b-4a23-a5ed-a29447817e31",
+    "finalStatus": "CLEAN"
+  },
+  "checks": {
+    "大行情撮合": "PASS：12 路并发卖单形成 60 条唯一成交",
+    "请求重放": "PASS：相同请求幂等，篡改数量的重放拒绝",
+    "流动性耗尽": "PASS：无深度时拒单，不生成幽灵成交",
+    "节点接管": "PASS：旧 Epoch 拒写，新 Worker 完成结算",
+    "结算重投": "PASS：17 次投递只有 1 次资金效果",
+    "同步异常发现": "PASS：同时识别 MISSING=1、MISMATCH=1、EXTRA=1",
+    "派生数据修复": "PASS：重建 2 条、隔离 1 条、重复修复不��次执行",
+    "权威事实保护": "PASS：修复前后成交事实快照一致",
+    "最终收敛": "PASS：再次对账为 CLEAN",
+    "资金账本": "PASS：借贷平衡且三个场景账户对账一致"
+  },
+  "boundary": "这是正确性与恢复性实验，不是生产 TPS、灾备或可用性认证。 / Correctness lab, not a production capacity certificate."
+}

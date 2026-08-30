@@ -2,6 +2,7 @@ package dev.fincore.web;
 
 import dev.fincore.application.AdvancedLabScenarioService;
 import dev.fincore.application.LabScenarioService;
+import dev.fincore.application.MarketCrashScenarioService;
 import org.springframework.context.annotation.Profile;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -14,11 +15,14 @@ import org.springframework.web.bind.annotation.RestController;
 public class LabScenarioController {
     private final LabScenarioService scenarios;
     private final AdvancedLabScenarioService advanced;
+    private final MarketCrashScenarioService marketCrash;
 
     public LabScenarioController(LabScenarioService scenarios,
-                                 AdvancedLabScenarioService advanced) {
+                                 AdvancedLabScenarioService advanced,
+                                 MarketCrashScenarioService marketCrash) {
         this.scenarios = scenarios;
         this.advanced = advanced;
+        this.marketCrash = marketCrash;
     }
 
     @PostMapping("/full")
@@ -36,6 +40,11 @@ public class LabScenarioController {
     @PostMapping("/trade-sync-recovery")
     public AdvancedLabScenarioService.SyncRecoveryReport tradeSyncRecovery() {
         return advanced.runTradeSyncRecovery();
+    }
+
+    @PostMapping("/market-crash-day")
+    public MarketCrashScenarioService.MarketCrashReport marketCrashDay() {
+        return marketCrash.runMarketCrashDay();
     }
 }
 
