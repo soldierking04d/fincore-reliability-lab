@@ -1,11 +1,10 @@
 diff --git a/src/main/java/dev/fincore/application/MatchingService.java b/src/main/java/dev/fincore/application/MatchingService.java
 --- a/src/main/java/dev/fincore/application/MatchingService.java
 +++ b/src/main/java/dev/fincore/application/MatchingService.java
-@@ -67,3 +67,2 @@
-     public MatchingResult place(PlaceOrderCommand command) {
--        lockSymbol(command.symbol());
-         Optional<OrderView> replay = findByClientOrder(command.userId(), command.clientOrderId());
-@@ -227,2 +226,2 @@
--            ORDER BY price %s, order_sequence ASC LIMIT 1 FOR UPDATE
-+            ORDER BY price %s, order_sequence ASC LIMIT 1
-             """).formatted(direction);
+@@ -307,5 +307,5 @@
+     private void lockSymbol(String symbol) {
+         jdbc.queryForObject(
+             "SELECT pg_advisory_xact_lock(hashtextextended(?, 0))",
+-            (rs, row) -> Boolean.TRUE, symbol);
++            (rs, row) -> Boolean.TRUE, "GLOBAL");
+     }
