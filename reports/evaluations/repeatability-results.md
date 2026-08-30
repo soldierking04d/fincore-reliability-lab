@@ -1,59 +1,68 @@
-# Three-run repeatability report
+# 三轮重复评测报告
 
-The first FinCore publication showed one run per agent/task. This report adds two fresh runs for every combination: **45 controlled attempts in total**, with no human repair round.
+首轮发布只包含每个 Agent/任务组合的一次运行。本报告为每个组合增加两次独立修复，最终形成 **45 次受控运行**，不包含任何人工修补轮次。
 
-## Result in one sentence
+> **English abstract:** There is no single winner across 45 attempts. Codex had the highest end-to-end clean-run rate, Claude passed the most planned hidden scenarios, and Antigravity was fastest but produced two non-compiling patches.
 
-There is no single winner. Codex had the highest end-to-end clean-run rate, Claude passed the most planned hidden scenarios, and Antigravity remained the fastest but produced two non-compiling patches.
+## 一句话结论
 
-## Three-run totals
+没有一个“全能冠军”：Codex 的端到端完整通过率最高，Claude 通过的计划隐藏场景最多，Antigravity 的中位耗时最短，但交付波动和编译失败更多。
 
-| Agent / model | Clean runs | Hidden scenarios, planned basis | Median agent time | Build failures |
+## 三轮总结果
+
+| Agent / 模型 | 完整通过 | 隐藏场景（计划口径） | Agent 中位耗时 | 编译失败 |
 |---|---:|---:|---:|---:|
-| Codex CLI · gpt-5.6-sol | 12/15 (80.0%) | 66/75 (88.0%) | 369 s | 0 |
-| Claude Code · sonnet | 11/15 (73.3%) | 70/75 (93.3%) | 447 s | 0 |
-| Antigravity · Gemini 3.7 Flash (High) | 10/15 (66.7%) | 61/75 (81.3%) | 188 s | 2 |
+| Codex CLI · gpt-5.6-sol | 12/15（80.0%） | 66/75（88.0%） | 369 秒 | 0 |
+| Claude Code · sonnet | 11/15（73.3%） | 70/75（93.3%） | 447 秒 | 0 |
+| Antigravity · Gemini 3.7 Flash (High) | 10/15（66.7%） | 61/75（81.3%） | 188 秒 | 2 |
 
-A **clean run** means the agent exited, the complete public suite passed, and all five hidden scenarios passed. Build failures remain model failures. They are not converted into zero-test successes or removed from the denominator.
+一次“完整通过”必须同时满足：Agent 正常退出、完整公开测试通过、5 个隐藏场景全部通过。编译失败属于有效的模型交付失败，不会被包装成“0 个测试中的 0 个失败”，也不会从计划分母中删除。
 
-## What the numbers say
+## 数据说明了什么
 
-- **Codex: strongest end-to-end completion.** It produced 12 clean runs out of 15. Its weak repeats were one FC-002 state-machine repair that failed all five hidden cases and one FC-005 compensation repair that passed two of five.
-- **Claude: strongest hidden-case correctness.** It passed 70 of 75 planned hidden cases. Two patches still failed their own public suites, including a compensation concurrency test that exposed a primary-key conflict, so hidden correctness alone would overstate readiness.
-- **Antigravity: fastest, with more delivery risk.** Its median agent time was 188 seconds, roughly half of Codex and well below Claude. It also produced two patches that did not compile and finished with 10 clean runs out of 15.
+- **Codex：端到端完成度最好。** 15 次中有 12 次完整通过。主要失误是一份 FC-002 状态机修复在隐藏场景中 0/5，以及一份 FC-005 补偿修复只通过 2/5。
+- **Claude：隐藏边界正确性最好。** 75 个计划隐藏场景通过 70 个。但两份补丁没有通过完整公开测试，其中补偿并发测试暴露出主键冲突，所以只看隐藏测试会高估上线准备度。
+- **Antigravity：速度最快，交付风险更高。** 中位耗时 188 秒，约为 Codex 的一半，明显低于 Claude；与此同时出现两份无法编译的补丁，最终完整通过 10/15。
 
-## Stability by task
+## 各任务稳定性
 
-| Task | Clean runs | Codex | Claude | Antigravity |
+| 任务 | 完整通过 | Codex | Claude | Antigravity |
 |---|---:|---:|---:|---:|
-| FC-001 | 2/9 | 2/3 | 0/3 | 0/3 |
-| FC-002 | 7/9 | 2/3 | 3/3 | 2/3 |
-| FC-003 | 9/9 | 3/3 | 3/3 | 3/3 |
-| FC-004 | 9/9 | 3/3 | 3/3 | 3/3 |
-| FC-005 | 6/9 | 2/3 | 2/3 | 2/3 |
+| FC-001 重复结算 | 2/9 | 2/3 | 0/3 | 0/3 |
+| FC-002 终态非法覆盖 | 7/9 | 2/3 | 3/3 | 2/3 |
+| FC-003 手续费热点账户 | 9/9 | 3/3 | 3/3 | 3/3 |
+| FC-004 缩容接管冲突 | 9/9 | 3/3 | 3/3 | 3/3 |
+| FC-005 重复补偿 | 6/9 | 2/3 | 2/3 | 2/3 |
 
-FC-003 fee-account sharding and FC-004 scale-down fencing were the most stable: every agent passed every run. FC-001 duplicate settlement was the hardest: only two of nine attempts were completely clean, both from Codex. The persistent separation was not basic duplicate suppression; it was replay-contract stability and database-owned uniqueness under changed payloads.
+FC-003 与 FC-004 最稳定，三个 Agent 的九次运行全部通过。FC-001 最难，九次尝试中只有 Codex 的两次完整通过。真正持续拉开差距的不是基础的“阻止重复入账”，而是冲突载荷出现时能否保持稳定重放契约，以及最终唯一性是否真正归数据库所有。
 
-## Why the first-run ranking changed
+## 为什么首轮排名发生变化
 
-The original scores were 495, 490 and 485 out of 500, close enough to suggest all three agents were nearly equivalent. Repetition exposed differences the first table could not show:
+首轮分数为 495、490、485，差距很小，容易让人认为三者近乎等价。重复运行暴露出单次分数看不到的问题：
 
-- the same model could move from four hidden passes to five on FC-001;
-- a public suite could pass while all hidden state-machine cases failed;
-- hidden cases could pass while an agent-authored public concurrency test still found a defect;
-- a fast agent could return a patch that did not compile.
+- 同一模型在 FC-001 上可以从 4/5 变化到 5/5；
+- 公开测试可以全部通过，而状态机的五个隐藏场景全部失败；
+- 隐藏场景可以通过，但 Agent 自己新增的公开并发测试仍能发现缺陷；
+- 一个速度很快的 Agent 也可能交付无法编译的补丁。
 
-The first-run scores remain historical evidence. They are no longer treated as the primary ranking.
+因此，首轮分数保留为历史证据，但不再承担主要排名作用。
 
-## Scope and limits
+## 对技术负责人的意义
 
-This remains a narrow Java, Spring Boot and PostgreSQL financial-reliability benchmark. Three runs reveal meaningful variance, but they do not justify a broad claim about general software engineering or a population confidence interval. Token telemetry is vendor-specific. Only Claude exposed comparable CLI cost for every run; its reported total across 15 attempts was **$16.58**.
+- 模型准入不能只做一次 Demo，应至少重复执行关键失败路径。
+- “隐藏场景通过”与“完整交付可上线”需要分成两个指标。
+- 高频、规则明确的修复可以优先追求速度；资金状态机和补偿逻辑应优先追求稳定与审查深度。
+- 真正值得沉淀的不是排行榜，而是一套可以进入 CI、代码审查和上线门禁的金融不变量。
 
-Repeat patches have deterministic test and timing results, but not yet a full subjective 100-point rubric review. This report therefore ranks repeatability using clean runs, planned hidden scenarios and elapsed time rather than inventing precise numeric scores.
+## 范围和限制
 
-## Evidence
+该结果仅覆盖 Java、Spring Boot、PostgreSQL 和金融可靠性问题。三次运行能揭示有意义的波动，但不能支持总体置信区间，也不能外推成通用软件工程结论。不同厂商的 Token 口径不一致；只有 Claude 在全部 15 次运行中提供可比较的 CLI 估算金额，总计 **16.58 美元**。
 
-- [Sanitized 30-run index](repeat-progress.json)
-- [Machine-readable aggregate](repeatability-results.json)
-- [Repeatability protocol](repeatability-protocol.md)
-- [Public task kit](../../evals/README.md)
+重复补丁已有确定性测试和耗时结果，但还没有逐份完成完整的主观 100 分 Rubric 复核。因此本报告按完整通过、计划隐藏场景和耗时讨论重复性，不编造精确分数。
+
+## 可复核证据
+
+- [30 次新增运行脱敏索引](repeat-progress.json)
+- [机器可读聚合结果](repeatability-results.json)
+- [重复评测协议](repeatability-protocol.md)
+- [公开任务套件](../../evals/README.md)

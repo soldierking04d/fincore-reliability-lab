@@ -1,43 +1,47 @@
-# FinCore benchmark introduction
+# FinCore 评测介绍
 
-FinCore is a small Java repair benchmark built around failures that can move money twice, corrupt a terminal state, or allow a stale worker to write after ownership has changed. It does not ask whether an agent can produce plausible code. It asks whether the financial result remains unique, balanced and auditable under concurrency, retry and partial failure.
+FinCore 是一套围绕真实资金风险构建的 Java 修复评测：重复结算可能动两次账，迟到请求可能覆盖终态，缩容后的旧 Worker 可能越权提交。它不只问 Agent 能否写出“看起来合理”的代码，而是验证在并发、重试和局部失败之后，资金结果是否仍然唯一、平衡、可审计、可对账。
 
-## Part I — What the benchmark protects
+> **English summary:** FinCore evaluates whether coding-agent repairs preserve financial invariants under concurrency, retries, rollback and stale ownership—not merely whether the patch compiles.
 
-### Overview
+## 第一部分：它保护什么
 
-The five tasks start from code that compiles. Each defect is easy to miss in a happy-path review and expensive to discover in production. An agent receives the same broken source, task brief and public tests. It must repair the system without deleting tests, weakening database constraints or moving final consistency into memory or Redis.
+### 给技术负责人和业务 Owner 的概述
 
-### Business and engineering views
+资金系统最危险的缺陷通常不出现在第一次成功，而出现在超时后的重试、消息重复投递、并发状态推进、节点接管和补偿回滚。普通功能测试回答“流程能不能走通”，FinCore 回答“失败以后资金结果还能不能守住”。
 
-| Failure | Business consequence | Engineering boundary |
+五个任务都从能够编译的代码开始，缺陷可能轻易通过快乐路径 Review，却会在生产环境造成客户状态错误、运营追单、审计缺口或真实资损。Agent 必须修复系统，同时不能删除测试、削弱数据库约束，或把最终一致性转移到内存和 Redis。
+
+### 业务风险与工程边界
+
+| 故障 | 业务后果 | 必须守住的工程边界 |
 |---|---|---|
-| Duplicate settlement | One customer action creates two balance movements | Database-owned idempotency for message and business keys |
-| Terminal overwrite | A completed settlement later appears failed | Legal state transitions, CAS and immutable audit history |
-| Fee hot account | A shared account limits throughput during a traffic spike | Deterministic sharding without losing exact aggregation |
-| Scale-down takeover | Old and new workers both believe they own a range | Lease epoch and fencing checked at financial commit time |
-| Duplicate compensation | A retry reverses the same posting twice | One compensation order and an immutable reverse journal |
+| 重复结算 | 一次客户操作产生两次余额变化 | 消息键和业务键的数据库幂等 |
+| 终态覆盖 | 已完成结算后来显示失败 | 合法状态转换、CAS 与不可变审计 |
+| 手续费热点 | 大行情时共享账户限制整条链路吞吐 | 确定性分片且总额精确可归集 |
+| 缩容接管 | 新旧 Worker 同时认为自己拥有一个范围 | 在资金提交时验证 Lease Epoch 与 fencing |
+| 重复补偿 | 一次重试把原资金流水反向执行两次 | 唯一补偿单与不可变反向流水 |
 
-The business statement defines the damage. The engineering statement defines the invariant that the grader must observe after competing requests, process restarts, rollback and retry.
+业务描述定义不能发生的损失；工程描述定义评分器在竞争请求、进程重启、回滚和重试之后必须观察到的不变量。
 
-### One concrete example
+### 一个具体例子
 
-FC-001 replays a message after an uncertain response. The minimum business requirement is simple: do not post twice. The technical requirement is stricter. A second process, a different message carrying the same business key, and a conflicting payload must all reach a stable result through database constraints and one transaction boundary. Returning `200 OK` is not enough evidence.
+FC-001 模拟响应不确定之后的消息重放。最低业务要求是不能重复入账，但技术要求更严格：另一个进程、不同 message ID 使用相同 business key，以及同一 message ID 携带冲突载荷时，都必须通过数据库约束和一个事务边界得到稳定结果。返回 `200 OK` 不是资金安全证据。
 
-## Part II — How the evaluation works
+## 第二部分：评测如何运行
 
-### Controlled repair
+### 受控修复
 
-Each run uses a one-commit candidate repository with no remote, reference patch or hidden grader. The agent sees the task brief and public tests. When it stops, the runner records its patch, runtime, model settings, elapsed time and available token or cost data. Only then are five private scenarios introduced.
+每次运行使用一个没有远程地址、参考补丁和隐藏评分器的单提交候选仓库。Agent 只能看到任务说明与公开测试。Agent 停止后，运行器先冻结补丁、运行参数、模型信息、耗时和可用的 Token/成本数据，随后才注入五个私有场景。
 
-### Scoring and vetoes
+### 评分与一票否决
 
-The shared rubric covers functional correctness, concurrency, transactions, idempotency, recovery, financial safety, tests, performance, maintainability and observability. A numeric score cannot rescue a financially unsafe solution. Repeated posting, floating-point money, illegal terminal transitions, mutable ledger history, swallowed failures, deleted tests, or memory/Redis as the final ledger trigger an immediate veto.
+统一 Rubric 覆盖功能正确性、并发与事务、幂等与一致性、异常恢复、资金安全、测试、性能、可维护性和可观测性。数字高分不能挽救资金不安全的方案：重复入账、浮点数金额、非法终态跳转、修改历史流水、吞异常、删除测试、用内存或 Redis 作为最终账本，都会触发一票否决。
 
-### Evidence boundary
+### 证据边界
 
-Public reports contain source commits, model and runner versions, scorecards, timing, usage summaries and sanitized scenario outcomes. Hidden tests, answer patches, raw transcripts and credentials remain private while the tasks are active so later agents cannot retrieve a reference solution.
+公开报告包含源码提交、Agent/模型版本、评分卡、耗时、使用量摘要、脱敏场景结果和哈希。隐藏测试、答案补丁、原始对话与认证材料在任务有效期间保持私有，避免后续 Agent 取得参考答案。
 
-### Current limitation and next release
+### 当前结果与限制
 
-The first publication contains five tasks and one valid run per agent/task. It is a controlled case study, not a statistically significant leaderboard. The next evidence release repeats every agent/task combination three times and reports run-to-run variance, first-attempt success, elapsed-time distribution and comparable usage data where the tools expose it.
+当前版本已经完成 45 次运行，即每个 Agent/任务组合 3 次。重复性结果显示 Codex 完整通过率最高、Claude 隐藏场景通过最多、Antigravity 速度最快但出现两次编译失败。这仍然是垂直领域案例，不是统计意义上的通用排行榜。

@@ -1,38 +1,40 @@
-# FinCore Coding Agent Evaluation Kit
+# FinCore Coding Agent 公开评测套件
 
-This public kit defines five production-shaped repair tasks for coding agents. Each task starts from a deliberately defective branch and is scored with the same 100-point rubric. Public checks describe the contract; hidden tests belong in a separate private grader repository so an agent cannot optimize against their implementation.
+这套公开套件定义了 5 个接近生产问题的 Coding Agent 修复任务。每个任务从一个故意制造缺陷的分支开始，并使用同一套 100 分 Rubric。公开检查描述行为契约；隐藏测试位于独立的私有评分仓库，防止 Agent 针对具体实现寻找捷径。
 
-## Task branches
+> **English summary:** Five controlled financial-reliability repair tasks share one rubric. Public tests define the contract; hidden scenarios remain in a separate private grader.
 
-| Task | Defect branch | Core risk |
+## 任务分支
+
+| 任务 | 缺陷分支 | 核心风险 |
 |---|---|---|
-| Duplicate settlement | `benchmark/duplicate-settlement` | Repeated financial effect |
-| Illegal status overwrite | `benchmark/illegal-status-overwrite` | Terminal state corruption |
-| Fee hot account | `benchmark/fee-hot-account` | Lock contention and unsafe aggregation |
-| Scale-down takeover | `benchmark/scale-down-takeover` | Stale worker writes |
-| Duplicate compensation | `benchmark/duplicate-compensation` | Repeated reversal |
+| 重复结算 · Duplicate settlement | `benchmark/duplicate-settlement` | 重复资金影响 |
+| 终态非法覆盖 · Illegal status overwrite | `benchmark/illegal-status-overwrite` | 终态被破坏 |
+| 手续费热点账户 · Fee hot account | `benchmark/fee-hot-account` | 锁竞争与不安全归集 |
+| 缩容接管 · Scale-down takeover | `benchmark/scale-down-takeover` | 过期 Worker 越权写入 |
+| 重复补偿 · Duplicate compensation | `benchmark/duplicate-compensation` | 重复冲正 |
 
-## Evaluation protocol
+## 评测协议
 
-1. Reset a clean worktree to the selected defect branch.
-2. Give the agent only that task's `agentPrompt`, repository instructions, and public tests.
-3. Record model/version, tool configuration, start/end timestamps, token or monetary cost, prompts, patches, test output, and repair iterations.
-4. Run public tests, then the separately stored hidden grader.
-5. Apply `rubric.json` and record veto rules before calculating a numeric score.
-6. Preserve the full evidence bundle. Do not score from a prose answer alone.
+1. 把干净工作树重置到指定缺陷分支。
+2. 只向 Agent 提供该任务的 `agentPrompt`、仓库说明和公开测试。
+3. 记录模型与版本、工具配置、起止时间、Token 或金额成本、提示、补丁、测试输出和修复轮次。
+4. 先执行公开测试，再执行独立存储的隐藏评分器。
+5. 先应用 `rubric.json` 和一票否决规则，再计算数值分数。
+6. 保存完整证据包，不能只根据文字回答评分。
 
-Validate the public kit with:
+验证公开套件：
 
 ```bash
 ./scripts/eval/validate-eval-kit.sh
 ```
 
-After the verified `main` commit exists and the worktree is clean, create all five branches reproducibly with:
+在已验证的 `main` 提交存在且工作树干净后，可重复生成五个缺陷分支：
 
 ```bash
 ./scripts/eval/create-defect-branches.sh
 ```
 
-The source-controlled patches under `evals/defects/` are the canonical defect definitions. The generator applies one patch per branch, creates a clearly labeled intentional-defect commit, and returns to `main`.
+`evals/defects/` 下受版本控制的补丁是缺陷定义的唯一来源。生成脚本为每个分支应用一个补丁，创建明确标记为 `INTENTIONAL BENCHMARK DEFECT` 的提交，最后返回 `main`。
 
-`scorecard.schema.json` defines the portable result format for later comparisons across Codex, Claude Code, Gemini, Cursor, and other coding agents.
+`scorecard.schema.json` 定义可移植的结果格式，用于后续比较 Codex、Claude Code、Gemini、Cursor 和其他 Coding Agent。
