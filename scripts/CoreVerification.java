@@ -24,6 +24,14 @@ public class CoreVerification {
         ShardRouter settlementRouter = new ShardRouter(8);
         if (settlementRouter.shardFor("user-123") != settlementRouter.shardFor("user-123")) fail("settlement routing is not deterministic");
         new FenceToken(1, "worker-a", 1);
+        if (!MatchingPolicy.crosses(OrderSide.BUY, OrderType.LIMIT,
+                new BigDecimal("101"), new BigDecimal("100"))) fail("crossing buy was rejected");
+        if (MatchingPolicy.crosses(OrderSide.BUY, OrderType.LIMIT,
+                new BigDecimal("99"), new BigDecimal("100"))) fail("non-crossing buy was accepted");
+        if (MatchingPolicy.quoteAmount(new BigDecimal("123.45"), new BigDecimal("0.2"))
+                .compareTo(new BigDecimal("24.690")) != 0) fail("quote amount lost precision");
+        new PlaceOrderCommand("client-1", "user-1", "BTC-USDT", OrderSide.BUY,
+            OrderType.LIMIT, new BigDecimal("65000"), new BigDecimal("0.1"));
         ReliabilitySimulation.runAndAssert();
         System.out.println("Core verification passed");
     }

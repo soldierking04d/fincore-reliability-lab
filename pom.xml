@@ -11,7 +11,7 @@
     </parent>
     <groupId>dev.fincore</groupId>
     <artifactId>fincore-reliability-lab</artifactId>
-    <version>0.3.0-SNAPSHOT</version>
+    <version>0.4.0-SNAPSHOT</version>
     <name>FinCore Reliability Lab</name>
     <description>Financial settlement reliability and AI coding laboratory</description>
     <properties>

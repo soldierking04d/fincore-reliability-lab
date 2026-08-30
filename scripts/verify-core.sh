@@ -19,6 +19,11 @@ fi
   "$project_dir/src/main/java/dev/fincore/domain/FeeShardRouter.java" \
   "$project_dir/src/main/java/dev/fincore/domain/FenceToken.java" \
   "$project_dir/src/main/java/dev/fincore/domain/ShardRouter.java" \
+  "$project_dir/src/main/java/dev/fincore/domain/OrderSide.java" \
+  "$project_dir/src/main/java/dev/fincore/domain/OrderType.java" \
+  "$project_dir/src/main/java/dev/fincore/domain/OrderStatus.java" \
+  "$project_dir/src/main/java/dev/fincore/domain/MatchingPolicy.java" \
+  "$project_dir/src/main/java/dev/fincore/domain/PlaceOrderCommand.java" \
   "$project_dir/src/main/java/dev/fincore/simulation/ReliabilitySimulation.java" \
   "$project_dir/scripts/CoreVerification.java"
 java -cp "$build_dir" CoreVerification

@@ -13,15 +13,18 @@ import org.springframework.stereotype.Component;
 public class OutboxPublisher {
     private final JdbcTemplate jdbc;
     private final KafkaTemplate<String, Object> kafka;
-    private final String topic;
+    private final String settlementTopic;
+    private final String matchingTopic;
     private final String publisherId;
 
     public OutboxPublisher(JdbcTemplate jdbc, KafkaTemplate<String, Object> kafka,
-                           @Value("${fincore.kafka.outbox-topic}") String topic,
+                           @Value("${fincore.kafka.outbox-topic}") String settlementTopic,
+                           @Value("${fincore.kafka.matching-topic}") String matchingTopic,
                            @Value("${fincore.worker.id:${HOSTNAME:local-worker}}") String publisherId) {
         this.jdbc = jdbc;
         this.kafka = kafka;
-        this.topic = topic;
+        this.settlementTopic = settlementTopic;
+        this.matchingTopic = matchingTopic;
         this.publisherId = publisherId;
     }
 
@@ -34,10 +37,12 @@ public class OutboxPublisher {
                 WHERE status='PENDING' AND next_attempt_at<=now()
                 ORDER BY created_at LIMIT 100 FOR UPDATE SKIP LOCKED
             )
-            RETURNING event_id, aggregate_id, payload
+            RETURNING event_id, aggregate_id, event_type, payload
             """, publisherId);
         for (Map<String, Object> event : events) {
             UUID id = (UUID) event.get("event_id");
+            String eventType = event.get("event_type").toString();
+            String topic = eventType.startsWith("MATCHING_") ? matchingTopic : settlementTopic;
             try {
                 kafka.send(topic, event.get("aggregate_id").toString(), event.get("payload")).get();
                 jdbc.update("""
