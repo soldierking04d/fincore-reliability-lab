@@ -1,5 +1,7 @@
 # Codex vs Claude Code vs Antigravity — controlled five-task comparison
 
+> **Historical first-run report.** The completed [three-run repeatability report](repeatability-results.md) now provides the primary comparison across 45 attempts. This page preserves the original 15-run subjective scorecard.
+
 OpenAI Codex CLI, Anthropic Claude Code, and Google Antigravity CLI each completed one isolated first-pass run of all five FinCore Reliability Lab tasks without human repair. Codex scored **495/500**, Claude scored **490/500**, and Antigravity scored **485/500**. No agent triggered a financial-safety veto.
 
 > 中文摘要：三套 Coding Agent 使用相同缺陷提交、任务提示、隐藏测试和 100 分 Rubric 完成五题首轮实测。Codex 495/500，Claude 490/500，Antigravity 485/500。Antigravity 总耗时仅 1,004 秒，是本轮最快；三者均未触发资金安全一票否决。
@@ -63,14 +65,14 @@ Antigravity CLI 1.1.22 ran with the exact recorded model name `Gemini 3.7 Flash 
 |---|---|---|
 | [SWE-bench](https://www.swebench.com/) | Real repository issues and reproducible container evaluation | Repository-level repair tasks and isolated execution |
 | [Aider Polyglot](https://aider.chat/docs/leaderboards/) | Publishes command, commit, cost, tokens, timing, and edit-format details | Exact CLI/model labels, runtime evidence, and machine-readable summaries |
-| [Terminal-Bench](https://www.tbench.ai/) | Separates model from agent scaffold and reports resolution rate with uncertainty | Agent and model are recorded separately; repeated runs remain future work |
+| [Terminal-Bench](https://www.tbench.ai/) | Separates model from agent scaffold and reports resolution rate with uncertainty | Agent and model are recorded separately; the repeatability release reports three attempts per agent/task |
 | [METR time horizons](https://metr.org/time-horizons/) | Explains the metric, human baseline, task distribution, and reliability limits beside the result | Scope limits are explicit and the report avoids extrapolating to general work |
 
 FinCore Reliability Lab does not compete on task count. Its useful difference is domain depth: database-owned uniqueness, immutable journals, state-machine legality, fencing, and financial-safety vetoes.
 
 ## Known limitations
 
-- There are five tasks and one valid run per agent/task, so no confidence interval or run-to-run variance can be estimated.
+- The completed repeatability release has three attempts per agent/task. It exposes run-to-run variance but remains too small for a population-level confidence interval.
 - There is no measured human baseline. Agent elapsed time is reported, but it is not a human-equivalent task duration.
 - The task set is a synthetic, production-shaped Java/PostgreSQL system rather than issues sampled from many independent repositories.
 - Public test totals are not directly comparable because agents could author additional tests.

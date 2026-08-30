@@ -1,32 +1,978 @@
 {
   "benchmark": "FinCore Reliability Lab repeatability phase",
-  "generatedAt": "2026-08-29T19:10:00Z",
+  "generatedAt": "2026-08-30T09:35:00Z",
   "plannedRuns": 30,
-  "completedRuns": 1,
+  "completedRuns": 30,
   "runs": [
     {
-      "runId": "fc001-codex-gpt-5.6-sol-run-002",
-      "agent": "OpenAI Codex CLI 0.150.1",
+      "runId": "fc001-antigravity-run-002",
+      "agent": "antigravity",
+      "model": "Gemini 3.7 Flash (High)",
+      "taskId": "FC-001",
+      "sourceCommit": "587a591869497a90f0d8628239d3fc48521d09eb",
+      "durationSeconds": 176,
+      "status": "hidden_test_failed",
+      "cleanPass": false,
+      "public": {
+        "passed": true,
+        "exitCode": 0
+      },
+      "private": {
+        "passed": 3,
+        "executed": 5,
+        "planned": 5,
+        "exitCode": 1
+      },
+      "usage": {
+        "input_tokens": 324809,
+        "output_tokens": 44378,
+        "thinking_tokens": 35324,
+        "cache_read_tokens": 2103388,
+        "total_tokens": 369187
+      },
+      "score": null,
+      "scoreStatus": "pending rubric review",
+      "vetoes": [],
+      "agentPatchSha256": "be6470891bc30a913aa50cd4f52090bd503e5a8709cf4e87673d065b46cc2612",
+      "privateArtifactSha256": "a16c3e24ac7928c83f58246f13eb11ce8136f2f6c39acd1012e16dd35e9574c8"
+    },
+    {
+      "runId": "fc001-antigravity-run-003",
+      "agent": "antigravity",
+      "model": "Gemini 3.7 Flash (High)",
+      "taskId": "FC-001",
+      "sourceCommit": "587a591869497a90f0d8628239d3fc48521d09eb",
+      "durationSeconds": 169,
+      "status": "build_failed",
+      "cleanPass": false,
+      "public": {
+        "passed": false,
+        "exitCode": 1
+      },
+      "private": {
+        "passed": 0,
+        "executed": 0,
+        "planned": 5,
+        "exitCode": 1
+      },
+      "usage": {
+        "input_tokens": 379757,
+        "output_tokens": 41266,
+        "thinking_tokens": 30698,
+        "cache_read_tokens": 3298580,
+        "total_tokens": 421023
+      },
+      "score": null,
+      "scoreStatus": "pending rubric review",
+      "vetoes": [],
+      "agentPatchSha256": "f84d902a32a5c2c6386ea449f0b3f88bfc057bed9b2daf56623c6445c3582f45",
+      "privateArtifactSha256": "fd402b06f2f6b07fa8c16eaabb417e32a88d3cc9202fbd3408ce137eba03be28"
+    },
+    {
+      "runId": "fc002-antigravity-run-002",
+      "agent": "antigravity",
+      "model": "Gemini 3.7 Flash (High)",
+      "taskId": "FC-002",
+      "sourceCommit": "a0d33bb55d17e3e934924a180efe6ed39f9e9d3d",
+      "durationSeconds": 188,
+      "status": "build_failed",
+      "cleanPass": false,
+      "public": {
+        "passed": false,
+        "exitCode": 1
+      },
+      "private": {
+        "passed": 0,
+        "executed": 0,
+        "planned": 5,
+        "exitCode": 1
+      },
+      "usage": {
+        "input_tokens": 368773,
+        "output_tokens": 48579,
+        "thinking_tokens": 37711,
+        "cache_read_tokens": 2796443,
+        "total_tokens": 417352
+      },
+      "score": null,
+      "scoreStatus": "pending rubric review",
+      "vetoes": [],
+      "agentPatchSha256": "a3b291451391d954037af52488681205a3d575f211f7509bdd8aa168f45d34ae",
+      "privateArtifactSha256": "2823dc7581cab4f10dd3103091103d0a6409c23f635fb91faf973aee6c0aebe8"
+    },
+    {
+      "runId": "fc002-antigravity-run-003",
+      "agent": "antigravity",
+      "model": "Gemini 3.7 Flash (High)",
+      "taskId": "FC-002",
+      "sourceCommit": "a0d33bb55d17e3e934924a180efe6ed39f9e9d3d",
+      "durationSeconds": 190,
+      "status": "clean_pass",
+      "cleanPass": true,
+      "public": {
+        "passed": true,
+        "exitCode": 0
+      },
+      "private": {
+        "passed": 5,
+        "executed": 5,
+        "planned": 5,
+        "exitCode": 0
+      },
+      "usage": {
+        "input_tokens": 399875,
+        "output_tokens": 53160,
+        "thinking_tokens": 39987,
+        "cache_read_tokens": 3238198,
+        "total_tokens": 453035
+      },
+      "score": null,
+      "scoreStatus": "pending rubric review",
+      "vetoes": [],
+      "agentPatchSha256": "ba5980635e8b0a4e55fe7f2e16c2e0116c8907d65c7c1425ebdab1d420f71b89",
+      "privateArtifactSha256": "a0497de36b213f079734fa03c47caad1c9651793a3a8fe4687e59ba676636b34"
+    },
+    {
+      "runId": "fc003-antigravity-run-002",
+      "agent": "antigravity",
+      "model": "Gemini 3.7 Flash (High)",
+      "taskId": "FC-003",
+      "sourceCommit": "a6875d6982453f1b42cebd739b934d48fea903de",
+      "durationSeconds": 156,
+      "status": "clean_pass",
+      "cleanPass": true,
+      "public": {
+        "passed": true,
+        "exitCode": 0
+      },
+      "private": {
+        "passed": 5,
+        "executed": 5,
+        "planned": 5,
+        "exitCode": 0
+      },
+      "usage": {
+        "input_tokens": 332186,
+        "output_tokens": 34623,
+        "thinking_tokens": 25570,
+        "cache_read_tokens": 2363023,
+        "total_tokens": 366809
+      },
+      "score": null,
+      "scoreStatus": "pending rubric review",
+      "vetoes": [],
+      "agentPatchSha256": "bf9d712ced8950585db30efa732d7efd5cfa137dff1f099189d43779aac99567",
+      "privateArtifactSha256": "f7cd5b011d682cf3223f53b127f4cc67da42e5152ca7f5e6d9c71e45a54c0044"
+    },
+    {
+      "runId": "fc003-antigravity-run-003",
+      "agent": "antigravity",
+      "model": "Gemini 3.7 Flash (High)",
+      "taskId": "FC-003",
+      "sourceCommit": "a6875d6982453f1b42cebd739b934d48fea903de",
+      "durationSeconds": 156,
+      "status": "clean_pass",
+      "cleanPass": true,
+      "public": {
+        "passed": true,
+        "exitCode": 0
+      },
+      "private": {
+        "passed": 5,
+        "executed": 5,
+        "planned": 5,
+        "exitCode": 0
+      },
+      "usage": {
+        "input_tokens": 367043,
+        "output_tokens": 41539,
+        "thinking_tokens": 28955,
+        "cache_read_tokens": 2713218,
+        "total_tokens": 408582
+      },
+      "score": null,
+      "scoreStatus": "pending rubric review",
+      "vetoes": [],
+      "agentPatchSha256": "2c19ef52ec92296c8b1c951ade92293bf1ae4bacaf70a7b83c6b3ccfaef8ea5f",
+      "privateArtifactSha256": "94bc5ef055d431c98ece4dfa1a104cb21aa0ce93888a8f597069dd7eec3185af"
+    },
+    {
+      "runId": "fc004-antigravity-run-002",
+      "agent": "antigravity",
+      "model": "Gemini 3.7 Flash (High)",
+      "taskId": "FC-004",
+      "sourceCommit": "fc21ebe0ddf711d3447dbbbb5c959de9488a9be5",
+      "durationSeconds": 186,
+      "status": "clean_pass",
+      "cleanPass": true,
+      "public": {
+        "passed": true,
+        "exitCode": 0
+      },
+      "private": {
+        "passed": 5,
+        "executed": 5,
+        "planned": 5,
+        "exitCode": 0
+      },
+      "usage": {
+        "input_tokens": 344215,
+        "output_tokens": 49147,
+        "thinking_tokens": 36712,
+        "cache_read_tokens": 2249667,
+        "total_tokens": 393362
+      },
+      "score": null,
+      "scoreStatus": "pending rubric review",
+      "vetoes": [],
+      "agentPatchSha256": "a6aafb024e0ee57661b66590a155c32ee5da68ab53e818c1c7b87725bf18b83d",
+      "privateArtifactSha256": "c77ce6106bcb7d69ed85520baf7eb8a6f1513e634cac571fdd38e19dcd8e6185"
+    },
+    {
+      "runId": "fc004-antigravity-run-003",
+      "agent": "antigravity",
+      "model": "Gemini 3.7 Flash (High)",
+      "taskId": "FC-004",
+      "sourceCommit": "fc21ebe0ddf711d3447dbbbb5c959de9488a9be5",
+      "durationSeconds": 191,
+      "status": "clean_pass",
+      "cleanPass": true,
+      "public": {
+        "passed": true,
+        "exitCode": 0
+      },
+      "private": {
+        "passed": 5,
+        "executed": 5,
+        "planned": 5,
+        "exitCode": 0
+      },
+      "usage": {
+        "input_tokens": 331270,
+        "output_tokens": 60663,
+        "thinking_tokens": 43539,
+        "cache_read_tokens": 2593943,
+        "total_tokens": 391933
+      },
+      "score": null,
+      "scoreStatus": "pending rubric review",
+      "vetoes": [],
+      "agentPatchSha256": "020d90072aa6c19e629c27e06d9f5ca20fa736b13677d2a4a8a6e2c7ac065430",
+      "privateArtifactSha256": "1895e83da14569754e4902f58d0418a53bf2e22519b5d99603d512e089ad7675"
+    },
+    {
+      "runId": "fc005-antigravity-run-002",
+      "agent": "antigravity",
+      "model": "Gemini 3.7 Flash (High)",
+      "taskId": "FC-005",
+      "sourceCommit": "2d74bebc8e20d94e8b0f0417620a93b6f2127a35",
+      "durationSeconds": 197,
+      "status": "clean_pass",
+      "cleanPass": true,
+      "public": {
+        "passed": true,
+        "exitCode": 0
+      },
+      "private": {
+        "passed": 5,
+        "executed": 5,
+        "planned": 5,
+        "exitCode": 0
+      },
+      "usage": {
+        "input_tokens": 366452,
+        "output_tokens": 52088,
+        "thinking_tokens": 39844,
+        "cache_read_tokens": 3673066,
+        "total_tokens": 418540
+      },
+      "score": null,
+      "scoreStatus": "pending rubric review",
+      "vetoes": [],
+      "agentPatchSha256": "36069874a54d6169875ec91e39cd4eea22f2deddeeb536aed2b178f2e7b7eb4d",
+      "privateArtifactSha256": "873d1cabf3fbbc5b40f9682cac72cd4928a1af8b530a40f0b5441c113ef38991"
+    },
+    {
+      "runId": "fc005-antigravity-run-003",
+      "agent": "antigravity",
+      "model": "Gemini 3.7 Flash (High)",
+      "taskId": "FC-005",
+      "sourceCommit": "2d74bebc8e20d94e8b0f0417620a93b6f2127a35",
+      "durationSeconds": 158,
+      "status": "clean_pass",
+      "cleanPass": true,
+      "public": {
+        "passed": true,
+        "exitCode": 0
+      },
+      "private": {
+        "passed": 5,
+        "executed": 5,
+        "planned": 5,
+        "exitCode": 0
+      },
+      "usage": {
+        "input_tokens": 304268,
+        "output_tokens": 45655,
+        "thinking_tokens": 31910,
+        "cache_read_tokens": 2032925,
+        "total_tokens": 349923
+      },
+      "score": null,
+      "scoreStatus": "pending rubric review",
+      "vetoes": [],
+      "agentPatchSha256": "49b81d2830d3fcd855b657e5ed45c29e57c4d25f245966a641f007825ea6161b",
+      "privateArtifactSha256": "df854058cabd3d49b10cc9dbb159eaaccf8fea0b92ac5bd8350f478b47707ff0"
+    },
+    {
+      "runId": "fc001-claude-run-002",
+      "agent": "claude",
+      "model": "sonnet",
+      "taskId": "FC-001",
+      "sourceCommit": "587a591869497a90f0d8628239d3fc48521d09eb",
+      "durationSeconds": 531,
+      "status": "public_test_failed",
+      "cleanPass": false,
+      "public": {
+        "passed": false,
+        "exitCode": 1
+      },
+      "private": {
+        "passed": 3,
+        "executed": 5,
+        "planned": 5,
+        "exitCode": 1
+      },
+      "usage": {
+        "input_tokens": 112,
+        "cache_creation_input_tokens": 81567,
+        "cache_read_input_tokens": 2286992,
+        "output_tokens": 40312,
+        "total_cost_usd": 1.1882304000000001,
+        "num_turns": 56
+      },
+      "score": null,
+      "scoreStatus": "pending rubric review",
+      "vetoes": [],
+      "agentPatchSha256": "bf060cdb4fbd529258bf453edf426dca2d445a4041ede9604aceab1d29d5890c",
+      "privateArtifactSha256": "51425431d9ce480668ec2cb2c49db5132159801d5dd168d0b1735964fef28c6a"
+    },
+    {
+      "runId": "fc001-claude-run-003",
+      "agent": "claude",
+      "model": "sonnet",
+      "taskId": "FC-001",
+      "sourceCommit": "587a591869497a90f0d8628239d3fc48521d09eb",
+      "durationSeconds": 508,
+      "status": "hidden_test_failed",
+      "cleanPass": false,
+      "public": {
+        "passed": true,
+        "exitCode": 0
+      },
+      "private": {
+        "passed": 4,
+        "executed": 5,
+        "planned": 5,
+        "exitCode": 1
+      },
+      "usage": {
+        "input_tokens": 68,
+        "cache_creation_input_tokens": 79909,
+        "cache_read_input_tokens": 1496158,
+        "output_tokens": 40967,
+        "total_cost_usd": 1.0299036,
+        "num_turns": 45
+      },
+      "score": null,
+      "scoreStatus": "pending rubric review",
+      "vetoes": [],
+      "agentPatchSha256": "6180d4ba68e418593ded6b327ce0dbc485ae124dcfe04b620893fad8f514648b",
+      "privateArtifactSha256": "947729088f46776162b367bf02acd86b7de8175bb1495e5c38d90d24a41ff300"
+    },
+    {
+      "runId": "fc002-claude-run-002",
+      "agent": "claude",
+      "model": "sonnet",
+      "taskId": "FC-002",
+      "sourceCommit": "a0d33bb55d17e3e934924a180efe6ed39f9e9d3d",
+      "durationSeconds": 398,
+      "status": "clean_pass",
+      "cleanPass": true,
+      "public": {
+        "passed": true,
+        "exitCode": 0
+      },
+      "private": {
+        "passed": 5,
+        "executed": 5,
+        "planned": 5,
+        "exitCode": 0
+      },
+      "usage": {
+        "input_tokens": 90,
+        "cache_creation_input_tokens": 64342,
+        "cache_read_input_tokens": 1583313,
+        "output_tokens": 31293,
+        "total_cost_usd": 0.8884436000000001,
+        "num_turns": 45
+      },
+      "score": null,
+      "scoreStatus": "pending rubric review",
+      "vetoes": [],
+      "agentPatchSha256": "73833f9a653b31af962615e563218555792ab3180433a6d004518fa9f0ab7a46",
+      "privateArtifactSha256": "1b4e3dd5b860c1303b4969ebd937da1fccca51a4cfa886769baa0bc2d4477e2d"
+    },
+    {
+      "runId": "fc002-claude-run-003",
+      "agent": "claude",
+      "model": "sonnet",
+      "taskId": "FC-002",
+      "sourceCommit": "a0d33bb55d17e3e934924a180efe6ed39f9e9d3d",
+      "durationSeconds": 327,
+      "status": "clean_pass",
+      "cleanPass": true,
+      "public": {
+        "passed": true,
+        "exitCode": 0
+      },
+      "private": {
+        "passed": 5,
+        "executed": 5,
+        "planned": 5,
+        "exitCode": 0
+      },
+      "usage": {
+        "input_tokens": 74,
+        "cache_creation_input_tokens": 51544,
+        "cache_read_input_tokens": 1089814,
+        "output_tokens": 25247,
+        "total_cost_usd": 0.6780597999999999,
+        "num_turns": 37
+      },
+      "score": null,
+      "scoreStatus": "pending rubric review",
+      "vetoes": [],
+      "agentPatchSha256": "14f089df575fe1e775dd70b4b7200ba69559ca45800652a8bc10f6e62b99823e",
+      "privateArtifactSha256": "6c5f96c556f5c24f13922850a203cb112c12ecf93bb8329c1172067caeccbc4a"
+    },
+    {
+      "runId": "fc003-claude-run-002",
+      "agent": "claude",
+      "model": "sonnet",
+      "taskId": "FC-003",
+      "sourceCommit": "a6875d6982453f1b42cebd739b934d48fea903de",
+      "durationSeconds": 346,
+      "status": "clean_pass",
+      "cleanPass": true,
+      "public": {
+        "passed": true,
+        "exitCode": 0
+      },
+      "private": {
+        "passed": 5,
+        "executed": 5,
+        "planned": 5,
+        "exitCode": 0
+      },
+      "usage": {
+        "input_tokens": 78,
+        "cache_creation_input_tokens": 54822,
+        "cache_read_input_tokens": 1076773,
+        "output_tokens": 27540,
+        "total_cost_usd": 0.7115216,
+        "num_turns": 39
+      },
+      "score": null,
+      "scoreStatus": "pending rubric review",
+      "vetoes": [],
+      "agentPatchSha256": "1b5de25578af4c3164f1c91fad450a6c83a2abdfe272342816d2053393f77670",
+      "privateArtifactSha256": "5766193bd3a5d56ecc665dbf156dd4cc91194392f6a475690dc36a0e07053ccd"
+    },
+    {
+      "runId": "fc003-claude-run-003",
+      "agent": "claude",
+      "model": "sonnet",
+      "taskId": "FC-003",
+      "sourceCommit": "a6875d6982453f1b42cebd739b934d48fea903de",
+      "durationSeconds": 413,
+      "status": "clean_pass",
+      "cleanPass": true,
+      "public": {
+        "passed": true,
+        "exitCode": 0
+      },
+      "private": {
+        "passed": 5,
+        "executed": 5,
+        "planned": 5,
+        "exitCode": 0
+      },
+      "usage": {
+        "input_tokens": 74,
+        "cache_creation_input_tokens": 60637,
+        "cache_read_input_tokens": 1238980,
+        "output_tokens": 34248,
+        "total_cost_usd": 0.8342950000000001,
+        "num_turns": 44
+      },
+      "score": null,
+      "scoreStatus": "pending rubric review",
+      "vetoes": [],
+      "agentPatchSha256": "18b24f35d7563755bb9eebbb053609f5b442997fded3272a26d6a41893bf11e7",
+      "privateArtifactSha256": "0a524cb650879e039ded6f93efea2366e13be704772f114205663a72666051b3"
+    },
+    {
+      "runId": "fc004-claude-run-002",
+      "agent": "claude",
+      "model": "sonnet",
+      "taskId": "FC-004",
+      "sourceCommit": "fc21ebe0ddf711d3447dbbbb5c959de9488a9be5",
+      "durationSeconds": 847,
+      "status": "clean_pass",
+      "cleanPass": true,
+      "public": {
+        "passed": true,
+        "exitCode": 0
+      },
+      "private": {
+        "passed": 5,
+        "executed": 5,
+        "planned": 5,
+        "exitCode": 0
+      },
+      "usage": {
+        "input_tokens": 130,
+        "cache_creation_input_tokens": 123282,
+        "cache_read_input_tokens": 4138355,
+        "output_tokens": 68920,
+        "total_cost_usd": 2.011634,
+        "num_turns": 76
+      },
+      "score": null,
+      "scoreStatus": "pending rubric review",
+      "vetoes": [],
+      "agentPatchSha256": "9a087cbfe4258508d822067cb175391697851fdbf98ecd85f2b3a7a2475bfada",
+      "privateArtifactSha256": "e01f12d1c03a4c10838eef8c29c7c63dab4a4baea51c569763f51b6b7b5e14ad"
+    },
+    {
+      "runId": "fc004-claude-run-003",
+      "agent": "claude",
+      "model": "sonnet",
+      "taskId": "FC-004",
+      "sourceCommit": "fc21ebe0ddf711d3447dbbbb5c959de9488a9be5",
+      "durationSeconds": 735,
+      "status": "clean_pass",
+      "cleanPass": true,
+      "public": {
+        "passed": true,
+        "exitCode": 0
+      },
+      "private": {
+        "passed": 5,
+        "executed": 5,
+        "planned": 5,
+        "exitCode": 0
+      },
+      "usage": {
+        "input_tokens": 128,
+        "cache_creation_input_tokens": 111687,
+        "cache_read_input_tokens": 3285184,
+        "output_tokens": 59655,
+        "total_cost_usd": 1.7019658000000002,
+        "num_turns": 64
+      },
+      "score": null,
+      "scoreStatus": "pending rubric review",
+      "vetoes": [],
+      "agentPatchSha256": "fcc772b2e2f00fcd29f520bc124ea327881852e05766170a1791ca907be3aa38",
+      "privateArtifactSha256": "75f075fe5f16a6775d441d3ec958b934c952c363a1c903ad8775f2a3c563fd97"
+    },
+    {
+      "runId": "fc005-claude-run-002",
+      "agent": "claude",
+      "model": "sonnet",
+      "taskId": "FC-005",
+      "sourceCommit": "2d74bebc8e20d94e8b0f0417620a93b6f2127a35",
+      "durationSeconds": 636,
+      "status": "public_test_failed",
+      "cleanPass": false,
+      "public": {
+        "passed": false,
+        "exitCode": 1
+      },
+      "private": {
+        "passed": 5,
+        "executed": 5,
+        "planned": 5,
+        "exitCode": 0
+      },
+      "usage": {
+        "input_tokens": 70,
+        "cache_creation_input_tokens": 93127,
+        "cache_read_input_tokens": 1568124,
+        "output_tokens": 54871,
+        "total_cost_usd": 1.2363488000000002,
+        "num_turns": 47
+      },
+      "score": null,
+      "scoreStatus": "pending rubric review",
+      "vetoes": [],
+      "agentPatchSha256": "1bc37c3f228d75bb3444fce278209fcae1337a018902f3a35db7c695b99460cc",
+      "privateArtifactSha256": "7e548aed39d5b085d85cb4c06cc7098c67b5346490477c288a1e9b81675eaaff"
+    },
+    {
+      "runId": "fc005-claude-run-003",
+      "agent": "claude",
+      "model": "sonnet",
+      "taskId": "FC-005",
+      "sourceCommit": "2d74bebc8e20d94e8b0f0417620a93b6f2127a35",
+      "durationSeconds": 447,
+      "status": "clean_pass",
+      "cleanPass": true,
+      "public": {
+        "passed": true,
+        "exitCode": 0
+      },
+      "private": {
+        "passed": 5,
+        "executed": 5,
+        "planned": 5,
+        "exitCode": 0
+      },
+      "usage": {
+        "input_tokens": 90,
+        "cache_creation_input_tokens": 69479,
+        "cache_read_input_tokens": 1538310,
+        "output_tokens": 36656,
+        "total_cost_usd": 0.953679,
+        "num_turns": 45
+      },
+      "score": null,
+      "scoreStatus": "pending rubric review",
+      "vetoes": [],
+      "agentPatchSha256": "6c26376d1f05eef9771f612032282ff681e19c3f81ab265d79d1c95aa819c9b0",
+      "privateArtifactSha256": "cb3be52d299639c0543634c1ed10addc11177d75f7e73fb0cfd32ba0f78aeb83"
+    },
+    {
+      "runId": "fc001-codex-run-002",
+      "agent": "codex",
       "model": "gpt-5.6-sol",
       "taskId": "FC-001",
       "sourceCommit": "587a591869497a90f0d8628239d3fc48521d09eb",
       "durationSeconds": 390,
-      "status": "complete",
-      "public": {"passed": true},
-      "private": {"passed": 5, "executed": 5},
+      "status": "clean_pass",
+      "cleanPass": true,
+      "public": {
+        "passed": true,
+        "exitCode": 0
+      },
+      "private": {
+        "passed": 5,
+        "executed": 5,
+        "planned": 5,
+        "exitCode": 0
+      },
       "usage": {
-        "inputTokens": 875659,
-        "cachedInputTokens": 811264,
-        "outputTokens": 16820,
-        "reasoningOutputTokens": 8460,
-        "estimatedCostUsd": null
+        "input_tokens": 875659,
+        "cached_input_tokens": 811264,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 16820,
+        "reasoning_output_tokens": 8460
       },
       "score": null,
       "scoreStatus": "pending rubric review",
       "vetoes": [],
       "agentPatchSha256": "3a66831ee0c57a04bb79ff6c5d103b655b006a283d47c4551a63f3ac603d42a5",
-      "privateTranscriptSha256": "38c724b0cd62daa2a321f0e691af668d1283663313d39b63a81a2c54e413725b",
       "privateArtifactSha256": "38c724b0cd62daa2a321f0e691af668d1283663313d39b63a81a2c54e413725b"
+    },
+    {
+      "runId": "fc001-codex-run-003",
+      "agent": "codex",
+      "model": "gpt-5.6-sol",
+      "taskId": "FC-001",
+      "sourceCommit": "587a591869497a90f0d8628239d3fc48521d09eb",
+      "durationSeconds": 369,
+      "status": "clean_pass",
+      "cleanPass": true,
+      "public": {
+        "passed": true,
+        "exitCode": 0
+      },
+      "private": {
+        "passed": 5,
+        "executed": 5,
+        "planned": 5,
+        "exitCode": 0
+      },
+      "usage": {
+        "input_tokens": 841732,
+        "cached_input_tokens": 785664,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 11879,
+        "reasoning_output_tokens": 5911
+      },
+      "score": null,
+      "scoreStatus": "pending rubric review",
+      "vetoes": [],
+      "agentPatchSha256": "009254e7a771aa2ab5a9ea3dff27c681e99bf162c44d404463cec836cf985864",
+      "privateArtifactSha256": "8de6d81b2bb135fccb9ab7f80585d6edd153b4f98f5de80b72d0f0c381762c37"
+    },
+    {
+      "runId": "fc002-codex-run-002",
+      "agent": "codex",
+      "model": "gpt-5.6-sol",
+      "taskId": "FC-002",
+      "sourceCommit": "a0d33bb55d17e3e934924a180efe6ed39f9e9d3d",
+      "durationSeconds": 300,
+      "status": "clean_pass",
+      "cleanPass": true,
+      "public": {
+        "passed": true,
+        "exitCode": 0
+      },
+      "private": {
+        "passed": 5,
+        "executed": 5,
+        "planned": 5,
+        "exitCode": 0
+      },
+      "usage": {
+        "input_tokens": 670689,
+        "cached_input_tokens": 595712,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 12288,
+        "reasoning_output_tokens": 6195
+      },
+      "score": null,
+      "scoreStatus": "pending rubric review",
+      "vetoes": [],
+      "agentPatchSha256": "27adfc325e4238b8876e59535e1354226499e2df81ef17ecb078bda822520966",
+      "privateArtifactSha256": "e6f53904336841617f36ac5efa3348e952681e8d206df2645aeac03c4a9d5ef4"
+    },
+    {
+      "runId": "fc002-codex-run-003",
+      "agent": "codex",
+      "model": "gpt-5.6-sol",
+      "taskId": "FC-002",
+      "sourceCommit": "a0d33bb55d17e3e934924a180efe6ed39f9e9d3d",
+      "durationSeconds": 241,
+      "status": "hidden_test_failed",
+      "cleanPass": false,
+      "public": {
+        "passed": true,
+        "exitCode": 0
+      },
+      "private": {
+        "passed": 0,
+        "executed": 5,
+        "planned": 5,
+        "exitCode": 1
+      },
+      "usage": {
+        "input_tokens": 465710,
+        "cached_input_tokens": 420864,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 9210,
+        "reasoning_output_tokens": 4620
+      },
+      "score": null,
+      "scoreStatus": "pending rubric review",
+      "vetoes": [],
+      "agentPatchSha256": "77cffa47881a53e0b682810b6be2a4b1fb3b9676aeb7b7c03335b2055468cb43",
+      "privateArtifactSha256": "42de26c4f9386d018093350c34af057bb69f904dadcdfc1c18aa816a02915b1c"
+    },
+    {
+      "runId": "fc003-codex-run-002",
+      "agent": "codex",
+      "model": "gpt-5.6-sol",
+      "taskId": "FC-003",
+      "sourceCommit": "a6875d6982453f1b42cebd739b934d48fea903de",
+      "durationSeconds": 275,
+      "status": "clean_pass",
+      "cleanPass": true,
+      "public": {
+        "passed": true,
+        "exitCode": 0
+      },
+      "private": {
+        "passed": 5,
+        "executed": 5,
+        "planned": 5,
+        "exitCode": 0
+      },
+      "usage": {
+        "input_tokens": 633545,
+        "cached_input_tokens": 574208,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 11776,
+        "reasoning_output_tokens": 5611
+      },
+      "score": null,
+      "scoreStatus": "pending rubric review",
+      "vetoes": [],
+      "agentPatchSha256": "85b8bd26dad39a1be23020d2ea3fd000fb369527289fa10b5dde8b98cd6e0a81",
+      "privateArtifactSha256": "e9b4c47333fe798324e769866557c90bff44a9d2a16526930191aa651d609565"
+    },
+    {
+      "runId": "fc003-codex-run-003",
+      "agent": "codex",
+      "model": "gpt-5.6-sol",
+      "taskId": "FC-003",
+      "sourceCommit": "a6875d6982453f1b42cebd739b934d48fea903de",
+      "durationSeconds": 371,
+      "status": "clean_pass",
+      "cleanPass": true,
+      "public": {
+        "passed": true,
+        "exitCode": 0
+      },
+      "private": {
+        "passed": 5,
+        "executed": 5,
+        "planned": 5,
+        "exitCode": 0
+      },
+      "usage": {
+        "input_tokens": 933887,
+        "cached_input_tokens": 869632,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 14838,
+        "reasoning_output_tokens": 8620
+      },
+      "score": null,
+      "scoreStatus": "pending rubric review",
+      "vetoes": [],
+      "agentPatchSha256": "cd2097cb074a90292230018646d9ebc55be80bc08fa64ecdf6f615d534ea3bb8",
+      "privateArtifactSha256": "21f6ffb6f71b76d027d6102671a26430291747b8c19c8a70f75b461cf3f4c184"
+    },
+    {
+      "runId": "fc004-codex-run-002",
+      "agent": "codex",
+      "model": "gpt-5.6-sol",
+      "taskId": "FC-004",
+      "sourceCommit": "fc21ebe0ddf711d3447dbbbb5c959de9488a9be5",
+      "durationSeconds": 603,
+      "status": "clean_pass",
+      "cleanPass": true,
+      "public": {
+        "passed": true,
+        "exitCode": 0
+      },
+      "private": {
+        "passed": 5,
+        "executed": 5,
+        "planned": 5,
+        "exitCode": 0
+      },
+      "usage": {
+        "input_tokens": 1429577,
+        "cached_input_tokens": 1339392,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 26169,
+        "reasoning_output_tokens": 13190
+      },
+      "score": null,
+      "scoreStatus": "pending rubric review",
+      "vetoes": [],
+      "agentPatchSha256": "151d1fcb73ff9c3ed1d9536ef5acdf4f881952ed3402588b92702209d226499d",
+      "privateArtifactSha256": "6343f6f4ed284579089f6866286e3386875031bdf7eea864ca7b8b42592a01f9"
+    },
+    {
+      "runId": "fc004-codex-run-003",
+      "agent": "codex",
+      "model": "gpt-5.6-sol",
+      "taskId": "FC-004",
+      "sourceCommit": "fc21ebe0ddf711d3447dbbbb5c959de9488a9be5",
+      "durationSeconds": 469,
+      "status": "clean_pass",
+      "cleanPass": true,
+      "public": {
+        "passed": true,
+        "exitCode": 0
+      },
+      "private": {
+        "passed": 5,
+        "executed": 5,
+        "planned": 5,
+        "exitCode": 0
+      },
+      "usage": {
+        "input_tokens": 1010995,
+        "cached_input_tokens": 904192,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 18830,
+        "reasoning_output_tokens": 10652
+      },
+      "score": null,
+      "scoreStatus": "pending rubric review",
+      "vetoes": [],
+      "agentPatchSha256": "5b4030e101c228ec7ee58533fc432fea0397902c4ff2bfca16934da272b0d4c3",
+      "privateArtifactSha256": "276df2206c3458fb010e181c108d0e48cfc2040becf248e375adc9002cf722fb"
+    },
+    {
+      "runId": "fc005-codex-run-002",
+      "agent": "codex",
+      "model": "gpt-5.6-sol",
+      "taskId": "FC-005",
+      "sourceCommit": "2d74bebc8e20d94e8b0f0417620a93b6f2127a35",
+      "durationSeconds": 487,
+      "status": "hidden_test_failed",
+      "cleanPass": false,
+      "public": {
+        "passed": true,
+        "exitCode": 0
+      },
+      "private": {
+        "passed": 2,
+        "executed": 5,
+        "planned": 5,
+        "exitCode": 1
+      },
+      "usage": {
+        "input_tokens": 1222097,
+        "cached_input_tokens": 1137920,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 21721,
+        "reasoning_output_tokens": 11392
+      },
+      "score": null,
+      "scoreStatus": "pending rubric review",
+      "vetoes": [],
+      "agentPatchSha256": "bbcaac8ee1887b2988c9f5778276a26cba57636317d7337a2ebc86b51250b9e0",
+      "privateArtifactSha256": "9f8fef3ab872292c996e292741b8b0dace5741e9d3f9443e62d23c6cfb94bc1b"
+    },
+    {
+      "runId": "fc005-codex-run-003",
+      "agent": "codex",
+      "model": "gpt-5.6-sol",
+      "taskId": "FC-005",
+      "sourceCommit": "2d74bebc8e20d94e8b0f0417620a93b6f2127a35",
+      "durationSeconds": 595,
+      "status": "clean_pass",
+      "cleanPass": true,
+      "public": {
+        "passed": true,
+        "exitCode": 0
+      },
+      "private": {
+        "passed": 5,
+        "executed": 5,
+        "planned": 5,
+        "exitCode": 0
+      },
+      "usage": {
+        "input_tokens": 1214458,
+        "cached_input_tokens": 1126144,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 23467,
+        "reasoning_output_tokens": 12358
+      },
+      "score": null,
+      "scoreStatus": "pending rubric review",
+      "vetoes": [],
+      "agentPatchSha256": "676d21c51f5ad9551f838d86c793ac842289d0113afe94ffb91549d553383239",
+      "privateArtifactSha256": "151f06dc5e6d9f5ba4675a3764625ffc9c4a8190c8df149a9eb3e3c55e06f03c"
     }
   ]
 }
