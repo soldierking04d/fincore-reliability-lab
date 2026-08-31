@@ -1,6 +1,7 @@
 package dev.fincore.infrastructure.persistence.mapper;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Param;
@@ -40,7 +41,7 @@ public interface LedgerMapper {
         FROM account
         WHERE asset=#{asset} AND account_type='SYSTEM_FEE_SHARD'
         """)
-    java.util.List<UUID> findFeeShardIds(@Param("asset") String asset);
+    List<AccountIdRow> findFeeShardIds(@Param("asset") String asset);
 
     /** 追加账本事务头。 */
     @Insert("""
@@ -91,5 +92,9 @@ public interface LedgerMapper {
 
     /** 资金事务使用的已锁定账户快照。 */
     record LockedAccountRow(UUID accountId, String asset, String accountType, BigDecimal balance) {
+    }
+
+    /** 单列账户编号查询的显式结果对象，避免把 UUID 当成构造器映射类型。 */
+    record AccountIdRow(UUID accountId) {
     }
 }

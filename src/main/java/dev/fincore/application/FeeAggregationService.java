@@ -106,7 +106,9 @@ public class FeeAggregationService {
             throw new IllegalArgumentException("treasury account type or asset mismatch");
         }
 
-        List<UUID> ids = new ArrayList<>(ledgerMapper.findFeeShardIds(asset));
+        List<UUID> ids = ledgerMapper.findFeeShardIds(asset).stream()
+            .map(LedgerMapper.AccountIdRow::accountId)
+            .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
         ids.add(treasuryAccountId);
         ids.sort(Comparator.comparing(UUID::toString));
         // 所有账户按固定 UUID 顺序加锁，避免多个归集任务形成锁顺序环。
