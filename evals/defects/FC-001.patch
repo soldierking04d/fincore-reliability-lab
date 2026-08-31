@@ -1,10 +1,11 @@
 diff --git a/src/main/java/dev/fincore/application/SettlementService.java b/src/main/java/dev/fincore/application/SettlementService.java
 --- a/src/main/java/dev/fincore/application/SettlementService.java
 +++ b/src/main/java/dev/fincore/application/SettlementService.java
-@@ -49,25 +49,16 @@ public class SettlementService {
+@@ -82,30 +82,19 @@ public class SettlementService {
      @Transactional
      public SettlementOutcome settle(SettlementCommand command, FenceToken fenceToken) {
          String payload = toJson(command);
+-        // Inbox 是消息级幂等第一道防线；插入失败表示该 messageId 已处理或正在处理。
 -        if (jdbc.update("""
 +        jdbc.update("""
                  INSERT INTO inbox_message(message_id, message_type, payload)
@@ -15,8 +16,12 @@ diff --git a/src/main/java/dev/fincore/application/SettlementService.java b/src/
 -        }
 +                VALUES (?, 'SETTLEMENT_COMMAND', ?)
 +                """, command.messageId(), payload);
-         if (fenceToken != null) shardLeases.requireValidFenceForUpdate(fenceToken);
+         // 围栏必须在资金事务内部校验，防止旧 Worker 在控制面检查后恢复并迟到写入。
+         if (fenceToken != null) {
+             shardLeases.requireValidFenceForUpdate(fenceToken);
+         }
  
+-        // business_key 唯一约束是业务级幂等第二道防线。
 -        int created = jdbc.update("""
 +        jdbc.update("""
              INSERT INTO settlement_order(business_key, message_id, payer_account_id, payee_account_id,
