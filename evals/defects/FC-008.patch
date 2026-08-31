@@ -1,16 +1,17 @@
 diff --git a/src/main/java/dev/fincore/application/TradeReliabilityService.java b/src/main/java/dev/fincore/application/TradeReliabilityService.java
 --- a/src/main/java/dev/fincore/application/TradeReliabilityService.java
 +++ b/src/main/java/dev/fincore/application/TradeReliabilityService.java
-@@ -86,2 +86,2 @@
+@@ -125,2 +125,2 @@
 -    @Transactional(isolation = Isolation.REPEATABLE_READ)
 +    @Transactional
      public ReconciliationReport reconcile(String rawSymbol) {
-@@ -226,7 +226,4 @@
+@@ -276,8 +276,4 @@
          for (Difference item : open) {
 -            Integer sourceExists = jdbc.queryForObject("""
 -                SELECT COUNT(*) FROM trade_execution WHERE trade_id=?
 -                """, Integer.class, item.tradeId());
 -            if (sourceExists == null || sourceExists == 0) {
+-                // 没有权威成交的投影属于幽灵数据：保留记录并隔离，不做物理删除。
 +            if ("EXTRA".equals(item.type())) {
                  quarantined += jdbc.update("""
                      UPDATE trade_projection projection
