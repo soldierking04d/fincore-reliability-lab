@@ -1,9 +1,9 @@
 package dev.fincore.application;
 
+import dev.fincore.infrastructure.persistence.mapper.ReconciliationMapper;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,12 +18,12 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 public class ReconciliationService {
-    /** 账户、账本和对账问题数据库访问模板。 */
-    private final JdbcTemplate jdbc;
+    /** 账户余额与账本差异持久化接口。 */
+    private final ReconciliationMapper reconciliationMapper;
 
-    /** @param jdbc 数据库访问模板 */
-    public ReconciliationService(JdbcTemplate jdbc) {
-        this.jdbc = jdbc;
+    /** @param reconciliationMapper 账户对账持久化接口 */
+    public ReconciliationService(ReconciliationMapper reconciliationMapper) {
+        this.reconciliationMapper = reconciliationMapper;
     }
 
     /**
@@ -33,24 +33,12 @@ public class ReconciliationService {
      */
     @Transactional
     public ReconciliationReport reconcileAll() {
-        List<AccountDifference> differences = jdbc.query("""
-            SELECT a.account_id, a.opening_balance +
-                   COALESCE(SUM(CASE WHEN e.direction='CREDIT' THEN e.amount ELSE -e.amount END), 0) expected,
-                   a.balance actual
-            FROM account a LEFT JOIN ledger_entry e ON e.account_id=a.account_id
-            GROUP BY a.account_id, a.opening_balance, a.balance
-            HAVING a.opening_balance +
-                   COALESCE(SUM(CASE WHEN e.direction='CREDIT' THEN e.amount ELSE -e.amount END), 0) <> a.balance
-            """, (rs, row) -> new AccountDifference(rs.getObject("account_id", UUID.class),
-                rs.getBigDecimal("expected"), rs.getBigDecimal("actual")));
+        List<AccountDifference> differences = reconciliationMapper.findBalanceDifferences().stream()
+            .map(row -> new AccountDifference(row.accountId(), row.expected(), row.actual()))
+            .toList();
         for (AccountDifference diff : differences) {
-            jdbc.update("""
-                INSERT INTO reconciliation_issue(issue_id, account_id, issue_type, expected_amount,
-                                                 actual_amount, risk_level, details)
-                VALUES (?, ?, 'BALANCE_LEDGER_MISMATCH', ?, ?, 'HIGH', ?)
-                ON CONFLICT DO NOTHING
-                """, UUID.randomUUID(), diff.accountId(), diff.expected(), diff.actual(),
-                "Automatic repair is forbidden; manual review required");
+            reconciliationMapper.insertIssue(UUID.randomUUID(), diff.accountId(), diff.expected(),
+                diff.actual(), "禁止自动修复；必须由人工复核");
         }
         return new ReconciliationReport(differences.size(), differences);
     }

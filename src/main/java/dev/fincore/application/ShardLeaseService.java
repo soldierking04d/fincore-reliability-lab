@@ -1,11 +1,9 @@
 package dev.fincore.application;
 
 import dev.fincore.domain.FenceToken;
-import java.sql.Timestamp;
+import dev.fincore.infrastructure.persistence.mapper.ShardLeaseMapper;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.List;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,12 +19,12 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 public class ShardLeaseService {
-    /** 分片 Lease 数据库访问模板。 */
-    private final JdbcTemplate jdbc;
+    /** 分片 Lease 和数据面围栏持久化接口。 */
+    private final ShardLeaseMapper leaseMapper;
 
-    /** @param jdbc 数据库访问模板 */
-    public ShardLeaseService(JdbcTemplate jdbc) {
-        this.jdbc = jdbc;
+    /** @param leaseMapper 分片 Lease 持久化接口 */
+    public ShardLeaseService(ShardLeaseMapper leaseMapper) {
+        this.leaseMapper = leaseMapper;
     }
 
     /**
@@ -58,22 +56,16 @@ public class ShardLeaseService {
         if (ttl.isNegative() || ttl.isZero()) {
             throw new IllegalArgumentException("ttl must be positive");
         }
-        List<Lease> rows = jdbc.query("""
-            SELECT shard_id, owner_id, epoch, state, lease_until FROM shard_lease
-            WHERE shard_id=? FOR UPDATE
-            """, (rs, row) -> new Lease(rs.getInt("shard_id"), rs.getString("owner_id"),
-                rs.getLong("epoch"), rs.getString("state"), rs.getTimestamp("lease_until").toInstant()), shardId);
+        ShardLeaseMapper.LeaseRow row = leaseMapper.lockForUpdate(shardId);
         Instant until = Instant.now().plus(ttl);
-        if (rows.isEmpty()) {
-            jdbc.update("INSERT INTO shard_lease(shard_id, owner_id, epoch, state, lease_until) VALUES (?, ?, 1, 'RUNNING', ?)",
-                shardId, ownerId, Timestamp.from(until));
+        if (row == null) {
+            leaseMapper.insert(shardId, ownerId, until);
             return new Lease(shardId, ownerId, 1, "RUNNING", until);
         }
-        Lease current = rows.get(0);
+        Lease current = toLease(row);
         boolean live = current.leaseUntil().isAfter(Instant.now());
         if (live && current.ownerId().equals(ownerId) && "RUNNING".equals(current.state())) {
-            jdbc.update("UPDATE shard_lease SET lease_until=?, updated_at=now() WHERE shard_id=? AND owner_id=? AND epoch=?",
-                Timestamp.from(until), shardId, ownerId, current.epoch());
+            leaseMapper.extendOwned(shardId, ownerId, current.epoch(), until);
             return new Lease(shardId, ownerId, current.epoch(), "RUNNING", until);
         }
         if (live) {
@@ -81,10 +73,7 @@ public class ShardLeaseService {
         }
         // 只有旧 Lease 已过期时才允许接管，并通过递增 Epoch 使旧令牌永久失效。
         long nextEpoch = current.epoch() + 1;
-        jdbc.update("""
-            UPDATE shard_lease SET owner_id=?, epoch=?, state='RUNNING', lease_until=?, updated_at=now()
-            WHERE shard_id=?
-            """, ownerId, nextEpoch, Timestamp.from(until), shardId);
+        leaseMapper.takeOver(shardId, ownerId, nextEpoch, until);
         return new Lease(shardId, ownerId, nextEpoch, "RUNNING", until);
     }
 
@@ -98,10 +87,7 @@ public class ShardLeaseService {
      * @return 是否成功续期
      */
     public boolean renew(int shardId, String ownerId, long epoch, Duration ttl) {
-        return jdbc.update("""
-            UPDATE shard_lease SET lease_until=?, updated_at=now()
-            WHERE shard_id=? AND owner_id=? AND epoch=? AND state='RUNNING' AND lease_until>now()
-            """, Timestamp.from(Instant.now().plus(ttl)), shardId, ownerId, epoch) == 1;
+        return leaseMapper.renew(shardId, ownerId, epoch, Instant.now().plus(ttl)) == 1;
     }
 
     /**
@@ -113,10 +99,7 @@ public class ShardLeaseService {
      * @return 是否成功进入排空状态
      */
     public boolean drain(int shardId, String ownerId, long epoch) {
-        return jdbc.update("""
-            UPDATE shard_lease SET state='DRAINING', updated_at=now()
-            WHERE shard_id=? AND owner_id=? AND epoch=? AND state='RUNNING'
-            """, shardId, ownerId, epoch) == 1;
+        return leaseMapper.drain(shardId, ownerId, epoch) == 1;
     }
 
     /**
@@ -128,11 +111,7 @@ public class ShardLeaseService {
      * @return 是否仍是当前 RUNNING 所有者
      */
     public boolean validFence(int shardId, String ownerId, long epoch) {
-        Integer count = jdbc.queryForObject("""
-            SELECT count(*) FROM shard_lease
-            WHERE shard_id=? AND owner_id=? AND epoch=? AND state='RUNNING' AND lease_until>now()
-            """, Integer.class, shardId, ownerId, epoch);
-        return count != null && count == 1;
+        return leaseMapper.countValidFence(shardId, ownerId, epoch) == 1;
     }
 
     /**
@@ -142,19 +121,20 @@ public class ShardLeaseService {
      * @throws IllegalStateException Lease 缺失、过期、排空或已经被新 Epoch 接管时抛出
      */
     public void requireValidFenceForUpdate(FenceToken token) {
-        List<Lease> leases = jdbc.query("""
-            SELECT shard_id, owner_id, epoch, state, lease_until FROM shard_lease
-            WHERE shard_id=? FOR SHARE
-            """, (rs, row) -> new Lease(rs.getInt("shard_id"), rs.getString("owner_id"),
-                rs.getLong("epoch"), rs.getString("state"), rs.getTimestamp("lease_until").toInstant()), token.shardId());
-        if (leases.size() != 1) {
+        ShardLeaseMapper.LeaseRow row = leaseMapper.lockForFenceValidation(token.shardId());
+        if (row == null) {
             throw new IllegalStateException("fence rejected: shard lease missing");
         }
-        Lease lease = leases.get(0);
+        Lease lease = toLease(row);
         if (!lease.ownerId().equals(token.ownerId()) || lease.epoch() != token.epoch() ||
             !"RUNNING".equals(lease.state()) || !lease.leaseUntil().isAfter(Instant.now())) {
             throw new IllegalStateException("fence rejected: stale or draining worker");
         }
+    }
+
+    /** 把持久化记录转换为应用层不可变 Lease 快照。 */
+    private static Lease toLease(ShardLeaseMapper.LeaseRow row) {
+        return new Lease(row.shardId(), row.ownerId(), row.epoch(), row.state(), row.leaseUntil());
     }
 
     /**

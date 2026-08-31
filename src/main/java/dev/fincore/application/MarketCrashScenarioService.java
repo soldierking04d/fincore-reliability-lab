@@ -10,6 +10,7 @@ import dev.fincore.domain.SettlementCommand;
 import dev.fincore.domain.SettlementOutcome;
 import dev.fincore.domain.TradeSyncCommand;
 import dev.fincore.domain.TradeView;
+import dev.fincore.infrastructure.persistence.mapper.LabScenarioMapper;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Duration;
@@ -27,7 +28,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import org.springframework.context.annotation.Profile;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 /**
@@ -61,8 +61,8 @@ public class MarketCrashScenarioService {
     private final SettlementService settlements;
     /** Worker 分片租约服务。 */
     private final ShardLeaseService leases;
-    /** 故障注入及事实核验使用的数据库入口。 */
-    private final JdbcTemplate jdbc;
+    /** 实验故障注入与数据库事实断言持久化接口。 */
+    private final LabScenarioMapper labMapper;
 
     /**
      * 创建市场暴跌日场景编排器。
@@ -72,20 +72,20 @@ public class MarketCrashScenarioService {
      * @param accounts 账户服务
      * @param settlements 资金结算服务
      * @param leases Worker 分片租约服务
-     * @param jdbc 数据库访问入口
+     * @param labMapper 实验故障注入与事实断言接口
      */
     public MarketCrashScenarioService(MatchingService matching,
                                       TradeReliabilityService reliability,
                                       AccountService accounts,
                                       SettlementService settlements,
                                       ShardLeaseService leases,
-                                      JdbcTemplate jdbc) {
+                                      LabScenarioMapper labMapper) {
         this.matching = matching;
         this.reliability = reliability;
         this.accounts = accounts;
         this.settlements = settlements;
         this.leases = leases;
-        this.jdbc = jdbc;
+        this.labMapper = labMapper;
     }
 
     /**
@@ -118,13 +118,12 @@ public class MarketCrashScenarioService {
             "60 条成交、60 个唯一序列、订单数量守恒"));
 
         PlaceOrderCommand firstCommand = traffic.commands().get(0);
-        long beforeReplay = count(
-            "SELECT COUNT(*) FROM trade_execution WHERE symbol=?", symbol);
+        long beforeReplay = labMapper.countTrades(symbol);
         MatchingResult replay = matching.place(firstCommand);
         require(replay.order().duplicate() && replay.trades().size() == 5,
             "相同客户端订单重试未幂等返回 / retry was not idempotent");
-        require(count("SELECT COUNT(*) FROM trade_execution WHERE symbol=?", symbol)
-            == beforeReplay, "重试生成了重复成交 / retry duplicated trades");
+        require(labMapper.countTrades(symbol) == beforeReplay,
+            "重试生成了重复成交 / retry duplicated trades");
 
         boolean conflictRejected = false;
         try {
@@ -201,12 +200,8 @@ public class MarketCrashScenarioService {
             Duration.between(startedAt, Instant.now()).toMillis());
         CrashMetrics metrics = new CrashMetrics(
             MAKERS, CONCURRENT_SELLERS, traffic.trades().size(),
-            count("SELECT COUNT(DISTINCT trade_sequence) FROM trade_execution WHERE symbol=?",
-                symbol),
-            count("""
-                SELECT COUNT(*) FROM outbox_event
-                WHERE event_type='MATCHING_TRADE_EXECUTED' AND payload LIKE ?
-                """, "%\"symbol\":\"" + symbol + "\"%"),
+            labMapper.countDistinctTradeSequences(symbol),
+            labMapper.countTradeOutboxEvents("%\"symbol\":\"" + symbol + "\"%"),
             SETTLEMENTS, DUPLICATE_DELIVERIES,
             settlement.ledgerTransactions(), recovery.repairedCount(),
             recovery.quarantinedCount(), traffic.elapsedMs(),
@@ -281,23 +276,14 @@ public class MarketCrashScenarioService {
     private void verifyMatching(String symbol, TrafficOutcome traffic) {
         require(traffic.trades().size() == MAKERS,
             "成交数量错误 / unexpected trade count");
-        require(count("SELECT COUNT(*) FROM trade_execution WHERE symbol=?", symbol)
-            == MAKERS, "成交落库数量错误 / stored trade count mismatch");
-        require(count("""
-            SELECT COUNT(DISTINCT trade_sequence)
-            FROM trade_execution WHERE symbol=?
-            """, symbol) == MAKERS,
+        require(labMapper.countTrades(symbol) == MAKERS,
+            "成交落库数量错误 / stored trade count mismatch");
+        require(labMapper.countDistinctTradeSequences(symbol) == MAKERS,
             "成交序列不唯一 / duplicate trade sequence");
-        require(count("""
-            SELECT COUNT(*) FROM matching_order
-            WHERE symbol=? AND original_quantity
-                <> executed_quantity + remaining_quantity
-            """, symbol) == 0,
+        require(labMapper.countBrokenOrders(symbol) == 0,
             "订单数量不守恒 / order quantity not conserved");
-        require(count("""
-            SELECT COUNT(*) FROM outbox_event
-            WHERE event_type='MATCHING_TRADE_EXECUTED' AND payload LIKE ?
-            """, "%\"symbol\":\"" + symbol + "\"%") == MAKERS,
+        require(labMapper.countTradeOutboxEvents(
+            "%\"symbol\":\"" + symbol + "\"%") == MAKERS,
             "成交 Outbox 不完整 / trade outbox incomplete");
     }
 
@@ -317,10 +303,7 @@ public class MarketCrashScenarioService {
         var oldLease = leases.claim(shardId, oldWorker, Duration.ofSeconds(30));
         require(leases.drain(shardId, oldWorker, oldLease.epoch()),
             "旧节点排空失败 / drain failed");
-        jdbc.update("""
-            UPDATE shard_lease SET lease_until=now() - interval '1 second'
-            WHERE shard_id=?
-            """, shardId);
+        labMapper.injectExpiredLease(shardId);
         var newLease = leases.claim(shardId, newWorker, Duration.ofSeconds(30));
 
         SettlementCommand first = settlementCommand(
@@ -350,16 +333,11 @@ public class MarketCrashScenarioService {
             require("SUCCESS".equals(outcome.status().name()),
                 "后续结算失败 / settlement failed");
         }
-        long ledgerTransactions = count("""
-            SELECT COUNT(*) FROM ledger_transaction
-            WHERE business_key LIKE ?
-            """, "crash-settle-" + runId + "-%");
+        String settlementPattern = "crash-settle-" + runId + "-%";
+        long ledgerTransactions = labMapper.countLedgerTransactions(settlementPattern);
         require(ledgerTransactions == SETTLEMENTS,
             "账本交易数量错误 / ledger transaction count mismatch");
-        require(count("""
-            SELECT COUNT(*) FROM settlement_order
-            WHERE business_key LIKE ? AND status='SUCCESS'
-            """, "crash-settle-" + runId + "-%") == SETTLEMENTS,
+        require(labMapper.countSuccessfulSettlements(settlementPattern) == SETTLEMENTS,
             "结算终态数量错误 / settlement terminal count mismatch");
 
         return new SettlementEvidence(payer.accountId(), payee.accountId(),
@@ -440,11 +418,7 @@ public class MarketCrashScenarioService {
             "重复成交事件未识别 / duplicate event not detected");
 
         // 只污染派生投影，权威成交事实保持不变。
-        jdbc.update("""
-            UPDATE trade_projection
-            SET quantity=quantity+1, updated_at=now()
-            WHERE trade_id=? AND status='ACTIVE'
-            """, mismatch.tradeId());
+        labMapper.injectProjectionMismatch(mismatch.tradeId());
 
         long ghostSequence = sourceTrades.stream()
             .mapToLong(TradeView::sequence).max().orElseThrow() + 10_000;
@@ -484,17 +458,9 @@ public class MarketCrashScenarioService {
 
     /** 读取权威成交的紧凑校验快照。 */
     private TruthSnapshot truth(String symbol) {
-        return jdbc.queryForObject("""
-            SELECT COUNT(*) AS trade_count,
-                   COALESCE(SUM(trade_sequence), 0) AS sequence_sum,
-                   COALESCE(SUM(quantity), 0) AS quantity_sum,
-                   COALESCE(SUM(quote_amount), 0) AS quote_sum
-            FROM trade_execution WHERE symbol=?
-            """, (rs, row) -> new TruthSnapshot(
-                rs.getLong("trade_count"),
-                rs.getLong("sequence_sum"),
-                rs.getBigDecimal("quantity_sum"),
-                rs.getBigDecimal("quote_sum")), symbol);
+        LabScenarioMapper.TruthRow row = labMapper.summarizeTruth(symbol);
+        return new TruthSnapshot(
+            row.tradeCount(), row.sequenceSum(), row.quantitySum(), row.quoteSum());
     }
 
     /** 比较恢复前后权威成交快照，防止修复越权修改事实。 */
@@ -508,18 +474,7 @@ public class MarketCrashScenarioService {
 
     /** 统计指定账户余额与不可变账本推导值不一致的数量。 */
     private long ledgerMismatchCount(UUID payer, UUID payee, UUID fee) {
-        return count("""
-            SELECT COUNT(*) FROM (
-                SELECT a.account_id
-                FROM account a
-                LEFT JOIN ledger_entry e ON e.account_id=a.account_id
-                WHERE a.account_id IN (?, ?, ?)
-                GROUP BY a.account_id, a.opening_balance, a.balance
-                HAVING a.balance <> a.opening_balance + COALESCE(SUM(
-                    CASE WHEN e.direction='CREDIT'
-                         THEN e.amount ELSE -e.amount END), 0)
-            ) mismatches
-            """, payer, payee, fee);
+        return labMapper.countLedgerMismatches(payer, payee, fee);
     }
 
     /** 返回实验采用的公开故障模型以及明确边界。 */
@@ -530,12 +485,6 @@ public class MarketCrashScenarioService {
             "接管链路失败：显式排空、过期、领取新 Epoch，并在数据面校验",
             "信息同步异常：乱序、重复、缺失、错值、幽灵数据与幂等修复",
             "边界：未模拟 DNS、真实网络分区、存储硬件故障或生产容量");
-    }
-
-    /** 执行参数化单值计数查询。 */
-    private long count(String sql, Object... args) {
-        Long value = jdbc.queryForObject(sql, Long.class, args);
-        return value == null ? 0 : value;
     }
 
     /** 将场景断言失败转换为明确异常，禁止继续生成成功报告。 */

@@ -3,6 +3,7 @@ package dev.fincore.application;
 import dev.fincore.domain.FenceToken;
 import dev.fincore.domain.SettlementCommand;
 import dev.fincore.domain.SettlementOutcome;
+import dev.fincore.infrastructure.persistence.mapper.LabScenarioMapper;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
@@ -15,7 +16,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import org.springframework.context.annotation.Profile;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 /**
@@ -43,8 +43,8 @@ public class LabScenarioService {
     private final FeeAggregationService fees;
     /** 分片租约服务。 */
     private final ShardLeaseService leases;
-    /** 故障注入与事实校验使用的数据库入口。 */
-    private final JdbcTemplate jdbc;
+    /** 仅供实验环境使用的故障注入持久化接口。 */
+    private final LabScenarioMapper labMapper;
 
     /**
      * 创建综合实验编排服务。
@@ -55,18 +55,19 @@ public class LabScenarioService {
      * @param reconciliation 资金账本对账服务
      * @param fees 费用分片与归集服务
      * @param leases 分片租约服务
-     * @param jdbc 数据库访问入口
+     * @param labMapper 实验故障注入持久化接口
      */
     public LabScenarioService(AccountService accounts, SettlementService settlements,
                               CompensationService compensations, ReconciliationService reconciliation,
-                              FeeAggregationService fees, ShardLeaseService leases, JdbcTemplate jdbc) {
+                              FeeAggregationService fees, ShardLeaseService leases,
+                              LabScenarioMapper labMapper) {
         this.accounts = accounts;
         this.settlements = settlements;
         this.compensations = compensations;
         this.reconciliation = reconciliation;
         this.fees = fees;
         this.leases = leases;
-        this.jdbc = jdbc;
+        this.labMapper = labMapper;
     }
 
     /**
@@ -122,7 +123,7 @@ public class LabScenarioService {
             throw new IllegalStateException("drain failed");
         }
         // 人工推进租约时间，模拟旧 Worker 排空后失去所有权。
-        jdbc.update("UPDATE shard_lease SET lease_until=now() - interval '1 second' WHERE shard_id=?", shardId);
+        labMapper.injectExpiredLease(shardId);
         ShardLeaseService.Lease leaseB = leases.claim(shardId, workerB, Duration.ofSeconds(30));
         SettlementCommand fencedCommand = new SettlementCommand("lab-fence-msg-" + runId,
             "lab-fence-order-" + runId, payer.accountId(), payee.accountId(), shards.get(5).accountId(),
@@ -144,7 +145,7 @@ public class LabScenarioService {
 
         fees.aggregate("lab-final-aggregation-" + runId, "USDT", treasury.accountId());
         // 直接修改余额但不写账本，验证对账能够冻结并报告差异。
-        jdbc.update("UPDATE account SET balance=balance+7, updated_at=now() WHERE account_id=?", payee.accountId());
+        labMapper.injectBalanceCorruption(payee.accountId(), new BigDecimal("7"));
         ReconciliationService.ReconciliationReport report = reconciliation.reconcileAll();
         boolean found = report.differences().stream().anyMatch(d -> d.accountId().equals(payee.accountId()));
         if (!found) {

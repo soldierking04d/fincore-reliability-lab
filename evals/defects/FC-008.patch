@@ -1,17 +1,36 @@
 diff --git a/src/main/java/dev/fincore/application/TradeReliabilityService.java b/src/main/java/dev/fincore/application/TradeReliabilityService.java
 --- a/src/main/java/dev/fincore/application/TradeReliabilityService.java
 +++ b/src/main/java/dev/fincore/application/TradeReliabilityService.java
-@@ -125,2 +125,2 @@
+@@ -117,7 +117,7 @@ public class TradeReliabilityService {
+      * @param rawSymbol 待对账交易对
+      * @return 对账批次及全部差异
+      */
 -    @Transactional(isolation = Isolation.REPEATABLE_READ)
 +    @Transactional
      public ReconciliationReport reconcile(String rawSymbol) {
-@@ -276,8 +276,4 @@
-         for (Difference item : open) {
--            Integer sourceExists = jdbc.queryForObject("""
--                SELECT COUNT(*) FROM trade_execution WHERE trade_id=?
--                """, Integer.class, item.tradeId());
--            if (sourceExists == null || sourceExists == 0) {
--                // 没有权威成交的投影属于幽灵数据：保留记录并隔离，不做物理删除。
+         String symbol = normalizeSymbol(rawSymbol);
+         lock("trade-reconcile:" + symbol);
+@@ -193,8 +193,7 @@ public class TradeReliabilityService {
+         int rebuilt = 0;
+         int quarantined = 0;
+         for (TradeReliabilityMapper.DifferenceRow item : open) {
+-            int sourceExists = tradeMapper.countSourceByTradeId(item.tradeId());
+-            if (sourceExists == 0) {
 +            if ("EXTRA".equals(item.type())) {
-                 quarantined += jdbc.update("""
-                     UPDATE trade_projection projection
+                 // 没有权威成交的投影属于幽灵数据：保留记录并隔离，不做物理删除。
+                 quarantined += tradeMapper.quarantineGhost(item.tradeId());
+             } else {
+diff --git a/src/main/java/dev/fincore/infrastructure/persistence/mapper/TradeReliabilityMapper.java b/src/main/java/dev/fincore/infrastructure/persistence/mapper/TradeReliabilityMapper.java
+--- a/src/main/java/dev/fincore/infrastructure/persistence/mapper/TradeReliabilityMapper.java
++++ b/src/main/java/dev/fincore/infrastructure/persistence/mapper/TradeReliabilityMapper.java
+@@ -200,9 +200,6 @@ public interface TradeReliabilityMapper {
+     @Update("""
+         UPDATE trade_projection projection
+         SET status='QUARANTINED', version=version+1, updated_at=now()
+-        WHERE projection.trade_id=#{tradeId} AND projection.status='ACTIVE'
+-          AND NOT EXISTS (
+-              SELECT 1 FROM trade_execution authoritative
+-              WHERE authoritative.trade_id=projection.trade_id)
++        WHERE projection.trade_id=#{tradeId} AND projection.status='ACTIVE'
+         """)
+     int quarantineGhost(@Param("tradeId") UUID tradeId);

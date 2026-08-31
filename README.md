@@ -4,6 +4,7 @@
 
 ![Java 17](https://img.shields.io/badge/Java-17-ED8B00?logo=openjdk&logoColor=white)
 ![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.5-6DB33F?logo=springboot&logoColor=white)
+![MyBatis](https://img.shields.io/badge/MyBatis-3.0.5-CB2E31?logo=apache&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
 ![Kafka](https://img.shields.io/badge/Kafka-KRaft-231F20?logo=apachekafka&logoColor=white)
 ![CI](https://img.shields.io/badge/CI-Maven_%2B_Testcontainers-2088FF?logo=githubactions&logoColor=white)
@@ -14,6 +15,11 @@
 
 源码已按阿里巴巴 P3C 规范补齐中文 Javadoc、枚举说明和关键事务注释；项目采用的格式、命名、检查命令
 以及不可弱化的金融规则见[Java 代码与中文注释规范](docs/java-coding-conventions.md)。
+
+当前代码基线采用 Spring Boot 3.5.16 与 MyBatis Spring Boot Starter 3.0.5，生产服务不再直接拼写或执行
+`JdbcTemplate` SQL。Controller/Kafka Listener 负责协议接入，Application Service 负责事务与金融不变量，
+11 个领域 Mapper 负责参数化 SQL 和结果映射。完整分层、调用链和迁移边界见
+[Spring Boot + MyBatis 持久化架构](docs/mybatis-architecture.md)。
 
 ## 60 秒看懂项目
 
@@ -34,6 +40,7 @@
 
 ## 已实现的第一版闭环
 
+- Spring Boot Web/Kafka 接入、Application Service 事务编排与 MyBatis Mapper 持久化分层；
 - PostgreSQL 账户、余额和不可变账本；
 - 借贷平衡校验；
 - Kafka 结算命令；
@@ -393,6 +400,7 @@ docker compose --profile test run --rm app-test
 ## 文档入口
 
 - [架构说明](docs/architecture/overview.md)
+- [Spring Boot + MyBatis 持久化架构](docs/mybatis-architecture.md)
 - [资金安全决策](docs/adr/0001-financial-invariants.md)
 - [消息幂等决策](docs/adr/0002-inbox-outbox.md)
 - [缩容与 Fencing](docs/adr/0003-shard-fencing.md)

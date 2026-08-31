@@ -9,6 +9,9 @@ import dev.fincore.domain.LedgerPosting;
 import dev.fincore.domain.SettlementCommand;
 import dev.fincore.domain.SettlementOutcome;
 import dev.fincore.domain.SettlementStatus;
+import dev.fincore.infrastructure.persistence.mapper.LedgerMapper;
+import dev.fincore.infrastructure.persistence.mapper.OutboxMapper;
+import dev.fincore.infrastructure.persistence.mapper.SettlementMapper;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.math.BigDecimal;
@@ -17,8 +20,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import org.springframework.dao.DuplicateKeyException;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,8 +35,12 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 public class SettlementService {
-    /** 账户、结算、账本、Inbox 和 Outbox 数据库访问模板。 */
-    private final JdbcTemplate jdbc;
+    /** 结算单、Inbox 和状态审计持久化接口。 */
+    private final SettlementMapper settlementMapper;
+    /** 账户余额与不可变账本持久化接口。 */
+    private final LedgerMapper ledgerMapper;
+    /** 事务 Outbox 持久化接口。 */
+    private final OutboxMapper outboxMapper;
     /** 命令与事件载荷序列化器。 */
     private final ObjectMapper json;
     /** 分片 Lease 与数据面 Fencing 服务。 */
@@ -48,9 +53,12 @@ public class SettlementService {
     private final Counter failures;
 
     /** 创建结算服务并注册业务指标。 */
-    public SettlementService(JdbcTemplate jdbc, ObjectMapper json, MeterRegistry registry,
-                             ShardLeaseService shardLeases) {
-        this.jdbc = jdbc;
+    public SettlementService(SettlementMapper settlementMapper, LedgerMapper ledgerMapper,
+                             OutboxMapper outboxMapper, ObjectMapper json,
+                             MeterRegistry registry, ShardLeaseService shardLeases) {
+        this.settlementMapper = settlementMapper;
+        this.ledgerMapper = ledgerMapper;
+        this.outboxMapper = outboxMapper;
         this.json = json;
         this.shardLeases = shardLeases;
         this.success = registry.counter("fincore.settlement.success");
@@ -83,10 +91,7 @@ public class SettlementService {
     public SettlementOutcome settle(SettlementCommand command, FenceToken fenceToken) {
         String payload = toJson(command);
         // Inbox 是消息级幂等第一道防线；插入失败表示该 messageId 已处理或正在处理。
-        if (jdbc.update("""
-                INSERT INTO inbox_message(message_id, message_type, payload)
-                VALUES (?, 'SETTLEMENT_COMMAND', ?) ON CONFLICT (message_id) DO NOTHING
-                """, command.messageId(), payload) == 0) {
+        if (settlementMapper.insertInbox(command.messageId(), payload) == 0) {
             duplicates.increment();
             return currentOutcomeByMessage(command.messageId());
         }
@@ -96,13 +101,7 @@ public class SettlementService {
         }
 
         // business_key 唯一约束是业务级幂等第二道防线。
-        int created = jdbc.update("""
-            INSERT INTO settlement_order(business_key, message_id, payer_account_id, payee_account_id,
-                                         fee_account_id, asset, amount, fee, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'INIT')
-            ON CONFLICT (business_key) DO NOTHING
-            """, command.businessKey(), command.messageId(), command.payerAccountId(), command.payeeAccountId(),
-            command.feeAccountId(), command.asset(), command.amount(), command.fee());
+        int created = settlementMapper.insertOrder(command);
         if (created == 0) {
             duplicates.increment();
             markInboxProcessed(command.messageId());
@@ -136,18 +135,13 @@ public class SettlementService {
         }
         BalancedJournal.requireBalanced(postings);
         UUID transactionId = UUID.randomUUID();
-        jdbc.update("""
-            INSERT INTO ledger_transaction(transaction_id, business_key, transaction_type, asset)
-            VALUES (?, ?, 'SETTLEMENT', ?)
-            """, transactionId, command.businessKey(), command.asset());
+        ledgerMapper.insertTransaction(transactionId, command.businessKey(), "SETTLEMENT", command.asset());
         for (LedgerPosting posting : postings) {
             if (posting.amount().signum() == 0) {
                 continue;
             }
-            jdbc.update("""
-                INSERT INTO ledger_entry(entry_id, transaction_id, account_id, direction, amount)
-                VALUES (?, ?, ?, ?, ?)
-                """, UUID.randomUUID(), transactionId, posting.accountId(), posting.direction().name(), posting.amount());
+            ledgerMapper.insertEntry(UUID.randomUUID(), transactionId, posting.accountId(),
+                posting.direction().name(), posting.amount());
         }
 
         debit(command.payerAccountId(), totalDebit);
@@ -157,11 +151,8 @@ public class SettlementService {
         }
         transition(command.businessKey(), SettlementStatus.PROCESSING, SettlementStatus.SUCCESS, null);
         // 结算成功事件与资金结果同事务写入 Outbox，后续由 Publisher 可靠投递。
-        jdbc.update("""
-            INSERT INTO outbox_event(event_id, aggregate_id, event_type, payload)
-            VALUES (?, ?, 'SETTLEMENT_SUCCEEDED', ?)
-            """, UUID.randomUUID(), command.businessKey(), toJson(Map.of(
-                "businessKey", command.businessKey(), "status", "SUCCESS")));
+        outboxMapper.insert(UUID.randomUUID(), command.businessKey(), "SETTLEMENT_SUCCEEDED",
+            toJson(Map.of("businessKey", command.businessKey(), "status", "SUCCESS")));
         markInboxProcessed(command.messageId());
         success.increment();
         return new SettlementOutcome(command.businessKey(), SettlementStatus.SUCCESS, false, "settled");
@@ -181,10 +172,10 @@ public class SettlementService {
     private Map<UUID, LockedAccount> lockAccounts(SettlementCommand command) {
         List<UUID> ids = new ArrayList<>(List.of(command.payerAccountId(), command.payeeAccountId(), command.feeAccountId()));
         ids.sort(Comparator.comparing(UUID::toString));
-        return ids.stream().map(id -> jdbc.queryForObject("""
-                SELECT account_id, asset, balance FROM account WHERE account_id=? FOR UPDATE
-                """, (rs, row) -> new LockedAccount(rs.getObject("account_id", UUID.class),
-                    rs.getString("asset"), rs.getBigDecimal("balance")), id))
+        return ids.stream().map(id -> {
+            LedgerMapper.LockedAccountRow row = ledgerMapper.lockAccount(id);
+            return new LockedAccount(row.accountId(), row.asset(), row.balance());
+        })
             .collect(java.util.stream.Collectors.toMap(LockedAccount::id, a -> a));
     }
 
@@ -199,10 +190,7 @@ public class SettlementService {
 
     /** 通过余额下限条件执行原子扣款，避免并发透支。 */
     private void debit(UUID id, BigDecimal amount) {
-        int changed = jdbc.update("""
-            UPDATE account SET balance=balance-?, version=version+1, updated_at=now()
-            WHERE account_id=? AND balance>=?
-            """, amount, id, amount);
+        int changed = ledgerMapper.debit(id, amount);
         if (changed != 1) {
             throw new IllegalStateException("concurrent debit rejected");
         }
@@ -210,9 +198,7 @@ public class SettlementService {
 
     /** 执行账户原子入账。 */
     private void credit(UUID id, BigDecimal amount) {
-        if (jdbc.update("""
-            UPDATE account SET balance=balance+?, version=version+1, updated_at=now() WHERE account_id=?
-            """, amount, id) != 1) {
+        if (ledgerMapper.credit(id, amount) != 1) {
             throw new IllegalStateException("credit account missing");
         }
     }
@@ -220,10 +206,7 @@ public class SettlementService {
     /** 使用状态和版本条件执行 CAS 状态转换并记录审计。 */
     private void transition(String key, SettlementStatus from, SettlementStatus to, String reason) {
         from.requireTransitionTo(to);
-        int changed = jdbc.update("""
-            UPDATE settlement_order SET status=?, failure_reason=?, version=version+1, updated_at=now()
-            WHERE business_key=? AND status=?
-            """, to.name(), reason, key, from.name());
+        int changed = settlementMapper.transition(key, from.name(), to.name(), reason);
         if (changed != 1) {
             throw new IllegalStateException("CAS transition rejected: " + from + " -> " + to);
         }
@@ -232,34 +215,27 @@ public class SettlementService {
 
     /** 记录结算状态变化，不覆盖已有历史。 */
     private void audit(String key, SettlementStatus from, SettlementStatus to, String reason) {
-        jdbc.update("""
-            INSERT INTO state_audit(audit_id, business_key, from_status, to_status, reason, changed_by)
-            VALUES (?, ?, ?, ?, ?, 'settlement-service')
-            """, UUID.randomUUID(), key, from == null ? null : from.name(), to.name(), reason);
+        settlementMapper.insertAudit(UUID.randomUUID(), key,
+            from == null ? null : from.name(), to.name(), reason);
     }
 
     /** 查询业务键对应的当前结算结果。 */
     private SettlementOutcome currentOutcome(String key, boolean duplicate) {
-        return jdbc.queryForObject("""
-            SELECT business_key, status, COALESCE(failure_reason, '') detail
-            FROM settlement_order WHERE business_key=?
-            """, (rs, row) -> new SettlementOutcome(rs.getString("business_key"),
-                SettlementStatus.valueOf(rs.getString("status")), duplicate, rs.getString("detail")), key);
+        SettlementMapper.SettlementResultRow row = settlementMapper.findByBusinessKey(key);
+        return new SettlementOutcome(row.businessKey(), SettlementStatus.valueOf(row.status()),
+            duplicate, row.detail());
     }
 
     /** 按消息编号查询幂等重放结果。 */
     private SettlementOutcome currentOutcomeByMessage(String messageId) {
-        return jdbc.queryForObject("""
-            SELECT business_key, status, COALESCE(failure_reason, '') detail
-            FROM settlement_order WHERE message_id=?
-            """, (rs, row) -> new SettlementOutcome(rs.getString("business_key"),
-                SettlementStatus.valueOf(rs.getString("status")), true,
-                "duplicate message: " + rs.getString("detail")), messageId);
+        SettlementMapper.SettlementResultRow row = settlementMapper.findByMessageId(messageId);
+        return new SettlementOutcome(row.businessKey(), SettlementStatus.valueOf(row.status()),
+            true, "duplicate message: " + row.detail());
     }
 
     /** 标记 Inbox 消息已处理。 */
     private void markInboxProcessed(String messageId) {
-        jdbc.update("UPDATE inbox_message SET processed_at=now() WHERE message_id=?", messageId);
+        settlementMapper.markInboxProcessed(messageId);
     }
 
     /** 将命令或事件载荷序列化为 JSON。 */

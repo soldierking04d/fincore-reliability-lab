@@ -4,6 +4,7 @@
 
 ![Java 17](https://img.shields.io/badge/Java-17-ED8B00?logo=openjdk&logoColor=white)
 ![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.5-6DB33F?logo=springboot&logoColor=white)
+![MyBatis](https://img.shields.io/badge/MyBatis-3.0.5-CB2E31?logo=apache&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
 ![Kafka](https://img.shields.io/badge/Kafka-KRaft-231F20?logo=apachekafka&logoColor=white)
 ![CI](https://img.shields.io/badge/CI-Maven_%2B_Testcontainers-2088FF?logo=githubactions&logoColor=white)
@@ -11,6 +12,8 @@
 FinCore Reliability Lab is a runnable matching-and-settlement reliability system and coding-agent evaluation foundation. It tests whether trade facts remain deterministic and whether money remains unique, balanced, auditable, and reconcilable after concurrency, retries, duplicate delivery, partial failure, worker takeover, and recovery.
 
 All accounts, transactions, and operating parameters are fictional. The repository contains no former-employer source code or confidential production data.
+
+The current baseline uses Spring Boot 3.5.16 and MyBatis Spring Boot Starter 3.0.5. Production services no longer execute `JdbcTemplate` SQL directly: adapters handle HTTP/Kafka, application services own transactions and financial invariants, and 11 domain-focused Mapper interfaces own parameterized SQL. See the [Spring Boot + MyBatis persistence architecture](docs/mybatis-architecture.md) for the full call path and safety boundaries.
 
 ## Why this repository exists
 
@@ -80,12 +83,11 @@ curl -s -X POST \
 
 ```mermaid
 flowchart TD
-    A[REST producer] --> B[Kafka command]
-    B --> C[Settlement listener]
-    C --> D[PostgreSQL transaction]
-    D --> E[Inbox and order]
-    D --> F[Journal and balance]
-    D --> G[Audit and Outbox]
+    A[REST / Kafka] --> B[Web and message adapters]
+    B --> C[Application services]
+    C --> D[MyBatis mappers]
+    D --> E[(PostgreSQL)]
+    C --> F[Domain invariants]
 ```
 
 Within one financial transaction the service inserts the Inbox record, creates or finds the business order, performs a CAS transition, locks accounts in deterministic order, validates asset and balance, appends a balanced journal, updates the balance view, records audit state, writes the Outbox event, and completes the Inbox record. An unhandled failure rolls the entire unit back and leaves Kafka free to retry.

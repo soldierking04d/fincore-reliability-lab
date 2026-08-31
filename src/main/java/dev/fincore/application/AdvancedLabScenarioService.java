@@ -6,6 +6,7 @@ import dev.fincore.domain.OrderType;
 import dev.fincore.domain.PlaceOrderCommand;
 import dev.fincore.domain.TradeSyncCommand;
 import dev.fincore.domain.TradeView;
+import dev.fincore.infrastructure.persistence.mapper.LabScenarioMapper;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -19,7 +20,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import org.springframework.context.annotation.Profile;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 /**
@@ -38,22 +38,22 @@ public class AdvancedLabScenarioService {
     private final MatchingService matching;
     /** 成交同步、对账与修复服务。 */
     private final TradeReliabilityService reliability;
-    /** 用于验证数据库事实的访问入口。 */
-    private final JdbcTemplate jdbc;
+    /** 实验故障注入与数据库事实断言持久化接口。 */
+    private final LabScenarioMapper labMapper;
 
     /**
      * 创建高级实验编排服务。
      *
      * @param matching 撮合服务
      * @param reliability 成交可靠性服务
-     * @param jdbc 数据库访问入口
+     * @param labMapper 实验故障注入与事实断言接口
      */
     public AdvancedLabScenarioService(MatchingService matching,
                                       TradeReliabilityService reliability,
-                                      JdbcTemplate jdbc) {
+                                      LabScenarioMapper labMapper) {
         this.matching = matching;
         this.reliability = reliability;
-        this.jdbc = jdbc;
+        this.labMapper = labMapper;
     }
 
     /**
@@ -166,11 +166,7 @@ public class AdvancedLabScenarioService {
         }
 
         // 注入错值投影；权威 trade_execution 保持不可变。
-        jdbc.update("""
-            UPDATE trade_projection
-            SET quantity=quantity+1, updated_at=now()
-            WHERE trade_id=? AND status='ACTIVE'
-            """, trades.get(0).tradeId());
+        labMapper.injectProjectionMismatch(trades.get(0).tradeId());
         long extraSequence = trades.stream().mapToLong(TradeView::sequence).max().orElseThrow() + 10_000;
         TradeSyncCommand ghost = new TradeSyncCommand(
             UUID.randomUUID(), UUID.randomUUID(), symbol,
@@ -212,25 +208,12 @@ public class AdvancedLabScenarioService {
      */
     private BurstReport verifyBurst(String runId, String symbol, int makers,
                                     int takers, int returnedTrades, long elapsedMs) {
-        long storedTrades = count("""
-            SELECT COUNT(*) FROM trade_execution WHERE symbol=?
-            """, symbol);
-        long distinctSequences = count("""
-            SELECT COUNT(DISTINCT trade_sequence) FROM trade_execution WHERE symbol=?
-            """, symbol);
-        long brokenOrders = count("""
-            SELECT COUNT(*) FROM matching_order
-            WHERE symbol=? AND original_quantity<>executed_quantity+remaining_quantity
-            """, symbol);
-        long openOrders = count("""
-            SELECT COUNT(*) FROM matching_order
-            WHERE symbol=? AND status IN ('OPEN', 'PARTIALLY_FILLED')
-            """, symbol);
-        long tradeEvents = jdbc.queryForObject("""
-            SELECT COUNT(*) FROM outbox_event
-            WHERE event_type='MATCHING_TRADE_EXECUTED'
-              AND payload LIKE ?
-            """, Long.class, "%\"symbol\":\"" + symbol + "\"%");
+        long storedTrades = labMapper.countTrades(symbol);
+        long distinctSequences = labMapper.countDistinctTradeSequences(symbol);
+        long brokenOrders = labMapper.countBrokenOrders(symbol);
+        long openOrders = labMapper.countOpenOrders(symbol);
+        long tradeEvents = labMapper.countTradeOutboxEvents(
+            "%\"symbol\":\"" + symbol + "\"%");
 
         if (returnedTrades != makers || storedTrades != makers
             || distinctSequences != makers || brokenOrders != 0
@@ -248,18 +231,6 @@ public class AdvancedLabScenarioService {
             .divide(BigDecimal.valueOf(elapsedMs), 2, java.math.RoundingMode.HALF_UP);
         return new BurstReport(runId, symbol, Instant.now(), makers, takers,
             storedTrades, elapsedMs, observedRate, checks);
-    }
-
-    /**
-     * 执行单值计数查询。
-     *
-     * @param sql 仅包含一个交易对占位符的统计 SQL
-     * @param symbol 交易对
-     * @return 查询计数，数据库返回空值时按零处理
-     */
-    private long count(String sql, String symbol) {
-        Long value = jdbc.queryForObject(sql, Long.class, symbol);
-        return value == null ? 0 : value;
     }
 
     /**

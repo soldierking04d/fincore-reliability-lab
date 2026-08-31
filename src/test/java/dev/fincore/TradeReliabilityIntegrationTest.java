@@ -36,7 +36,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  * @author FinCore Reliability Lab
  * @since 1.0.0
  */
-@Testcontainers
+@Testcontainers(disabledWithoutDocker = true)
 @ActiveProfiles("lab")
 @SpringBootTest(properties = {
     "spring.kafka.bootstrap-servers=127.0.0.1:1",

@@ -1,5 +1,22 @@
 # 架构概览 / Architecture Overview
 
+## 代码分层
+
+```mermaid
+flowchart LR
+    A[HTTP Controller / Kafka Listener] --> B[Application Service]
+    B --> C[Domain Model]
+    B --> D[MyBatis Mapper]
+    D --> E[(PostgreSQL 16)]
+    B --> F[Outbox]
+    F --> G[Kafka]
+```
+
+项目以 Spring Boot 3.5.16 作为运行和事务容器，以 MyBatis Spring Boot Starter 3.0.5 作为生产持久化入口。
+接入层不写 SQL，Application Service 不依赖 `JdbcTemplate`，Mapper 不承载业务状态机；事务边界仍由服务层
+`@Transactional` 统一控制，因此一次业务调用可以原子覆盖多个 Mapper。详细包职责、Mapper 清单和参数映射
+规则见[Spring Boot + MyBatis 持久化架构](../mybatis-architecture.md)。
+
 ## 撮合到结算的系统边界
 
 ```mermaid
@@ -31,10 +48,13 @@ flowchart LR
 flowchart TD
     A[REST Producer] --> B[Kafka Command]
     B --> C[Settlement Listener]
-    C --> D[PostgreSQL Transaction]
-    D --> E[Inbox and Order]
-    D --> F[Ledger and Balance]
-    D --> G[Audit and Outbox]
+    C --> D[Application Service Transaction]
+    D --> E[Settlement Mapper]
+    D --> F[Ledger Mapper]
+    D --> G[Outbox Mapper]
+    E --> H[(PostgreSQL)]
+    F --> H
+    G --> H
 ```
 
 一次结算的数据库事务依次执行：
