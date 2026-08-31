@@ -22,13 +22,32 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
+/**
+ * 高级可靠性实验编排服务。
+ *
+ * <p>该服务仅在 {@code lab} Profile 启用，用真实数据库事务组合热点撮合与成交同步恢复场景。它负责
+ * 造数和断言，不参与生产业务链路。</p>
+ *
+ * @author FinCore Reliability Lab
+ * @since 1.0.0
+ */
 @Profile("lab")
 @Service
 public class AdvancedLabScenarioService {
+    /** 撮合服务。 */
     private final MatchingService matching;
+    /** 成交同步、对账与修复服务。 */
     private final TradeReliabilityService reliability;
+    /** 用于验证数据库事实的访问入口。 */
     private final JdbcTemplate jdbc;
 
+    /**
+     * 创建高级实验编排服务。
+     *
+     * @param matching 撮合服务
+     * @param reliability 成交可靠性服务
+     * @param jdbc 数据库访问入口
+     */
     public AdvancedLabScenarioService(MatchingService matching,
                                       TradeReliabilityService reliability,
                                       JdbcTemplate jdbc) {
@@ -37,6 +56,13 @@ public class AdvancedLabScenarioService {
         this.jdbc = jdbc;
     }
 
+    /**
+     * 运行同一交易对的并发撮合突发实验。
+     *
+     * @param makerCount 预置 Maker 数量，范围为 20 至 200
+     * @param takerCount 并发 Taker 数量，范围为 1 至 32
+     * @return 含吞吐量和守恒断言的实验报告
+     */
     public BurstReport runMatchingBurst(int makerCount, int takerCount) {
         if (makerCount < 20 || makerCount > 200 || takerCount < 1
             || takerCount > 32 || makerCount % takerCount != 0) {
@@ -59,6 +85,7 @@ public class AdvancedLabScenarioService {
         List<Future<MatchingResult>> futures = new ArrayList<>();
         long started = System.nanoTime();
         try {
+            // 所有 Taker 等待同一个闩锁，尽量在同一时间进入撮合服务。
             for (int i = 0; i < takerCount; i++) {
                 int index = i;
                 futures.add(pool.submit(() -> {
@@ -78,16 +105,21 @@ public class AdvancedLabScenarioService {
             long elapsedMs = Math.max(1, (System.nanoTime() - started) / 1_000_000);
             return verifyBurst(runId, symbol, makerCount, takerCount,
                 returnedTrades, elapsedMs);
-        } catch (InterruptedException e) {
+        } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
-            throw new IllegalStateException("并发压测被中断 / burst interrupted", e);
-        } catch (ExecutionException e) {
-            throw new IllegalStateException("并发压测失败 / burst failed", e.getCause());
+            throw new IllegalStateException("并发压测被中断 / burst interrupted", exception);
+        } catch (ExecutionException exception) {
+            throw new IllegalStateException("并发压测失败 / burst failed", exception.getCause());
         } finally {
             pool.shutdownNow();
         }
     }
 
+    /**
+     * 运行乱序、重复、漏数、错值与幽灵成交的同步恢复实验。
+     *
+     * @return 包含每个故障断言和对账批次编号的恢复报告
+     */
     public SyncRecoveryReport runTradeSyncRecovery() {
         String runId = Long.toString(System.currentTimeMillis());
         String symbol = "SYNC" + runId.substring(Math.max(0, runId.length() - 9)) + "-USDT";
@@ -109,6 +141,7 @@ public class AdvancedLabScenarioService {
 
         UUID eventThird = UUID.randomUUID();
         UUID eventFirst = UUID.randomUUID();
+        // 故意先同步第三笔，再同步第一笔，证明投影不依赖消息到达顺序。
         reliability.apply(TradeSyncCommand.from(eventThird, trades.get(2)));
         reliability.apply(TradeSyncCommand.from(eventFirst, trades.get(0)));
         var duplicate = reliability.apply(TradeSyncCommand.from(eventThird, trades.get(2)));
@@ -132,6 +165,7 @@ public class AdvancedLabScenarioService {
             throw new IllegalStateException("漏同步修复后仍有差异 / repair did not converge");
         }
 
+        // 注入错值投影；权威 trade_execution 保持不可变。
         jdbc.update("""
             UPDATE trade_projection
             SET quantity=quantity+1, updated_at=now()
@@ -173,6 +207,9 @@ public class AdvancedLabScenarioService {
             missingRun.runId(), corruptedRun.runId(), finalRun.runId());
     }
 
+    /**
+     * 从持久化事实验证热点撮合的数量守恒、序号唯一和事件完整性。
+     */
     private BurstReport verifyBurst(String runId, String symbol, int makers,
                                     int takers, int returnedTrades, long elapsedMs) {
         long storedTrades = count("""
@@ -213,16 +250,50 @@ public class AdvancedLabScenarioService {
             storedTrades, elapsedMs, observedRate, checks);
     }
 
+    /**
+     * 执行单值计数查询。
+     *
+     * @param sql 仅包含一个交易对占位符的统计 SQL
+     * @param symbol 交易对
+     * @return 查询计数，数据库返回空值时按零处理
+     */
     private long count(String sql, String symbol) {
         Long value = jdbc.queryForObject(sql, Long.class, symbol);
         return value == null ? 0 : value;
     }
 
+    /**
+     * 热点撮合实验报告。
+     *
+     * @param runId 实验编号
+     * @param symbol 独立交易对
+     * @param completedAt 完成时间
+     * @param makerCount Maker 数量
+     * @param concurrentTakers 并发 Taker 数量
+     * @param tradeCount 成交数量
+     * @param elapsedMs 耗时毫秒数
+     * @param observedTradesPerSecond 实测每秒成交数
+     * @param checks 守恒检查结果
+     */
     public record BurstReport(String runId, String symbol, Instant completedAt,
                               int makerCount, int concurrentTakers, long tradeCount,
                               long elapsedMs, BigDecimal observedTradesPerSecond,
-                              Map<String, String> checks) {}
+                              Map<String, String> checks) {
+    }
+
+    /**
+     * 成交同步恢复实验报告。
+     *
+     * @param runId 实验编号
+     * @param symbol 独立交易对
+     * @param completedAt 完成时间
+     * @param checks 各故障注入的检查结果
+     * @param missingRunId 漏数对账批次
+     * @param corruptedRunId 错值与幽灵数据对账批次
+     * @param finalCleanRunId 修复后最终对账批次
+     */
     public record SyncRecoveryReport(String runId, String symbol, Instant completedAt,
                                      Map<String, String> checks, UUID missingRunId,
-                                     UUID corruptedRunId, UUID finalCleanRunId) {}
+                                     UUID corruptedRunId, UUID finalCleanRunId) {
+    }
 }

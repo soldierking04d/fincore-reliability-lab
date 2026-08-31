@@ -17,6 +17,8 @@ jobs:
           distribution: temurin
           java-version: "17"
           cache: maven
+      - name: Verify Java coding conventions
+        run: ./scripts/verify-code-conventions.sh
       - name: Verify core model
         run: ./scripts/verify-core.sh
       - name: Validate public evaluation kit

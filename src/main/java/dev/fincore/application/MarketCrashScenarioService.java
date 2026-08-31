@@ -35,22 +35,45 @@ import org.springframework.stereotype.Service;
  *
  * <p>只复现公开事故中的故障类型，不使用任何公司的源码、流量或内部参数。
  * It reproduces public failure patterns, never private implementation details.</p>
+ *
+ * @author FinCore Reliability Lab
+ * @since 1.0.0
  */
 @Profile("lab")
 @Service
 public class MarketCrashScenarioService {
+    /** 预置买单数量。 */
     private static final int MAKERS = 60;
+    /** 并发市价卖方数量。 */
     private static final int CONCURRENT_SELLERS = 12;
+    /** 进入资金结算的成交数量。 */
     private static final int SETTLEMENTS = 6;
+    /** 同一结算消息的并发重复投递次数。 */
     private static final int DUPLICATE_DELIVERIES = 17;
 
+    /** 撮合服务。 */
     private final MatchingService matching;
+    /** 成交同步与修复服务。 */
     private final TradeReliabilityService reliability;
+    /** 账户服务。 */
     private final AccountService accounts;
+    /** 资金结算服务。 */
     private final SettlementService settlements;
+    /** Worker 分片租约服务。 */
     private final ShardLeaseService leases;
+    /** 故障注入及事实核验使用的数据库入口。 */
     private final JdbcTemplate jdbc;
 
+    /**
+     * 创建市场暴跌日场景编排器。
+     *
+     * @param matching 撮合服务
+     * @param reliability 成交同步与修复服务
+     * @param accounts 账户服务
+     * @param settlements 资金结算服务
+     * @param leases Worker 分片租约服务
+     * @param jdbc 数据库访问入口
+     */
     public MarketCrashScenarioService(MatchingService matching,
                                       TradeReliabilityService reliability,
                                       AccountService accounts,
@@ -65,6 +88,14 @@ public class MarketCrashScenarioService {
         this.jdbc = jdbc;
     }
 
+    /**
+     * 执行市场暴跌日端到端场景并验证全部不变量。
+     *
+     * <p>场景串联撮合冲击、请求重放、流动性耗尽、Worker 接管、结算重复投递、成交投影污染与
+     * 自动恢复。使用 {@code synchronized} 避免同一实例并行注入复合故障。</p>
+     *
+     * @return 时间线、指标、证据和检查结果
+     */
     public synchronized MarketCrashReport runMarketCrashDay() {
         Instant startedAt = Instant.now();
         String runId = UUID.randomUUID().toString().substring(0, 8);
@@ -188,6 +219,7 @@ public class MarketCrashScenarioService {
                 + " / Correctness lab, not a production capacity certificate.");
     }
 
+    /** 在三个价位预置确定数量的买方流动性。 */
     private void seedBuyLiquidity(String runId, String symbol) {
         for (int i = 0; i < MAKERS; i++) {
             BigDecimal price = new BigDecimal(
@@ -200,6 +232,7 @@ public class MarketCrashScenarioService {
         }
     }
 
+    /** 使用同一个起跑闩锁并发提交市价卖单，形成热点卖压。 */
     private TrafficOutcome runSellOff(String runId, String symbol) {
         List<PlaceOrderCommand> commands = new ArrayList<>();
         for (int i = 0; i < CONCURRENT_SELLERS; i++) {
@@ -233,17 +266,18 @@ public class MarketCrashScenarioService {
             trades.sort(Comparator.comparingLong(TradeView::sequence));
             return new TrafficOutcome(List.copyOf(commands),
                 List.copyOf(trades), elapsedMs, rate);
-        } catch (InterruptedException e) {
+        } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
-            throw new IllegalStateException("暴跌流量实验被中断 / interrupted", e);
-        } catch (ExecutionException e) {
+            throw new IllegalStateException("暴跌流量实验被中断 / interrupted", exception);
+        } catch (ExecutionException exception) {
             throw new IllegalStateException("暴跌流量实验失败 / failed",
-                e.getCause());
+                exception.getCause());
         } finally {
             pool.shutdownNow();
         }
     }
 
+    /** 从数据库核验成交数量、序号、订单数量和 Outbox 事件完整性。 */
     private void verifyMatching(String symbol, TrafficOutcome traffic) {
         require(traffic.trades().size() == MAKERS,
             "成交数量错误 / unexpected trade count");
@@ -267,6 +301,7 @@ public class MarketCrashScenarioService {
             "成交 Outbox 不完整 / trade outbox incomplete");
     }
 
+    /** 模拟旧 Worker 排空、新 Worker 接管及结算消息重复投递。 */
     private SettlementEvidence runFailoverAndSettlement(
         String runId, String symbol, List<TradeView> trades) {
         var payer = accounts.create("crash-payer-" + runId,
@@ -333,6 +368,7 @@ public class MarketCrashScenarioService {
             ledgerTransactions, symbol);
     }
 
+    /** 根据成交构造资金结算命令。 */
     private SettlementCommand settlementCommand(
         String runId, int index, TradeView trade,
         UUID payerId, UUID payeeId, UUID feeId) {
@@ -343,6 +379,7 @@ public class MarketCrashScenarioService {
             trade.quoteAmount(), new BigDecimal("0.01"));
     }
 
+    /** 并发重复执行同一结算命令，并统计真实资金效果与幂等返回。 */
     private SettlementStorm runSettlementStorm(
         SettlementCommand command, FenceToken fence) {
         ExecutorService pool = Executors.newFixedThreadPool(12);
@@ -355,21 +392,25 @@ public class MarketCrashScenarioService {
             int effects = 0;
             int duplicates = 0;
             for (Future<SettlementOutcome> future : futures) {
-                if (future.get().duplicate()) duplicates++;
-                else effects++;
+                if (future.get().duplicate()) {
+                    duplicates++;
+                } else {
+                    effects++;
+                }
             }
             return new SettlementStorm(effects, duplicates);
-        } catch (InterruptedException e) {
+        } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
-            throw new IllegalStateException("结算重投实验被中断 / interrupted", e);
-        } catch (ExecutionException e) {
+            throw new IllegalStateException("结算重投实验被中断 / interrupted", exception);
+        } catch (ExecutionException exception) {
             throw new IllegalStateException("结算重投实验失败 / failed",
-                e.getCause());
+                exception.getCause());
         } finally {
             pool.shutdownNow();
         }
     }
 
+    /** 注入乱序、重复、漏数、错值和幽灵成交，再验证幂等恢复闭环。 */
     private RecoveryEvidence injectAndRecover(
         String symbol, String runId, List<TradeView> sourceTrades) {
         List<TradeView> reverse = sourceTrades.stream()
@@ -381,7 +422,9 @@ public class MarketCrashScenarioService {
         TradeView duplicateTrade = null;
 
         for (TradeView trade : reverse) {
-            if (trade.tradeId().equals(missing.tradeId())) continue;
+            if (trade.tradeId().equals(missing.tradeId())) {
+                continue;
+            }
             UUID eventId = UUID.randomUUID();
             reliability.apply(TradeSyncCommand.from(eventId, trade));
             if (duplicateEventId == null) {
@@ -396,6 +439,7 @@ public class MarketCrashScenarioService {
         require(duplicate.duplicateEvent(),
             "重复成交事件未识别 / duplicate event not detected");
 
+        // 只污染派生投影，权威成交事实保持不变。
         jdbc.update("""
             UPDATE trade_projection
             SET quantity=quantity+1, updated_at=now()
@@ -438,6 +482,7 @@ public class MarketCrashScenarioService {
             repeated.duplicate(), clean.runId(), clean.status());
     }
 
+    /** 读取权威成交的紧凑校验快照。 */
     private TruthSnapshot truth(String symbol) {
         return jdbc.queryForObject("""
             SELECT COUNT(*) AS trade_count,
@@ -452,6 +497,7 @@ public class MarketCrashScenarioService {
                 rs.getBigDecimal("quote_sum")), symbol);
     }
 
+    /** 比较恢复前后权威成交快照，防止修复越权修改事实。 */
     private boolean sameTruth(TruthSnapshot left, TruthSnapshot right) {
         return left != null && right != null
             && left.tradeCount() == right.tradeCount()
@@ -460,6 +506,7 @@ public class MarketCrashScenarioService {
             && left.quoteSum().compareTo(right.quoteSum()) == 0;
     }
 
+    /** 统计指定账户余额与不可变账本推导值不一致的数量。 */
     private long ledgerMismatchCount(UUID payer, UUID payee, UUID fee) {
         return count("""
             SELECT COUNT(*) FROM (
@@ -475,6 +522,7 @@ public class MarketCrashScenarioService {
             """, payer, payee, fee);
     }
 
+    /** 返回实验采用的公开故障模型以及明确边界。 */
     private List<String> designBasis() {
         return List.of(
             "高波动与惊群：并发市价单、客户端集中重试和深度耗尽",
@@ -484,27 +532,42 @@ public class MarketCrashScenarioService {
             "边界：未模拟 DNS、真实网络分区、存储硬件故障或生产容量");
     }
 
+    /** 执行参数化单值计数查询。 */
     private long count(String sql, Object... args) {
         Long value = jdbc.queryForObject(sql, Long.class, args);
         return value == null ? 0 : value;
     }
 
+    /** 将场景断言失败转换为明确异常，禁止继续生成成功报告。 */
     private static void require(boolean condition, String message) {
-        if (!condition) throw new IllegalStateException(message);
+        if (!condition) {
+            throw new IllegalStateException(message);
+        }
     }
 
+    /** 热点撮合阶段内部结果。 */
     private record TrafficOutcome(List<PlaceOrderCommand> commands,
                                   List<TradeView> trades,
                                   long elapsedMs,
-                                  BigDecimal rate) {}
-    private record SettlementStorm(int effects, int duplicates) {}
-    private record TruthSnapshot(long tradeCount, long sequenceSum,
-                                 BigDecimal quantitySum, BigDecimal quoteSum) {}
+                                  BigDecimal rate) {
+    }
 
+    /** 重复结算阶段内部统计。 */
+    private record SettlementStorm(int effects, int duplicates) {
+    }
+
+    /** 权威成交的聚合校验快照。 */
+    private record TruthSnapshot(long tradeCount, long sequenceSum,
+                                 BigDecimal quantitySum, BigDecimal quoteSum) {
+    }
+
+    /** 场景时间线阶段。 */
     public record Phase(String relativeTime, String businessState,
                         String injectedFailure, String systemResponse,
-                        String evidence) {}
+                        String evidence) {
+    }
 
+    /** 场景关键业务与性能指标。 */
     public record CrashMetrics(int makerOrders, int concurrentMarketSellers,
                                long tradeCount, long uniqueTradeSequences,
                                long tradeOutboxEvents, int settlementCommands,
@@ -514,26 +577,33 @@ public class MarketCrashScenarioService {
                                int quarantinedProjections,
                                long matchingElapsedMs,
                                BigDecimal observedTradesPerSecond,
-                               long endToEndElapsedMs) {}
+                               long endToEndElapsedMs) {
+    }
 
+    /** Worker 接管与结算的可核验证据。 */
     public record SettlementEvidence(UUID payerId, UUID payeeId, UUID feeId,
                                      long oldEpoch, long newEpoch,
                                      boolean staleWorkerRejected,
                                      int financialEffects, int duplicateReturns,
-                                     long ledgerTransactions, String symbol) {}
+                                     long ledgerTransactions, String symbol) {
+    }
 
+    /** 成交投影故障注入与恢复证据。 */
     public record RecoveryEvidence(UUID dirtyRunId, int missingCount,
                                    int mismatchCount, int extraCount,
                                    UUID repairId, int repairedCount,
                                    int quarantinedCount,
                                    boolean duplicateRepairDetected,
-                                   UUID cleanRunId, String finalStatus) {}
+                                   UUID cleanRunId, String finalStatus) {
+    }
 
+    /** 市场暴跌日完整实验报告。 */
     public record MarketCrashReport(String scenario, String runId, String symbol,
                                     Instant startedAt, Instant completedAt,
                                     String finalStatus, List<String> designBasis,
                                     List<Phase> timeline, CrashMetrics metrics,
                                     RecoveryEvidence recovery,
                                     Map<String, String> checks,
-                                    String boundary) {}
+                                    String boundary) {
+    }
 }

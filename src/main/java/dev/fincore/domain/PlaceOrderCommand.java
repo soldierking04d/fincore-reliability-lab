@@ -4,6 +4,22 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Locale;
 
+/**
+ * 创建撮合订单的领域命令。
+ *
+ * <p>构造时统一完成交易对格式、订单类型、价格和数量精度校验，使应用服务接收到的
+ * 命令始终满足最基本的领域约束。</p>
+ *
+ * @param clientOrderId 客户端生成的幂等订单号
+ * @param userId 下单用户
+ * @param symbol BASE-QUOTE 格式的交易对
+ * @param side 买卖方向
+ * @param type 限价或市价
+ * @param price 限价单价格；市价单必须为空
+ * @param quantity 委托数量
+ * @author FinCore Reliability Lab
+ * @since 2026-08-27
+ */
 public record PlaceOrderCommand(
     String clientOrderId,
     String userId,
@@ -13,6 +29,7 @@ public record PlaceOrderCommand(
     BigDecimal price,
     BigDecimal quantity
 ) {
+    /** 规范化交易对和金额精度，并拒绝不完整或相互冲突的参数。 */
     public PlaceOrderCommand {
         if (clientOrderId == null || clientOrderId.isBlank()) {
             throw new IllegalArgumentException("clientOrderId is required");

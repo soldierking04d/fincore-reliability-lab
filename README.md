@@ -12,6 +12,9 @@
 
 它的判断标准不是“接口能返回成功”，而是：在并发、重试、重复投递、部分失败、Worker 接管和服务恢复之后，资金结果是否仍然唯一、平衡、可审计并且可对账。
 
+源码已按阿里巴巴 P3C 规范补齐中文 Javadoc、枚举说明和关键事务注释；项目采用的格式、命名、检查命令
+以及不可弱化的金融规则见[Java 代码与中文注释规范](docs/java-coding-conventions.md)。
+
 ## 60 秒看懂项目
 
 项目介绍现在分为[业务风险与工程边界](docs/agent-evaluations/benchmark-introduction.md)和[可重复评测协议](reports/evaluations/repeatability-protocol.md)两部分：前者说明为什么这些故障重要，后者说明证据如何产生。
