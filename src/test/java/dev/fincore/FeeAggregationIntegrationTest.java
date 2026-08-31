@@ -22,6 +22,12 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+/**
+ * 手续费分片创建、并发归集和幂等性的数据库集成测试。
+ *
+ * @author FinCore Reliability Lab
+ * @since 1.0.0
+ */
 @Testcontainers(disabledWithoutDocker = true)
 @SpringBootTest(properties = {
     "spring.kafka.listener.auto-startup=false",

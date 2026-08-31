@@ -1,6 +1,8 @@
 package dev.fincore;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.fincore.application.AccountService;
 import dev.fincore.application.SettlementService;
 import dev.fincore.domain.SettlementCommand;
@@ -16,6 +18,12 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+/**
+ * 重复消息只产生一次资金效果的结算集成测试。
+ *
+ * @author FinCore Reliability Lab
+ * @since 1.0.0
+ */
 @Testcontainers(disabledWithoutDocker = true)
 @SpringBootTest(properties = {
     "spring.kafka.listener.auto-startup=false",
@@ -49,4 +57,3 @@ class SettlementIntegrationTest {
         assertEquals(0, accounts.get(fee.accountId()).balance().compareTo(new BigDecimal("1")));
     }
 }
-

@@ -1,10 +1,19 @@
 package dev.fincore.domain;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
 import org.junit.jupiter.api.Test;
 
+/**
+ * 撮合穿价规则、金额精度和命令形状的单元测试。
+ *
+ * @author FinCore Reliability Lab
+ * @since 1.0.0
+ */
 class MatchingPolicyTest {
     @Test
     void limitOrdersCrossOnlyAtCompatiblePrices() {

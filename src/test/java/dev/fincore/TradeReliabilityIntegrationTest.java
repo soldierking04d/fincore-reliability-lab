@@ -30,6 +30,12 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+/**
+ * 成交同步、差异检测、自动修复和修复竞态的数据库集成测试。
+ *
+ * @author FinCore Reliability Lab
+ * @since 1.0.0
+ */
 @Testcontainers
 @ActiveProfiles("lab")
 @SpringBootTest(properties = {

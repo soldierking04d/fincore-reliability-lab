@@ -1,6 +1,9 @@
 package dev.fincore;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.fincore.application.MatchingService;
 import dev.fincore.domain.MatchingResult;
@@ -25,6 +28,12 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+/**
+ * 价格时间优先、幂等重放、并发订单和自成交保护的撮合集成测试。
+ *
+ * @author FinCore Reliability Lab
+ * @since 1.0.0
+ */
 @Testcontainers(disabledWithoutDocker = true)
 @SpringBootTest(properties = {
     "spring.kafka.listener.auto-startup=false",

@@ -1,6 +1,9 @@
 package dev.fincore;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.fincore.application.LabScenarioService;
 import dev.fincore.application.MarketCrashScenarioService;
 import org.junit.jupiter.api.Test;
@@ -13,6 +16,12 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+/**
+ * 综合可靠性场景与市场暴跌日恢复闭环的集成测试。
+ *
+ * @author FinCore Reliability Lab
+ * @since 1.0.0
+ */
 @ActiveProfiles("lab")
 @Testcontainers(disabledWithoutDocker = true)
 @SpringBootTest(properties = {
@@ -54,4 +63,3 @@ class LabScenarioIntegrationTest {
             .allMatch(value -> value.startsWith("PASS")));
     }
 }
-
