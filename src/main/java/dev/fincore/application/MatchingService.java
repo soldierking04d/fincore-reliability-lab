@@ -11,19 +11,17 @@ import dev.fincore.domain.OrderType;
 import dev.fincore.domain.OrderView;
 import dev.fincore.domain.PlaceOrderCommand;
 import dev.fincore.domain.TradeView;
+import dev.fincore.infrastructure.persistence.mapper.MatchingMapper;
+import dev.fincore.infrastructure.persistence.mapper.OutboxMapper;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.math.BigDecimal;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,29 +37,10 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 public class MatchingService {
-    /** 查询订单时统一使用的列清单，避免不同接口映射出不一致的订单快照。 */
-    private static final String ORDER_COLUMNS = """
-        order_id, client_order_id, user_id, symbol, side, order_type, price,
-        original_quantity, executed_quantity, remaining_quantity, status,
-        order_sequence, version, COALESCE(detail, '') AS detail
-        """;
-    /** 订单行映射器。 */
-    private static final RowMapper<OrderView> ORDER_MAPPER =
-        (rs, row) -> mapOrder(rs, false);
-    /** 成交行映射器。 */
-    private static final RowMapper<TradeView> TRADE_MAPPER =
-        (rs, row) -> new TradeView(
-            rs.getObject("trade_id", UUID.class),
-            rs.getString("symbol"),
-            rs.getObject("maker_order_id", UUID.class),
-            rs.getObject("taker_order_id", UUID.class),
-            rs.getBigDecimal("price"),
-            rs.getBigDecimal("quantity"),
-            rs.getBigDecimal("quote_amount"),
-            rs.getLong("trade_sequence"));
-
-    /** 数据库访问入口。 */
-    private final JdbcTemplate jdbc;
+    /** 订单簿、成交和撮合审计持久化接口。 */
+    private final MatchingMapper matchingMapper;
+    /** 事务 Outbox 持久化接口。 */
+    private final OutboxMapper outboxMapper;
     /** 事件载荷序列化器。 */
     private final ObjectMapper json;
     /** 已受理订单计数器。 */
@@ -76,12 +55,15 @@ public class MatchingService {
     /**
      * 创建撮合服务并注册业务指标。
      *
-     * @param jdbc 数据库访问入口
+     * @param matchingMapper 撮合持久化接口
+     * @param outboxMapper 事务 Outbox 持久化接口
      * @param json JSON 序列化器
      * @param registry Micrometer 指标注册表
      */
-    public MatchingService(JdbcTemplate jdbc, ObjectMapper json, MeterRegistry registry) {
-        this.jdbc = jdbc;
+    public MatchingService(MatchingMapper matchingMapper, OutboxMapper outboxMapper,
+                           ObjectMapper json, MeterRegistry registry) {
+        this.matchingMapper = matchingMapper;
+        this.outboxMapper = outboxMapper;
         this.json = json;
         this.accepted = registry.counter("fincore.matching.orders.accepted");
         this.duplicates = registry.counter("fincore.matching.orders.duplicate");
@@ -113,14 +95,7 @@ public class MatchingService {
 
         UUID orderId = UUID.randomUUID();
         long orderSequence = nextSequence(command.symbol());
-        jdbc.update("""
-            INSERT INTO matching_order(
-                order_id, client_order_id, user_id, symbol, side, order_type, price,
-                original_quantity, executed_quantity, remaining_quantity, status, order_sequence)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, 'OPEN', ?)
-            """, orderId, command.clientOrderId(), command.userId(), command.symbol(),
-            command.side().name(), command.type().name(), command.price(),
-            command.quantity(), command.quantity(), orderSequence);
+        matchingMapper.insertOrder(orderId, command, orderSequence);
         audit(orderId, null, OrderStatus.OPEN, "order accepted");
         accepted.increment();
 
@@ -157,13 +132,8 @@ public class MatchingService {
             long tradeSequence = nextSequence(command.symbol());
             UUID tradeId = UUID.randomUUID();
 
-            jdbc.update("""
-                INSERT INTO trade_execution(
-                    trade_id, symbol, maker_order_id, taker_order_id, price,
-                    quantity, quote_amount, trade_sequence)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """, tradeId, command.symbol(), maker.orderId(), orderId, maker.price(),
-                fillQuantity, quoteAmount, tradeSequence);
+            matchingMapper.insertTrade(tradeId, command.symbol(), maker.orderId(), orderId,
+                maker.price(), fillQuantity, quoteAmount, tradeSequence);
 
             // Maker 更新带 version 条件，防止并发写入时发生静默覆盖。
             BigDecimal makerRemaining = maker.remainingQuantity().subtract(fillQuantity);
@@ -245,9 +215,7 @@ public class MatchingService {
      * @return 订单快照
      */
     public OrderView get(UUID orderId) {
-        return jdbc.queryForObject(
-            "SELECT " + ORDER_COLUMNS + " FROM matching_order WHERE order_id=?",
-            ORDER_MAPPER, orderId);
+        return matchingMapper.findOrder(orderId);
     }
 
     /**
@@ -262,11 +230,7 @@ public class MatchingService {
         int depth = Math.max(1, Math.min(requestedDepth, 100));
         List<OrderBookView.BookLevel> bids = levels(symbol, OrderSide.BUY, depth);
         List<OrderBookView.BookLevel> asks = levels(symbol, OrderSide.SELL, depth);
-        Long sequence = jdbc.queryForObject("""
-            SELECT COALESCE(MAX(trade_sequence), 0)
-            FROM trade_execution WHERE symbol=?
-            """, Long.class, symbol);
-        return new OrderBookView(symbol, bids, asks, sequence == null ? 0 : sequence);
+        return new OrderBookView(symbol, bids, asks, matchingMapper.findLastTradeSequence(symbol));
     }
 
     /**
@@ -279,12 +243,7 @@ public class MatchingService {
     public List<TradeView> recentTrades(String rawSymbol, int requestedLimit) {
         String symbol = normalizeSymbol(rawSymbol);
         int limit = Math.max(1, Math.min(requestedLimit, 200));
-        return jdbc.query("""
-            SELECT trade_id, symbol, maker_order_id, taker_order_id,
-                   price, quantity, quote_amount, trade_sequence
-            FROM trade_execution WHERE symbol=?
-            ORDER BY trade_sequence DESC LIMIT ?
-            """, TRADE_MAPPER, symbol, limit);
+        return matchingMapper.findRecentTrades(symbol, limit);
     }
 
     /**
@@ -295,9 +254,7 @@ public class MatchingService {
      * @return 已存在的订单；不存在时为空
      */
     private Optional<OrderView> findByClientOrder(String userId, String clientOrderId) {
-        return jdbc.query(
-            "SELECT " + ORDER_COLUMNS + " FROM matching_order WHERE user_id=? AND client_order_id=?",
-            ORDER_MAPPER, userId, clientOrderId).stream().findFirst();
+        return Optional.ofNullable(matchingMapper.findByClientOrder(userId, clientOrderId));
     }
 
     /**
@@ -308,14 +265,10 @@ public class MatchingService {
      * @return 可成交的最优 Maker
      */
     private Optional<OrderView> bestMaker(String symbol, OrderSide side) {
-        String direction = side == OrderSide.BUY ? "DESC" : "ASC";
-        String sql = ("SELECT " + ORDER_COLUMNS + """
-            FROM matching_order
-            WHERE symbol=? AND side=? AND status IN ('OPEN', 'PARTIALLY_FILLED')
-              AND remaining_quantity>0
-            ORDER BY price %s, order_sequence ASC LIMIT 1 FOR UPDATE
-            """).formatted(direction);
-        return jdbc.query(sql, ORDER_MAPPER, symbol, side.name()).stream().findFirst();
+        OrderView order = side == OrderSide.BUY
+            ? matchingMapper.lockBestBuy(symbol)
+            : matchingMapper.lockBestSell(symbol);
+        return Optional.ofNullable(order);
     }
 
     /**
@@ -327,17 +280,9 @@ public class MatchingService {
      * @return 聚合后的盘口档位
      */
     private List<OrderBookView.BookLevel> levels(String symbol, OrderSide side, int depth) {
-        String direction = side == OrderSide.BUY ? "DESC" : "ASC";
-        String sql = """
-            SELECT price, SUM(remaining_quantity) AS quantity, COUNT(*) AS order_count
-            FROM matching_order
-            WHERE symbol=? AND side=? AND status IN ('OPEN', 'PARTIALLY_FILLED')
-              AND remaining_quantity>0
-            GROUP BY price ORDER BY price %s LIMIT ?
-            """.formatted(direction);
-        return jdbc.query(sql, (rs, row) -> new OrderBookView.BookLevel(
-            rs.getBigDecimal("price"), rs.getBigDecimal("quantity"), rs.getLong("order_count")),
-            symbol, side.name(), depth);
+        return side == OrderSide.BUY
+            ? matchingMapper.findBidLevels(symbol, depth)
+            : matchingMapper.findAskLevels(symbol, depth);
     }
 
     /**
@@ -347,12 +292,7 @@ public class MatchingService {
      * @return 按成交序号正序排列的成交列表
      */
     private List<TradeView> tradesForTaker(UUID orderId) {
-        return jdbc.query("""
-            SELECT trade_id, symbol, maker_order_id, taker_order_id,
-                   price, quantity, quote_amount, trade_sequence
-            FROM trade_execution WHERE taker_order_id=?
-            ORDER BY trade_sequence
-            """, TRADE_MAPPER, orderId);
+        return matchingMapper.findTradesForTaker(orderId);
     }
 
     /**
@@ -364,13 +304,7 @@ public class MatchingService {
      * @param status 更新后的状态
      */
     private void updateFilledOrder(UUID orderId, long version, BigDecimal quantity, OrderStatus status) {
-        int changed = jdbc.update("""
-            UPDATE matching_order
-            SET executed_quantity=executed_quantity+?, remaining_quantity=remaining_quantity-?,
-                status=?, version=version+1, updated_at=now()
-            WHERE order_id=? AND version=? AND status IN ('OPEN', 'PARTIALLY_FILLED')
-              AND remaining_quantity>=?
-            """, quantity, quantity, status.name(), orderId, version, quantity);
+        int changed = matchingMapper.updateMaker(orderId, version, quantity, status.name());
         if (changed != 1) {
             throw new IllegalStateException("maker CAS update rejected");
         }
@@ -384,13 +318,7 @@ public class MatchingService {
      * @param status 更新后的状态
      */
     private void updateTaker(UUID orderId, BigDecimal quantity, OrderStatus status) {
-        int changed = jdbc.update("""
-            UPDATE matching_order
-            SET executed_quantity=executed_quantity+?, remaining_quantity=remaining_quantity-?,
-                status=?, version=version+1, updated_at=now()
-            WHERE order_id=? AND status IN ('OPEN', 'PARTIALLY_FILLED')
-              AND remaining_quantity>=?
-            """, quantity, quantity, status.name(), orderId, quantity);
+        int changed = matchingMapper.updateTaker(orderId, quantity, status.name());
         if (changed != 1) {
             throw new IllegalStateException("taker update rejected");
         }
@@ -406,10 +334,7 @@ public class MatchingService {
      * @return 目标状态
      */
     private OrderStatus terminalize(UUID orderId, OrderStatus from, OrderStatus to, String detail) {
-        int changed = jdbc.update("""
-            UPDATE matching_order SET status=?, detail=?, version=version+1, updated_at=now()
-            WHERE order_id=? AND status=?
-            """, to.name(), detail, orderId, from.name());
+        int changed = matchingMapper.transition(orderId, from.name(), to.name(), detail);
         if (changed != 1) {
             throw new IllegalStateException("order transition rejected: " + from + " -> " + to);
         }
@@ -424,9 +349,7 @@ public class MatchingService {
      * @return 已加行锁的订单快照
      */
     private OrderView getForUpdate(UUID orderId) {
-        return jdbc.queryForObject(
-            "SELECT " + ORDER_COLUMNS + " FROM matching_order WHERE order_id=? FOR UPDATE",
-            ORDER_MAPPER, orderId);
+        return matchingMapper.lockOrder(orderId);
     }
 
     /**
@@ -438,10 +361,8 @@ public class MatchingService {
      * @param reason 变化原因
      */
     private void audit(UUID orderId, OrderStatus from, OrderStatus to, String reason) {
-        jdbc.update("""
-            INSERT INTO matching_audit(audit_id, order_id, from_status, to_status, reason)
-            VALUES (?, ?, ?, ?, ?)
-            """, UUID.randomUUID(), orderId, from == null ? null : from.name(), to.name(), reason);
+        matchingMapper.insertAudit(UUID.randomUUID(), orderId,
+            from == null ? null : from.name(), to.name(), reason);
     }
 
     /**
@@ -452,10 +373,7 @@ public class MatchingService {
      * @param payload 事件载荷
      */
     private void outbox(String aggregateId, String eventType, Map<String, Object> payload) {
-        jdbc.update("""
-            INSERT INTO outbox_event(event_id, aggregate_id, event_type, payload)
-            VALUES (?, ?, ?, ?)
-            """, UUID.randomUUID(), aggregateId, eventType, toJson(payload));
+        outboxMapper.insert(UUID.randomUUID(), aggregateId, eventType, toJson(payload));
     }
 
     /**
@@ -464,9 +382,7 @@ public class MatchingService {
      * @param symbol 交易对
      */
     private void lockSymbol(String symbol) {
-        jdbc.queryForObject(
-            "SELECT pg_advisory_xact_lock(hashtextextended(?, 0))",
-            (rs, row) -> Boolean.TRUE, symbol);
+        matchingMapper.lockSymbol(symbol);
     }
 
     /**
@@ -476,12 +392,7 @@ public class MatchingService {
      * @return 本次分配的单调递增序号
      */
     private long nextSequence(String symbol) {
-        Long value = jdbc.queryForObject("""
-            INSERT INTO matching_sequence(symbol, next_value) VALUES (?, 2)
-            ON CONFLICT(symbol) DO UPDATE
-                SET next_value=matching_sequence.next_value+1
-            RETURNING next_value-1
-            """, Long.class, symbol);
+        Long value = matchingMapper.nextSequence(symbol);
         if (value == null) {
             throw new IllegalStateException("sequence allocation failed");
         }
@@ -531,33 +442,6 @@ public class MatchingService {
             order.side(), order.type(), order.price(), order.originalQuantity(),
             order.executedQuantity(), order.remainingQuantity(), order.status(),
             order.sequence(), order.version(), true, detail);
-    }
-
-    /**
-     * 将 JDBC 结果集映射为订单领域视图。
-     *
-     * @param rs 当前结果集
-     * @param duplicate 是否为幂等重放
-     * @return 订单视图
-     * @throws SQLException 读取结果集失败时抛出
-     */
-    private static OrderView mapOrder(ResultSet rs, boolean duplicate) throws SQLException {
-        return new OrderView(
-            rs.getObject("order_id", UUID.class),
-            rs.getString("client_order_id"),
-            rs.getString("user_id"),
-            rs.getString("symbol"),
-            OrderSide.valueOf(rs.getString("side")),
-            OrderType.valueOf(rs.getString("order_type")),
-            rs.getBigDecimal("price"),
-            rs.getBigDecimal("original_quantity"),
-            rs.getBigDecimal("executed_quantity"),
-            rs.getBigDecimal("remaining_quantity"),
-            OrderStatus.valueOf(rs.getString("status")),
-            rs.getLong("order_sequence"),
-            rs.getLong("version"),
-            duplicate,
-            rs.getString("detail"));
     }
 
     /**

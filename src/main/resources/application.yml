@@ -26,6 +26,15 @@ spring:
       ack-mode: record
   flyway:
     enabled: true
+mybatis:
+  configuration:
+    # 记录类型使用构造器参数名映射，避免依赖字段声明顺序。
+    arg-name-based-constructor-auto-mapping: true
+    # 数据库下划线命名统一映射为 Java 驼峰命名。
+    map-underscore-to-camel-case: true
+    # 金融事务每次查询都读取当前数据库状态，不跨语句复用一级缓存快照。
+    local-cache-scope: statement
+    default-statement-timeout: 30
 management:
   endpoints:
     web:

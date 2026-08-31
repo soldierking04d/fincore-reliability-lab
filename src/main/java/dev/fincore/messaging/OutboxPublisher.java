@@ -1,12 +1,11 @@
 package dev.fincore.messaging;
 
+import dev.fincore.infrastructure.persistence.mapper.OutboxMapper;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -26,8 +25,8 @@ public class OutboxPublisher {
     /** 发布失败日志记录器。 */
     private static final Logger LOGGER = LoggerFactory.getLogger(OutboxPublisher.class);
 
-    /** Outbox 数据库访问模板。 */
-    private final JdbcTemplate jdbc;
+    /** Outbox 抢占与状态更新持久化接口。 */
+    private final OutboxMapper outboxMapper;
     /** Kafka 发送客户端。 */
     private final KafkaTemplate<String, Object> kafka;
     /** 结算事件 Topic。 */
@@ -38,11 +37,11 @@ public class OutboxPublisher {
     private final String publisherId;
 
     /** 创建 Outbox 发布器并注入 Topic 与 Worker 标识。 */
-    public OutboxPublisher(JdbcTemplate jdbc, KafkaTemplate<String, Object> kafka,
+    public OutboxPublisher(OutboxMapper outboxMapper, KafkaTemplate<String, Object> kafka,
                            @Value("${fincore.kafka.outbox-topic}") String settlementTopic,
                            @Value("${fincore.kafka.matching-topic}") String matchingTopic,
                            @Value("${fincore.worker.id:${HOSTNAME:local-worker}}") String publisherId) {
-        this.jdbc = jdbc;
+        this.outboxMapper = outboxMapper;
         this.kafka = kafka;
         this.settlementTopic = settlementTopic;
         this.matchingTopic = matchingTopic;
@@ -57,34 +56,19 @@ public class OutboxPublisher {
      */
     @Scheduled(fixedDelayString = "${fincore.outbox-delay-ms:1000}")
     public void publishBatch() {
-        List<Map<String, Object>> events = jdbc.queryForList("""
-            UPDATE outbox_event SET status='PROCESSING', claimed_at=now(), publisher_id=?
-            WHERE event_id IN (
-                SELECT event_id FROM outbox_event
-                WHERE status='PENDING' AND next_attempt_at<=now()
-                ORDER BY created_at LIMIT 100 FOR UPDATE SKIP LOCKED
-            )
-            RETURNING event_id, aggregate_id, event_type, payload
-            """, publisherId);
-        for (Map<String, Object> event : events) {
-            UUID id = (UUID) event.get("event_id");
-            String eventType = event.get("event_type").toString();
+        List<OutboxMapper.OutboxEventRow> events = outboxMapper.claimBatch(publisherId);
+        for (OutboxMapper.OutboxEventRow event : events) {
+            UUID id = event.eventId();
+            String eventType = event.eventType();
             String topic = eventType.startsWith("MATCHING_") ? matchingTopic : settlementTopic;
             try {
-                kafka.send(topic, event.get("aggregate_id").toString(), event.get("payload")).get();
-                jdbc.update("""
-                    UPDATE outbox_event SET status='PUBLISHED', published_at=now(), claimed_at=NULL, publisher_id=NULL
-                    WHERE event_id=? AND status='PROCESSING' AND publisher_id=?
-                    """, id, publisherId);
+                kafka.send(topic, event.aggregateId(), event.payload()).get();
+                outboxMapper.markPublished(id, publisherId);
             } catch (Exception exception) {
                 // 发送失败必须保留事件并重试，不能删除或伪装成已发布。
                 LOGGER.warn("Outbox 事件发布失败，稍后重试：eventId={}, publisherId={}",
                     id, publisherId, exception);
-                jdbc.update("""
-                    UPDATE outbox_event SET status='PENDING', attempts=attempts+1, claimed_at=NULL, publisher_id=NULL,
-                    next_attempt_at=now() + interval '5 seconds'
-                    WHERE event_id=? AND status='PROCESSING' AND publisher_id=?
-                    """, id, publisherId);
+                outboxMapper.releaseForRetry(id, publisherId);
             }
         }
     }
@@ -96,10 +80,6 @@ public class OutboxPublisher {
      */
     @Scheduled(fixedDelayString = "${fincore.outbox-recovery-delay-ms:30000}")
     public void recoverAbandonedClaims() {
-        jdbc.update("""
-            UPDATE outbox_event SET status='PENDING', publisher_id=NULL, claimed_at=NULL,
-                                    attempts=attempts+1, next_attempt_at=now()
-            WHERE status='PROCESSING' AND (claimed_at IS NULL OR claimed_at < now() - interval '60 seconds')
-            """);
+        outboxMapper.recoverAbandonedClaims();
     }
 }

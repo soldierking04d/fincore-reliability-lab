@@ -1,24 +1,34 @@
 diff --git a/src/main/java/dev/fincore/application/CompensationService.java b/src/main/java/dev/fincore/application/CompensationService.java
 --- a/src/main/java/dev/fincore/application/CompensationService.java
 +++ b/src/main/java/dev/fincore/application/CompensationService.java
-@@ -47,14 +47,10 @@ public class CompensationService {
+@@ -55,14 +55,9 @@ public class CompensationService {
+      */
      @Transactional
      public CompensationOutcome compensate(String originalBusinessKey, String reason) {
 -        // 补偿键与原始业务键一一对应，数据库唯一约束是最终幂等防线。
 -        String compensationKey = "COMP:" + originalBusinessKey;
          UUID compensationId = UUID.randomUUID();
--        int created = jdbc.update("""
-+        String compensationKey = "COMP:" + originalBusinessKey + ":" + compensationId;
-+        jdbc.update("""
-             INSERT INTO compensation_order(compensation_id, original_business_key, compensation_business_key, status, reason)
--            VALUES (?, ?, ?, 'PROCESSING', ?) ON CONFLICT (original_business_key) DO NOTHING
-+            VALUES (?, ?, ?, 'PROCESSING', ?)
-             """, compensationId, originalBusinessKey, compensationKey, reason);
+-        int created = compensationMapper.insert(
+-            compensationId, originalBusinessKey, compensationKey, reason);
 -        if (created == 0) {
 -            return current(originalBusinessKey, true);
 -        }
++        String compensationKey = "COMP:" + originalBusinessKey + ":" + compensationId;
++        compensationMapper.insert(compensationId, originalBusinessKey, compensationKey, reason);
  
          // 锁定原始结算单，确保补偿基于稳定的 SUCCESS 快照。
+         CompensationMapper.OriginalSettlementRow originalRow =
+diff --git a/src/main/java/dev/fincore/infrastructure/persistence/mapper/CompensationMapper.java b/src/main/java/dev/fincore/infrastructure/persistence/mapper/CompensationMapper.java
+--- a/src/main/java/dev/fincore/infrastructure/persistence/mapper/CompensationMapper.java
++++ b/src/main/java/dev/fincore/infrastructure/persistence/mapper/CompensationMapper.java
+@@ -22,7 +22,6 @@ public interface CompensationMapper {
+             compensation_id, original_business_key, compensation_business_key, status, reason)
+         VALUES (#{compensationId}, #{originalBusinessKey}, #{compensationBusinessKey},
+                 'PROCESSING', #{reason})
+-        ON CONFLICT (original_business_key) DO NOTHING
+         """)
+     int insert(@Param("compensationId") UUID compensationId,
+                @Param("originalBusinessKey") String originalBusinessKey,
 diff --git a/src/main/resources/db/migration/V1__baseline.sql b/src/main/resources/db/migration/V1__baseline.sql
 --- a/src/main/resources/db/migration/V1__baseline.sql
 +++ b/src/main/resources/db/migration/V1__baseline.sql

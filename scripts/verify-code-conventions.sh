@@ -26,6 +26,10 @@ report_matches "禁止 Java 源码包含 Tab" \
 report_matches "控制语句必须使用大括号" \
     '^\s*(if|for|while).*\)\s+(break|continue|return|throw|[A-Za-z_][A-Za-z0-9_]*\+\+|[A-Za-z_][A-Za-z0-9_]*--)' \
     src/main/java
+report_matches "生产代码禁止直接使用 Spring JDBC" \
+    'JdbcTemplate|NamedParameterJdbcTemplate' src/main/java
+report_matches "MyBatis Mapper 禁止字符串直替参数" \
+    '\$\{' src/main/java/dev/fincore/infrastructure/persistence/mapper
 
 while IFS= read -r source_file; do
     if ! rg -q '/\*\*' "$source_file"; then
@@ -45,6 +49,9 @@ done < <(rg --files src/main/java -g '*.java' -g '!package-info.java' | sort)
 for package_dir in src/main/java/dev/fincore \
                    src/main/java/dev/fincore/application \
                    src/main/java/dev/fincore/domain \
+                   src/main/java/dev/fincore/infrastructure \
+                   src/main/java/dev/fincore/infrastructure/persistence \
+                   src/main/java/dev/fincore/infrastructure/persistence/mapper \
                    src/main/java/dev/fincore/messaging \
                    src/main/java/dev/fincore/simulation \
                    src/main/java/dev/fincore/web; do

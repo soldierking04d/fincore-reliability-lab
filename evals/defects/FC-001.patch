@@ -1,41 +1,48 @@
 diff --git a/src/main/java/dev/fincore/application/SettlementService.java b/src/main/java/dev/fincore/application/SettlementService.java
 --- a/src/main/java/dev/fincore/application/SettlementService.java
 +++ b/src/main/java/dev/fincore/application/SettlementService.java
-@@ -82,30 +82,19 @@ public class SettlementService {
-     @Transactional
+@@ -91,10 +91,7 @@ public class SettlementService {
      public SettlementOutcome settle(SettlementCommand command, FenceToken fenceToken) {
          String payload = toJson(command);
--        // Inbox 是消息级幂等第一道防线；插入失败表示该 messageId 已处理或正在处理。
--        if (jdbc.update("""
-+        jdbc.update("""
-                 INSERT INTO inbox_message(message_id, message_type, payload)
--                VALUES (?, 'SETTLEMENT_COMMAND', ?) ON CONFLICT (message_id) DO NOTHING
--                """, command.messageId(), payload) == 0) {
+         // Inbox 是消息级幂等第一道防线；插入失败表示该 messageId 已处理或正在处理。
+-        if (settlementMapper.insertInbox(command.messageId(), payload) == 0) {
 -            duplicates.increment();
 -            return currentOutcomeByMessage(command.messageId());
 -        }
-+                VALUES (?, 'SETTLEMENT_COMMAND', ?)
-+                """, command.messageId(), payload);
++        settlementMapper.insertInbox(command.messageId(), payload);
          // 围栏必须在资金事务内部校验，防止旧 Worker 在控制面检查后恢复并迟到写入。
          if (fenceToken != null) {
              shardLeases.requireValidFenceForUpdate(fenceToken);
+@@ -103,11 +99,6 @@ public class SettlementService {
          }
  
--        // business_key 唯一约束是业务级幂等第二道防线。
--        int created = jdbc.update("""
-+        jdbc.update("""
-             INSERT INTO settlement_order(business_key, message_id, payer_account_id, payee_account_id,
-                                          fee_account_id, asset, amount, fee, status)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'INIT')
--            ON CONFLICT (business_key) DO NOTHING
-             """, command.businessKey(), command.messageId(), command.payerAccountId(), command.payeeAccountId(),
-             command.feeAccountId(), command.asset(), command.amount(), command.fee());
+         // business_key 唯一约束是业务级幂等第二道防线。
+-        int created = settlementMapper.insertOrder(command);
 -        if (created == 0) {
 -            duplicates.increment();
 -            markInboxProcessed(command.messageId());
 -            return currentOutcome(command.businessKey(), true);
 -        }
++        settlementMapper.insertOrder(command);
          audit(command.businessKey(), null, SettlementStatus.INIT, "order created");
+         transition(command.businessKey(), SettlementStatus.INIT, SettlementStatus.PROCESSING, null);
+diff --git a/src/main/java/dev/fincore/infrastructure/persistence/mapper/SettlementMapper.java b/src/main/java/dev/fincore/infrastructure/persistence/mapper/SettlementMapper.java
+--- a/src/main/java/dev/fincore/infrastructure/persistence/mapper/SettlementMapper.java
++++ b/src/main/java/dev/fincore/infrastructure/persistence/mapper/SettlementMapper.java
+@@ -20,6 +20,5 @@ public interface SettlementMapper {
+     @Insert("""
+         INSERT INTO inbox_message(message_id, message_type, payload)
+         VALUES (#{messageId}, 'SETTLEMENT_COMMAND', #{payload})
+-        ON CONFLICT (message_id) DO NOTHING
+         """)
+     int insertInbox(@Param("messageId") String messageId, @Param("payload") String payload);
+@@ -33,6 +32,5 @@ public interface SettlementMapper {
+             #{command.businessKey}, #{command.messageId}, #{command.payerAccountId},
+             #{command.payeeAccountId}, #{command.feeAccountId}, #{command.asset},
+             #{command.amount}, #{command.fee}, 'INIT')
+-        ON CONFLICT (business_key) DO NOTHING
+         """)
+     int insertOrder(@Param("command") SettlementCommand command);
 diff --git a/src/main/resources/db/migration/V1__baseline.sql b/src/main/resources/db/migration/V1__baseline.sql
 --- a/src/main/resources/db/migration/V1__baseline.sql
 +++ b/src/main/resources/db/migration/V1__baseline.sql

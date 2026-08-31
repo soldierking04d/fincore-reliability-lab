@@ -1,9 +1,9 @@
 package dev.fincore.application;
 
+import dev.fincore.infrastructure.persistence.mapper.AccountMapper;
 import java.math.BigDecimal;
 import java.util.Map;
 import java.util.UUID;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,12 +18,12 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 public class AccountService {
-    /** 账户和账本数据库访问模板。 */
-    private final JdbcTemplate jdbc;
+    /** 账户和账本摘要持久化接口。 */
+    private final AccountMapper accountMapper;
 
-    /** @param jdbc 数据库访问模板 */
-    public AccountService(JdbcTemplate jdbc) {
-        this.jdbc = jdbc;
+    /** @param accountMapper 账户持久化接口 */
+    public AccountService(AccountMapper accountMapper) {
+        this.accountMapper = accountMapper;
     }
 
     /**
@@ -41,10 +41,7 @@ public class AccountService {
             throw new IllegalArgumentException("opening balance must be non-negative");
         }
         UUID id = UUID.randomUUID();
-        jdbc.update("""
-            INSERT INTO account(account_id, owner_id, asset, account_type, opening_balance, balance)
-            VALUES (?, ?, ?, ?, ?, ?)
-            """, id, ownerId, asset, type, openingBalance, openingBalance);
+        accountMapper.insert(id, ownerId, asset, type, openingBalance);
         return get(id);
     }
 
@@ -55,13 +52,9 @@ public class AccountService {
      * @return 账户当前状态
      */
     public AccountView get(UUID id) {
-        return jdbc.queryForObject("""
-            SELECT account_id, owner_id, asset, account_type, opening_balance, balance, version
-            FROM account WHERE account_id = ?
-            """, (rs, row) -> new AccountView(
-                rs.getObject("account_id", UUID.class), rs.getString("owner_id"), rs.getString("asset"),
-                rs.getString("account_type"), rs.getBigDecimal("opening_balance"),
-                rs.getBigDecimal("balance"), rs.getLong("version")), id);
+        AccountMapper.AccountRow row = accountMapper.findById(id);
+        return new AccountView(row.accountId(), row.ownerId(), row.asset(), row.accountType(),
+            row.openingBalance(), row.balance(), row.version());
     }
 
     /**
@@ -71,14 +64,14 @@ public class AccountService {
      * @return 当前余额、账本净额和期望余额
      */
     public Map<String, Object> ledgerSummary(UUID id) {
-        return jdbc.queryForMap("""
-            SELECT a.account_id, a.opening_balance, a.balance,
-                   COALESCE(SUM(CASE WHEN e.direction='CREDIT' THEN e.amount ELSE -e.amount END), 0) AS ledger_delta,
-                   a.opening_balance + COALESCE(SUM(CASE WHEN e.direction='CREDIT' THEN e.amount ELSE -e.amount END), 0) AS expected_balance
-            FROM account a LEFT JOIN ledger_entry e ON e.account_id = a.account_id
-            WHERE a.account_id = ?
-            GROUP BY a.account_id, a.opening_balance, a.balance
-            """, id);
+        AccountMapper.LedgerSummaryRow row = accountMapper.summarizeLedger(id);
+        return Map.of(
+            "account_id", row.accountId(),
+            "opening_balance", row.openingBalance(),
+            "balance", row.balance(),
+            "ledger_delta", row.ledgerDelta(),
+            "expected_balance", row.expectedBalance()
+        );
     }
 
     /**

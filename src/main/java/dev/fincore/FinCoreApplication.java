@@ -1,5 +1,6 @@
 package dev.fincore;
 
+import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.scheduling.annotation.EnableScheduling;
@@ -14,6 +15,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
  * @since 2026-08-27
  */
 @EnableScheduling
+@MapperScan("dev.fincore.infrastructure.persistence.mapper")
 @SpringBootApplication
 public class FinCoreApplication {
     /**

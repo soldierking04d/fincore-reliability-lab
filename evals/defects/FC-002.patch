@@ -1,15 +1,22 @@
 diff --git a/src/main/java/dev/fincore/application/SettlementService.java b/src/main/java/dev/fincore/application/SettlementService.java
 --- a/src/main/java/dev/fincore/application/SettlementService.java
 +++ b/src/main/java/dev/fincore/application/SettlementService.java
-@@ -221,9 +221,8 @@ public class SettlementService {
+@@ -204,6 +204,5 @@ public class SettlementService {
+     /** 使用状态和版本条件执行 CAS 状态转换并记录审计。 */
      private void transition(String key, SettlementStatus from, SettlementStatus to, String reason) {
 -        from.requireTransitionTo(to);
-         int changed = jdbc.update("""
-             UPDATE settlement_order SET status=?, failure_reason=?, version=version+1, updated_at=now()
--            WHERE business_key=? AND status=?
--            """, to.name(), reason, key, from.name());
-+            WHERE business_key=?
-+            """, to.name(), reason, key);
+         int changed = settlementMapper.transition(key, from.name(), to.name(), reason);
          if (changed != 1) {
              throw new IllegalStateException("CAS transition rejected: " + from + " -> " + to);
-         }
+diff --git a/src/main/java/dev/fincore/infrastructure/persistence/mapper/SettlementMapper.java b/src/main/java/dev/fincore/infrastructure/persistence/mapper/SettlementMapper.java
+--- a/src/main/java/dev/fincore/infrastructure/persistence/mapper/SettlementMapper.java
++++ b/src/main/java/dev/fincore/infrastructure/persistence/mapper/SettlementMapper.java
+@@ -41,7 +41,7 @@ public interface SettlementMapper {
+     @Update("""
+         UPDATE settlement_order
+         SET status=#{toStatus}, failure_reason=#{reason}, version=version+1, updated_at=now()
+-        WHERE business_key=#{businessKey} AND status=#{fromStatus}
++        WHERE business_key=#{businessKey}
+         """)
+     int transition(@Param("businessKey") String businessKey,
+                    @Param("fromStatus") String fromStatus,

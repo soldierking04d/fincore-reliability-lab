@@ -1,12 +1,12 @@
 package dev.fincore.web;
 
 import dev.fincore.domain.SettlementCommand;
+import dev.fincore.infrastructure.persistence.mapper.LabScenarioMapper;
 import java.math.BigDecimal;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -28,17 +28,17 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/lab/faults")
 public class LabFaultController {
-    /** 用于注入受控数据库故障的访问模板。 */
-    private final JdbcTemplate jdbc;
+    /** 用于注入受控数据库故障的 MyBatis Mapper。 */
+    private final LabScenarioMapper labMapper;
     /** 用于制造重复投递的 Kafka 客户端。 */
     private final KafkaTemplate<String, Object> kafka;
     /** 结算命令 Topic。 */
     private final String topic;
 
     /** 创建实验故障注入控制器。 */
-    public LabFaultController(JdbcTemplate jdbc, KafkaTemplate<String, Object> kafka,
+    public LabFaultController(LabScenarioMapper labMapper, KafkaTemplate<String, Object> kafka,
                               @Value("${fincore.kafka.settlement-topic}") String topic) {
-        this.jdbc = jdbc;
+        this.labMapper = labMapper;
         this.kafka = kafka;
         this.topic = topic;
     }
@@ -71,11 +71,10 @@ public class LabFaultController {
      */
     @PostMapping("/accounts/{accountId}/corrupt-balance")
     public Map<String, Object> corruptBalance(@PathVariable UUID accountId, @RequestParam BigDecimal delta) {
-        int changed = jdbc.update(
-            "UPDATE account SET balance=balance+?, updated_at=now() WHERE account_id=?",
-            delta,
-            accountId
+        int changed = labMapper.injectBalanceCorruption(accountId, delta);
+        return Map.of(
+            "updated", changed == 1,
+            "warning", "仅限实验环境：本次修改故意绕过账本"
         );
-        return Map.of("updated", changed == 1, "warning", "LAB PROFILE ONLY: ledger was intentionally bypassed");
     }
 }

@@ -1,10 +1,11 @@
 diff --git a/src/main/java/dev/fincore/application/MatchingService.java b/src/main/java/dev/fincore/application/MatchingService.java
 --- a/src/main/java/dev/fincore/application/MatchingService.java
 +++ b/src/main/java/dev/fincore/application/MatchingService.java
-@@ -307,5 +307,5 @@
+@@ -382,5 +382,5 @@ public class MatchingService {
+      * @param symbol 交易对
+      */
      private void lockSymbol(String symbol) {
-         jdbc.queryForObject(
-             "SELECT pg_advisory_xact_lock(hashtextextended(?, 0))",
--            (rs, row) -> Boolean.TRUE, symbol);
-+            (rs, row) -> Boolean.TRUE, "GLOBAL");
+-        matchingMapper.lockSymbol(symbol);
++        matchingMapper.lockSymbol("GLOBAL");
      }
+     /**
