@@ -11,8 +11,8 @@
 ![License](https://img.shields.io/badge/License-Apache--2.0-4C8BF5)
 ![Release](https://img.shields.io/github/v/release/soldierking04d/fincore-reliability-lab)
 
-> An evidence-backed **technology leadership portfolio** for hiring leaders, business and product partners, technology executives, and engineers.
-> It shows more than code: business outcomes, financial correctness, scalable engineering, organizational governance, practical AI adoption, and digital-asset reliability in one runnable system.
+> A **runnable open-source reliability lab** for real financial failure modes.
+> It uses Java 21, Spring Boot, MyBatis, PostgreSQL, and Kafka to reproduce and verify matching, settlement, idempotency, fencing, reconciliation, high-concurrency, and AI coding-agent safety problems.
 
 ![FinCore Reliability Lab across business, finance, engineering, leadership, AI, and digital assets](docs/showcase/github-social-preview.jpg)
 
@@ -23,9 +23,44 @@
 [AI benchmark](https://fincore-agent-benchmark.soldierking04d.chatgpt.site) ·
 [Five-minute walkthrough](docs/showcase/demo-walkthrough.md)
 
-## More than an engineering repository
+If this project helps you understand or verify financial-system reliability, please consider clicking **Star** in the upper-right corner. It helps more developers discover these reproducible failure experiments.
 
-FinCore follows the full financial lifecycle: customer onboarding, KYC, risk, accounts, market data, bounded admission, matching, clearing, settlement, immutable ledger, and reconciliation. It then connects that runtime to product operations, delivery governance, AI adoption, and digital-asset scenarios. The central question is not whether an endpoint returns `200 OK`; it is whether the business can keep operating and money remains unique, balanced, auditable, and reconcilable during market volatility, traffic bursts, duplicate delivery, worker takeover, and partial failure.
+## Decide in 30 seconds
+
+This is not a diagram-only sample. It is a set of experiments that can run, inject failures, expose operational signals, and verify recovery. The headline results come directly from scenario code and automated checks:
+
+| Scenario | Verified result | Meaning |
+|---|---:|---|
+| Concurrent matching during a market crash | `60 = 60` | 60 authoritative trades, 60 unique sequences, preserved priority and quantity |
+| Duplicate settlement storm | `17 → 1` | 17 concurrent deliveries create exactly one financial effect |
+| Full customer trading lifecycle | `8 / 8 PASS` | Customer, KYC, risk, market, account, matching, settlement, and reconciliation |
+| Market-crash recovery | `10 / 10 PASS` | Retries, no liquidity, takeover, disorder, missing/corrupt/ghost data, and repair |
+| Controlled coding-agent evaluation | `54 runs` | Eight financial-reliability tasks with hidden acceptance and safety vetoes |
+| Automated technology governance | `5 registries` | Ownership, risk, metrics, adoption, and audit evidence checked by Maven/CI |
+
+The [live portfolio](https://fincore-reliability-demo.soldierking04d.chatgpt.site/) exposes system metrics, price movement, order volume, QPS, architecture diagrams, service topology, and core sequence diagrams. Every experiment can also be reproduced locally.
+
+## Start in three minutes
+
+Docker Compose is the only requirement:
+
+```bash
+git clone https://github.com/soldierking04d/fincore-reliability-lab.git
+cd fincore-reliability-lab
+docker compose up --build
+```
+
+After the environment becomes healthy, run the representative composite failure scenario:
+
+```bash
+curl -s -X POST http://127.0.0.1:8080/lab/scenarios/market-crash-day
+```
+
+Use `./scripts/full-check.sh` for the complete verification. With JDK 21 but no Docker, start with `./scripts/verify-core.sh`. Good first-reading paths are the [system architecture](docs/resilient-system-architecture.md), [full trading lifecycle](docs/full-trading-lifecycle.md), and [market-crash experiment](docs/market-crash-day.md).
+
+## More than engineering implementation
+
+FinCore is also an evidence-bounded technology leadership portfolio, presented after the open-source experiments. It follows the full financial lifecycle from onboarding, KYC, risk, accounts, and market data through bounded admission, matching, clearing, settlement, immutable ledger, and reconciliation, then connects that runtime to product operations, organizational governance, AI adoption, and digital-asset scenarios.
 
 | Leadership dimension | What this repository demonstrates | Verifiable evidence |
 |---|---|---|
@@ -37,17 +72,6 @@ FinCore follows the full financial lifecycle: customer onboarding, KYC, risk, ac
 | Digital-asset reliability | Existing reliability mechanisms mapped to deposits, reorgs, unknown withdrawals, nonce/UTXO control, HSM/MPC, and on/off-chain reconciliation | [Digital-asset design and implementation boundary](docs/blockchain-digital-asset-reliability.md) |
 
 All accounts, transactions, and operating parameters are fictional. The repository contains no former-employer source code, customer data, or confidential production parameters. Implemented evidence and design-only extensions are explicitly separated.
-
-## Evidence at a glance
-
-| Scenario | Verified result | Meaning |
-|---|---:|---|
-| Concurrent matching during a market crash | `60 = 60` | 60 authoritative trades, 60 unique sequences, preserved priority and quantity |
-| Duplicate settlement storm | `17 → 1` | 17 concurrent deliveries create exactly one financial effect |
-| Full customer trading lifecycle | `8 / 8 PASS` | Customer, KYC, risk, market, account, matching, settlement, and reconciliation |
-| Market-crash recovery | `10 / 10 PASS` | Retries, no liquidity, takeover, disorder, missing/corrupt/ghost data, and repair |
-| Controlled coding-agent evaluation | `54 runs` | Eight financial-reliability tasks with hidden acceptance and safety vetoes |
-| Automated technology governance | `5 registries` | Ownership, risk, metrics, adoption, and audit evidence checked by Maven/CI |
 
 ## Why this repository exists
 

@@ -11,8 +11,8 @@
 ![License](https://img.shields.io/badge/License-Apache--2.0-4C8BF5)
 ![Release](https://img.shields.io/github/v/release/soldierking04d/fincore-reliability-lab)
 
-> 一个面向招聘负责人、业务/产品负责人、技术管理者和工程师的**技术负责人综合能力作品集**。
-> 它不只展示代码，而是展示如何把业务目标、金融正确性、系统工程、团队治理、AI 落地和数字资产可靠性组织成一套可运行、可审计、可验证的系统。
+> 一个面向真实金融故障的**可运行开源可靠性实验室**。
+> 用 Java 21、Spring Boot、MyBatis、PostgreSQL 和 Kafka 复现并验证撮合、结算、幂等、Fencing、对账修复、高并发与 AI Coding Agent 安全问题。
 
 ![FinCore Reliability Lab：业务、金融、工程、管理、AI 与数字资产](docs/showcase/github-social-preview.jpg)
 
@@ -23,9 +23,44 @@
 [AI 评测结果](https://fincore-agent-benchmark.soldierking04d.chatgpt.site) ·
 [5 分钟讲解稿](docs/showcase/demo-walkthrough.md)
 
-## 这不是只给工程师看的项目
+如果这个项目能帮助你理解或验证金融系统可靠性，欢迎点击仓库右上角 **Star**。你的关注会帮助更多开发者发现这些可复现的故障实验。
 
-FinCore 以一条完整金融交易链路为载体：从用户、KYC、风控、账户和行情开始，经过有界准入、撮合、清算、结算、不可变账本、对账修复，再延伸到线上运营、团队治理、AI 工程采用和数字资产场景。核心问题不是“接口能否返回成功”，而是系统遭遇行情剧烈波动、流量洪峰、消息重复、节点接管或部分失败后，业务是否还能继续，资金是否仍然唯一、平衡、可追溯。
+## 30 秒判断它是否值得关注
+
+它不是只有架构图和说明文字的样例，而是一组可以运行、制造故障、观察指标并验证恢复结果的实验。最重要的结果直接来自场景代码和自动检查：
+
+| 场景 | 可验证结果 | 说明 |
+|---|---:|---|
+| 行情暴跌下的并发撮合 | `60 = 60` | 60 笔权威成交对应 60 个唯一序列，价格时间优先和数量守恒成立 |
+| 重复结算风暴 | `17 → 1` | 同一结算命令并发投递 17 次，最终只有 1 次资金效果 |
+| 完整客户交易生命周期 | `8 / 8 PASS` | 用户、KYC、风控、行情、账户、撮合、结算、对账全部通过 |
+| 市场暴跌恢复实验 | `10 / 10 PASS` | 覆盖重试、无流动性、接管、乱序、漏数、错值、幽灵成交和修复 |
+| Coding Agent 受控评测 | `54 runs` | 8 个金融可靠性任务，公开规则、隐藏验收、财务安全否决 |
+| 技术治理自动校验 | `5 registries` | Owner、风险、指标、技术采用、审计证据由 Maven/CI 检查 |
+
+你可以在[在线完整演示](https://fincore-reliability-demo.soldierking04d.chatgpt.site/)里直接查看系统监控、价格波动、订单量、QPS、架构图、服务拓扑和核心时序图，也可以在本地复现全部实验。
+
+## 3 分钟开始
+
+只需要 Docker Compose：
+
+```bash
+git clone https://github.com/soldierking04d/fincore-reliability-lab.git
+cd fincore-reliability-lab
+docker compose up --build
+```
+
+环境健康后执行最具代表性的复合故障场景：
+
+```bash
+curl -s -X POST http://127.0.0.1:8080/lab/scenarios/market-crash-day
+```
+
+完整验证使用 `./scripts/full-check.sh`；只有 JDK 21、暂时没有 Docker 时，可先运行 `./scripts/verify-core.sh`。更适合第一次浏览的入口是[总架构与服务拓扑](docs/resilient-system-architecture.md)、[完整交易链路](docs/full-trading-lifecycle.md)和[故障实验说明](docs/market-crash-day.md)。
+
+## 不止于工程实现
+
+FinCore 同时是一份有证据边界的技术负责人能力作品集，但这部分放在开源实验之后展开。它以完整金融交易链路为载体：从用户、KYC、风控、账户和行情开始，经过有界准入、撮合、清算、结算、不可变账本、对账修复，再延伸到线上运营、团队治理、AI 工程采用和数字资产场景。
 
 | 能力维度 | 这里展示什么 | 可核验证据 |
 |---|---|---|
@@ -37,17 +72,6 @@ FinCore 以一条完整金融交易链路为载体：从用户、KYC、风控、
 | 数字资产可靠性 | 将已验证机制映射到充值确认、链重组、提现未知结果、Nonce/UTXO、HSM/MPC 和链上链下对账 | [数字资产可靠性设计与实施边界](docs/blockchain-digital-asset-reliability.md) |
 
 项目使用完全虚构的数据，不包含任何前雇主代码、客户信息或内部参数。已经运行验证的能力与仍处于设计阶段的内容均明确标注，避免把架构设想包装成生产事实。
-
-## 一眼可见的结果
-
-| 场景 | 可验证结果 | 说明 |
-|---|---:|---|
-| 行情暴跌下的并发撮合 | `60 = 60` | 60 笔权威成交对应 60 个唯一序列，价格时间优先和数量守恒成立 |
-| 重复结算风暴 | `17 → 1` | 同一结算命令并发投递 17 次，最终只有 1 次资金效果 |
-| 完整客户交易生命周期 | `8 / 8 PASS` | 用户、KYC、风控、行情、账户、撮合、结算、对账全部通过 |
-| 市场暴跌恢复实验 | `10 / 10 PASS` | 覆盖重试、无流动性、接管、乱序、漏数、错值、幽灵成交和修复 |
-| Coding Agent 受控评测 | `54 runs` | 8 个金融可靠性任务，公开规则、隐藏验收、财务安全否决 |
-| 技术治理自动校验 | `5 registries` | Owner、风险、指标、技术采用、审计证据由 Maven/CI 检查 |
 
 ## 60 秒看懂项目
 
