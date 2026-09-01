@@ -1,0 +1,238 @@
+{
+  "$schema": "./use-cases.schema.json",
+  "registryVersion": "1.0",
+  "policy": {
+    "defaultDeny": true,
+    "autonomousFinancialWritesAllowed": false,
+    "landedRequiresPublicEvidence": true,
+    "highRiskRequiresHumanApproval": true,
+    "rawProductionDataAllowed": false
+  },
+  "useCases": [
+    {
+      "id": "coding_agent_reliability_benchmark",
+      "title": "Coding Agent 金融可靠性修复评测",
+      "status": "landed",
+      "owner": "Engineering Productivity Lead",
+      "businessOutcome": "用可重复证据评估 AI 修改金融代码的正确性、稳定性和安全边界",
+      "riskTier": "high",
+      "dataClass": "synthetic_source",
+      "automationLevel": "candidate_generation",
+      "authority": "isolated_candidate_only",
+      "allowedInputs": [
+        "公开任务说明",
+        "虚构金融领域源码",
+        "公开测试",
+        "隔离候选仓库"
+      ],
+      "prohibitedActions": [
+        "自动合并候选补丁",
+        "读取隐藏评分器实现",
+        "访问生产凭证或真实客户数据",
+        "直接部署到公网或生产环境"
+      ],
+      "humanApproval": {
+        "required": true,
+        "gate": "机器评分和安全否决通过后由维护者审查"
+      },
+      "evaluation": {
+        "dataset": "FC-001～FC-008",
+        "hardVetoes": [
+          "重复资金效果",
+          "账本不平",
+          "旧 Epoch 写入",
+          "修改权威数据掩盖差异"
+        ],
+        "evidence": [
+          "reports/evaluations/README.md",
+          "reports/evaluations/repeatability-results.json",
+          "reports/evaluations/advanced-scenarios-results.json"
+        ]
+      },
+      "fallback": "丢弃候选分支并由人工按既有工程流程处理",
+      "monitoring": [
+        "完整通过率",
+        "隐藏场景通过率",
+        "安全否决",
+        "编译失败",
+        "耗时和可用成本"
+      ]
+    },
+    {
+      "id": "incident_triage_copilot",
+      "title": "事故诊断只读助手",
+      "status": "planned",
+      "owner": "Reliability Lead",
+      "businessOutcome": "缩短指标、日志和运行手册的证据汇总时间，不替代事故指挥",
+      "riskTier": "high",
+      "dataClass": "internal_operational",
+      "automationLevel": "advisory",
+      "authority": "read_only",
+      "allowedInputs": [
+        "脱敏指标",
+        "告警时间线",
+        "批准的运行手册",
+        "服务目录"
+      ],
+      "prohibitedActions": [
+        "重启或扩缩容服务",
+        "修改配置、数据库或消息位点",
+        "对外宣布根因或恢复",
+        "访问未授权日志字段"
+      ],
+      "humanApproval": {
+        "required": true,
+        "gate": "事故指挥确认建议和证据后才能执行"
+      },
+      "evaluation": {
+        "dataset": "待建立的脱敏事故与反事实场景集",
+        "hardVetoes": [
+          "把推测表述为事实",
+          "建议修改权威金融数据",
+          "泄露敏感字段",
+          "越过授权执行动作"
+        ],
+        "evidence": []
+      },
+      "fallback": "关闭助手并使用现有仪表盘、运行手册和人工指挥",
+      "monitoring": [
+        "证据引用正确率",
+        "有效建议采纳率",
+        "错误确定性陈述",
+        "响应延迟和成本"
+      ]
+    },
+    {
+      "id": "reconciliation_explainer",
+      "title": "对账差异解释助手",
+      "status": "planned",
+      "owner": "Financial Control Lead",
+      "businessOutcome": "把 MISSING、MISMATCH、EXTRA 的证据转换成可审核解释和候选处置建议",
+      "riskTier": "high",
+      "dataClass": "restricted_financial",
+      "automationLevel": "advisory",
+      "authority": "read_only",
+      "allowedInputs": [
+        "脱敏差异记录",
+        "权威成交只读快照",
+        "修复边界规则",
+        "历史已审核案例"
+      ],
+      "prohibitedActions": [
+        "修改账本、余额、权威订单或成交",
+        "自动执行投影修复或隔离",
+        "批准资金补偿",
+        "从差异推断真实客户身份"
+      ],
+      "humanApproval": {
+        "required": true,
+        "gate": "财务控制或授权领域负责人审核后选择确定性修复命令"
+      },
+      "evaluation": {
+        "dataset": "待从现有五类同步故障生成脱敏评测集",
+        "hardVetoes": [
+          "建议修改权威成交",
+          "把幽灵投影当作真实成交",
+          "遗漏证据冲突",
+          "虚构差异原因"
+        ],
+        "evidence": []
+      },
+      "fallback": "使用现有全外连接对账报告和人工审核流程",
+      "monitoring": [
+        "分类准确率",
+        "证据覆盖率",
+        "人工纠正率",
+        "拒答率和成本"
+      ]
+    },
+    {
+      "id": "support_response_copilot",
+      "title": "客户支持摘要助手",
+      "status": "planned",
+      "owner": "Support Operations Lead",
+      "businessOutcome": "把脱敏链路状态整理为一致、可审核的客户解释草稿",
+      "riskTier": "high",
+      "dataClass": "sensitive_customer",
+      "automationLevel": "draft_only",
+      "authority": "read_only",
+      "allowedInputs": [
+        "脱敏工单",
+        "业务状态字典",
+        "已批准事故更新",
+        "公开帮助内容"
+      ],
+      "prohibitedActions": [
+        "直接发送客户消息",
+        "承诺赔偿、SLA 或根因",
+        "查询完整账户和交易明细",
+        "执行补偿或状态修改"
+      ],
+      "humanApproval": {
+        "required": true,
+        "gate": "支持人员核对事实、语气和授权口径后发送"
+      },
+      "evaluation": {
+        "dataset": "待建立的虚构工单和事故口径评测集",
+        "hardVetoes": [
+          "泄露敏感信息",
+          "虚构资金结果",
+          "未经批准承诺",
+          "错误宣布恢复"
+        ],
+        "evidence": []
+      },
+      "fallback": "使用既有支持模板和领域负责人审核",
+      "monitoring": [
+        "事实准确率",
+        "人工修改比例",
+        "敏感信息拦截",
+        "客户再次咨询率"
+      ]
+    },
+    {
+      "id": "capacity_cost_advisor",
+      "title": "容量与成本分析助手",
+      "status": "planned",
+      "owner": "Platform and FinOps Lead",
+      "businessOutcome": "关联压测、JVM、数据库和成本数据，生成带证据的调优候选假设",
+      "riskTier": "medium",
+      "dataClass": "internal_operational",
+      "automationLevel": "advisory",
+      "authority": "read_only",
+      "allowedInputs": [
+        "脱敏压测结果",
+        "Prometheus 指标",
+        "JFR 和 GC 摘要",
+        "脱敏成本数据"
+      ],
+      "prohibitedActions": [
+        "自动修改 JVM、数据库或云规格",
+        "用单次峰值承诺容量",
+        "访问供应商账号和合同原文",
+        "忽略金融正确性保护指标"
+      ],
+      "humanApproval": {
+        "required": true,
+        "gate": "平台负责人将建议转换为带回退条件的受控实验"
+      },
+      "evaluation": {
+        "dataset": "待建立的多规格混合负载和反事实瓶颈场景",
+        "hardVetoes": [
+          "建议取消金融正确性控制",
+          "无基线给出确定容量",
+          "混淆相关性和因果",
+          "直接执行资源变更"
+        ],
+        "evidence": []
+      },
+      "fallback": "使用现有 k6、Prometheus、JFR 和人工调参顺序",
+      "monitoring": [
+        "瓶颈判断准确率",
+        "实验采纳率",
+        "单位成本变化",
+        "保护指标和模型成本"
+      ]
+    }
+  ]
+}

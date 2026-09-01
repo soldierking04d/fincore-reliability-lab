@@ -4,6 +4,7 @@ project_dir="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$project_dir"
 
 ./scripts/verify-code-conventions.sh
+./scripts/verify-ai-governance.sh
 ./scripts/verify-core.sh
 java scripts/ValidateProject.java .
 

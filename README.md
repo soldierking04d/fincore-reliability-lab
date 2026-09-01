@@ -423,6 +423,7 @@ docker compose --profile test run --rm app-test
 - [Coding Agent 标准化评测包](evals/README.md)
 - [中英文演示讲解](docs/showcase/demo-walkthrough.md)
 - [技术负责人职责全景与管理实战手册](docs/management/README.md)
+- [AI 用例登记、边界与评测证据](ai/README.md)
 - [Grafana 仪表盘](infra/grafana/dashboards/fincore-overview.json)
 - [后续路线](BACKLOG.md)
 

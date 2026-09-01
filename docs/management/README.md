@@ -44,6 +44,7 @@ FinCore 已有的撮合、结算、Outbox、Worker 接管、对账和监控能�
 10. [SLO、值班与灾备：把可靠性承诺变成可验证目标](10-slo-disaster-recovery.md)
 11. [FinOps 与供应商治理：让技术成本能够解释和优化](11-finops-vendor-management.md)
 12. [客户支持与高层沟通：从现场问题回到技术决策](12-customer-support-executive-communication.md)
+13. [AI 工程化落地：从工具试用到受控业务能力](13-ai-engineering-adoption.md)
 
 ## 详细实践层
 
@@ -60,6 +61,7 @@ FinCore 已有的撮合、结算、Outbox、Worker 接管、对账和监控能�
 11. [SLO、值班和灾备演练实战](detailed/11-slo-disaster-recovery-playbook.md)
 12. [FinOps 与供应商治理实战](detailed/12-finops-vendor-playbook.md)
 13. [客户支持与高层沟通实战](detailed/13-customer-support-executive-playbook.md)
+14. [AI 工程化落地实战](detailed/14-ai-engineering-adoption-playbook.md)
 
 ## 统一原则
 
