@@ -37,7 +37,7 @@ PostgreSQL、Kafka、Spring Boot、Prometheus 和 Grafana 的宿主机端口
 - Caddy 公开 TCP/443，Nginx 保留 TCP/80；SSH 使用腾讯云密钥登录；
 - `/api/` 和 `/actuator/` 的公网访问仅允许读取；
 - `/lab/faults/**` 等任意故障注入入口禁止公网访问；
-- 仅公开“完整实验”和“市场暴跌日”两个固定场景，且全局限制为每分钟最多启动一次；
+- 仅公开“完整资金实验”“市场暴跌日”和“用户到撮合完整链路”三个固定场景，并分别限制启动频率；
 - Grafana 使用匿名只读 Viewer，Prometheus 仅提供查询；
 - 项目使用完全虚构的账户与交易数据，不承载真实资金。
 
