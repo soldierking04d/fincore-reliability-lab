@@ -131,6 +131,140 @@ flowchart LR
 每套拓扑都必须同时表达同步入口、内部应用服务、持久化端口、外部依赖、事件输出和失败回路。网站将这六套图全部
 展开，并保留单模块深入视图用于解释并发、行情、扩容和自动证据。
 
+## 核心场景时序图
+
+### 1. 正常下单、成交、结算与对账
+
+```mermaid
+sequenceDiagram
+    participant C as 客户端
+    participant A as Trading API
+    participant P as 盘前风控
+    participant M as 撮合
+    participant K as Kafka / Worker
+    participant L as 账本 / 对账
+    C->>A: POST /orders + clientOrderId
+    A->>P: 用户、KYC、参考价、额度、余额
+    P->>P: 锁风险档案并保存 APPROVED
+    P->>M: 按 symbol 进入有界 Lane
+    M->>M: 成交 + Outbox 同事务
+    M-->>A: 返回订单终态
+    A-->>C: FILLED / OPEN
+    M-->>K: matching.events.v1
+    K-->>L: 至少一次投递 + Epoch
+    L->>L: Inbox 去重、平衡分录、对账 CLEAN
+```
+
+### 2. 行情暴跌与价格笼子失败关闭
+
+```mermaid
+sequenceDiagram
+    participant F as 行情源
+    participant Q as 参考行情
+    participant C as 客户端
+    participant A as Trading API
+    participant P as 盘前风控
+    participant M as 撮合
+    F-->>Q: 价格 100 → 98，序列递增
+    F-->>Q: 迟到旧快照 99
+    Q->>Q: observedAt 倒退，拒绝覆盖
+    C->>A: BUY 2 @ 120
+    A->>P: 读取当前参考价 98
+    P->>P: 偏离超过 20%，保存拒绝决定
+    P-->>A: PRICE_DEVIATION
+    A-->>C: 明确拒绝，可用原键查询
+    Note over P,M: 不创建 matching_order，不调用撮合
+```
+
+### 3. 客户端超时后的幂等重试
+
+```mermaid
+sequenceDiagram
+    participant C as 客户端
+    participant A as Trading API
+    participant D as 决定存储
+    participant M as 撮合
+    participant O as 订单存储
+    C->>A: 第一次下单 order-001
+    A->>D: 查询 userId + clientOrderId
+    D-->>A: 不存在
+    A->>M: 批准并创建订单
+    M->>O: 订单 / 成交 / Outbox 同事务
+    A--xC: 响应在网络中丢失
+    C->>A: 使用原 clientOrderId 重试
+    A->>D: 命中原决定并核对全部参数
+    D->>O: 读取原 orderId
+    O-->>A: 原订单终态
+    A-->>C: 返回同一结果
+```
+
+### 4. 订单洪峰与有界背压
+
+```mermaid
+sequenceDiagram
+    participant C as 并发客户端
+    participant N as Nginx
+    participant A as Java API
+    participant Q as Bounded Lane
+    participant D as 撮合事务
+    C->>N: 瞬时订单洪峰
+    N->>A: 限额内请求
+    A->>Q: symbol 稳定散列
+    Q->>Q: ArrayBlockingQueue(256)
+    Q->>D: 同 symbol 串行执行
+    D-->>A: 已提交订单结果
+    alt Lane 已满
+        Q--xA: RejectedExecution
+        A--xC: 429 + 原幂等键重试
+    end
+```
+
+### 5. Worker 接管、重复投递与 Epoch Fencing
+
+```mermaid
+sequenceDiagram
+    participant K as Kafka
+    participant A as Worker A
+    participant E as Lease / Epoch
+    participant B as Worker B
+    participant S as Settlement
+    participant L as Ledger
+    A->>E: 获取 shard，epoch = 1
+    K-->>A: 第一次投递
+    Note over A: 网络停顿，租约过期
+    B->>E: 接管 shard，epoch = 2
+    K-->>A: 迟到 / 重复投递
+    A->>S: 携带 epoch 1 写资金
+    S->>E: 资金事务内核验当前 epoch 2
+    S--xA: STALE_EPOCH
+    K-->>B: 重复消息 × 17
+    B->>S: epoch 2 处理
+    S->>L: Inbox + 余额 + 分录同事务
+    L->>L: 只有 1 次资金效果
+```
+
+### 6. 漏数、错值与幽灵成交的对账修复
+
+```mermaid
+sequenceDiagram
+    participant T as 权威成交
+    participant P as 查询投影
+    participant R as Reconciler
+    participant W as Repair Worker
+    participant A as 审计 / 隔离
+    Note over P: 注入 MISSING / MISMATCH / EXTRA
+    R->>T: 分页读取权威成交
+    R->>P: 读取派生投影
+    R->>R: 全外连接分类三类差异
+    R-->>W: MISSING / MISMATCH 重建命令
+    W->>T: 只读权威事实
+    W->>P: 幂等重建派生记录
+    R-->>A: EXTRA 隔离等待复核
+    A-->>R: 记录修复前后证据
+    R->>T: 再次核对
+    R-->>A: 最终状态 CLEAN
+```
+
 ## 三、订单洪峰怎样被逐层削峰
 
 ```mermaid
