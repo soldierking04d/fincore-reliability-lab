@@ -1,0 +1,117 @@
+{
+  "$schema": "./schemas/service-catalog.schema.json",
+  "registryVersion": "1.0",
+  "registryType": "service_catalog",
+  "services": [
+    {
+      "serviceId": "fincore-api",
+      "name": "FinCore 交易与结算服务",
+      "description": "承载订单接入、撮合、成交同步、结算、对账和实验场景 API",
+      "owner": "Financial Reliability Lead",
+      "deputy": "Backend Engineering Lead",
+      "criticality": "high",
+      "lifecycle": "experimental",
+      "capabilities": ["matching", "settlement", "reconciliation", "fault_lab"],
+      "repository": "https://github.com/soldierking04d/fincore-reliability-lab",
+      "repoPaths": ["src/main/java/dev/fincore", "src/test/java/dev/fincore"],
+      "dataClasses": ["synthetic_source", "restricted_financial_model"],
+      "dependencies": ["postgresql-ledger", "kafka-event-backbone", "observability-stack"],
+      "slo": {
+        "availabilityObjective": "研究目标，尚未形成生产承诺",
+        "latencyObjective": "混合负载记录 P95，不作为生产容量证明",
+        "correctnessObjectives": ["账本借贷平衡", "结算业务键唯一", "旧 Epoch 不得写入"]
+      },
+      "runbooks": ["docs/showcase/demo-walkthrough.md", "docs/management/detailed/11-slo-disaster-recovery-playbook.md"],
+      "lastReviewed": "2026-09-01",
+      "nextReview": "2026-10-01"
+    },
+    {
+      "serviceId": "postgresql-ledger",
+      "name": "PostgreSQL 权威账本与交易事实库",
+      "description": "保存账户、只追加账本、订单、成交、Inbox、Outbox、Lease 与审计记录",
+      "owner": "Data Reliability Lead",
+      "deputy": "Financial Control Lead",
+      "criticality": "critical",
+      "lifecycle": "experimental",
+      "capabilities": ["authoritative_ledger", "transactional_outbox", "fencing", "audit"],
+      "repository": "https://github.com/soldierking04d/fincore-reliability-lab",
+      "repoPaths": ["src/main/resources/db/migration", "src/main/java/dev/fincore/infrastructure/persistence"],
+      "dataClasses": ["restricted_financial_model"],
+      "dependencies": [],
+      "slo": {
+        "availabilityObjective": "单机实验，不声明高可用",
+        "latencyObjective": "连接池排队和事务耗时可观测",
+        "correctnessObjectives": ["事务原子性", "只追加账本", "唯一约束防重复"]
+      },
+      "runbooks": ["docs/adr/0001-financial-invariants.md", "docs/management/detailed/11-slo-disaster-recovery-playbook.md"],
+      "lastReviewed": "2026-09-01",
+      "nextReview": "2026-10-01"
+    },
+    {
+      "serviceId": "kafka-event-backbone",
+      "name": "Kafka 事件骨干",
+      "description": "传递结算命令、成交事件和 Outbox 发布结果，按至少一次语义设计消费者",
+      "owner": "Event Platform Lead",
+      "deputy": "Settlement Engineering Lead",
+      "criticality": "high",
+      "lifecycle": "experimental",
+      "capabilities": ["settlement_commands", "matching_events", "replay"],
+      "repository": "https://github.com/soldierking04d/fincore-reliability-lab",
+      "repoPaths": ["src/main/java/dev/fincore/infrastructure/messaging", "docker-compose.yml"],
+      "dataClasses": ["synthetic_source", "restricted_financial_model"],
+      "dependencies": ["postgresql-ledger"],
+      "slo": {
+        "availabilityObjective": "单 Broker 实验，不声明生产可用性",
+        "latencyObjective": "消费积压、发布失败和重试可观测",
+        "correctnessObjectives": ["重复投递不产生重复资金效果", "冲突载荷必须拒绝"]
+      },
+      "runbooks": ["docs/adr/0002-inbox-outbox.md", "docs/advanced-scenarios.md"],
+      "lastReviewed": "2026-09-01",
+      "nextReview": "2026-10-01"
+    },
+    {
+      "serviceId": "observability-stack",
+      "name": "可观测性栈",
+      "description": "Prometheus、Grafana、JFR 与 GC 日志构成实验运行证据",
+      "owner": "Reliability Engineering Lead",
+      "deputy": "Platform Engineering Lead",
+      "criticality": "medium",
+      "lifecycle": "operational",
+      "capabilities": ["metrics", "dashboards", "jvm_diagnostics", "capacity_evidence"],
+      "repository": "https://github.com/soldierking04d/fincore-reliability-lab",
+      "repoPaths": ["observability", "scripts/performance", "docs/high-concurrency-jvm-tuning.md"],
+      "dataClasses": ["internal_operational", "demonstration_telemetry"],
+      "dependencies": ["fincore-api"],
+      "slo": {
+        "availabilityObjective": "随实验环境运行",
+        "latencyObjective": "抓取与看板刷新不作为业务 SLO",
+        "correctnessObjectives": ["指标来源可追溯", "演示回放与真实采样明确区分"]
+      },
+      "runbooks": ["docs/high-concurrency-jvm-tuning.md", "docs/showcase/demo-walkthrough.md"],
+      "lastReviewed": "2026-09-01",
+      "nextReview": "2026-10-01"
+    },
+    {
+      "serviceId": "demo-site",
+      "name": "FinCore 公开展示网站",
+      "description": "解释项目业务、架构、实验、治理和 AI 评测，提供交互式回放而非生产控制台",
+      "owner": "Developer Experience Lead",
+      "deputy": "Product Communications Lead",
+      "criticality": "low",
+      "lifecycle": "operational",
+      "capabilities": ["project_story", "interactive_replay", "governance_evidence"],
+      "repository": "https://github.com/soldierking04d/fincore-reliability-lab",
+      "repoPaths": ["docs/showcase", "docs/tencent-cloud-deployment.md"],
+      "dataClasses": ["public", "demonstration_telemetry"],
+      "dependencies": ["fincore-api", "observability-stack"],
+      "slo": {
+        "availabilityObjective": "公开演示用途，不声明生产 SLA",
+        "latencyObjective": "交互体验目标，不代表后端真实性能",
+        "correctnessObjectives": ["固定曲线标记为演示", "链接到可复核源码和证据"]
+      },
+      "runbooks": ["docs/showcase/demo-walkthrough.md", "docs/tencent-cloud-deployment.md"],
+      "lastReviewed": "2026-09-01",
+      "nextReview": "2026-10-01"
+    }
+  ]
+}

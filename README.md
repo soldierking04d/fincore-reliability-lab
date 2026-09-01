@@ -26,6 +26,15 @@ Outbox 异步批处理、账本批量写入、Hikari 限流、G1/ZGC 配置、GC
 线程与连接池为什么不能无限放大、超时和部分失败如何收敛，以及全部监控指标见
 [高并发、线程、CPU 与 JVM/GC 落地说明](docs/high-concurrency-jvm-tuning.md)。
 
+技术治理也已从文章扩展为运行系统：[技术负责人职责与实战手册](docs/management/README.md)覆盖
+13 类基础职责和平台工程、数据产品、企业风险、技术雷达、AI 五类跨域责任；
+[五份机器可读治理台账](governance/README.md)把服务 Owner、风险、指标口径、技术采用和审计证据
+关联起来，并由脚本与 Maven/CI 自动拒绝无责任人、过期 AI 门禁、错误引用或不存在的已证明证据。
+
+AI 登记见 [`ai/use-cases.json`](ai/use-cases.json)：除了权限和评测，还记录模型/提示/检索/工具策略
+版本、人工价值基线、单位成本、发布阈值、复查与失效日期、允许工具、禁止范围和关闭开关。当前
+只有 Coding Agent 隔离评测标记为已落地；其他用例在专用评测前保持规划和只读。
+
 ## 60 秒看懂项目
 
 项目介绍现在分为[业务风险与工程边界](docs/agent-evaluations/benchmark-introduction.md)和[可重复评测协议](reports/evaluations/repeatability-protocol.md)两部分：前者说明为什么这些故障重要，后者说明证据如何产生。

@@ -2,7 +2,7 @@
 
 本目录不是模型宣传页，而是 AI 能力进入 FinCore 前必须通过的治理入口。
 
-- [`use-cases.json`](use-cases.json)：机器可读的用例、风险、数据、权限、评测、人工批准和降级方案；
+- [`use-cases.json`](use-cases.json)：机器可读的用例、模型版本、价值基线、风险、数据、权限、发布阈值、人工批准、关闭开关和降级方案；
 - [`use-cases.schema.json`](use-cases.schema.json)：登记结构及允许值；
 - [`verify-ai-governance.sh`](../scripts/verify-ai-governance.sh)：本地与完整检查使用的硬边界校验；
 - [`AiGovernanceRegistryTest`](../src/test/java/dev/fincore/AiGovernanceRegistryTest.java)：随 Maven 和 CI 执行的同等硬边界回归测试；
@@ -24,5 +24,5 @@
 ./scripts/verify-ai-governance.sh
 ```
 
-校验会拒绝重复用例 ID、无证据却标记已落地、高风险用例缺少人工批准、允许自主资金写入、缺少
-禁用动作或没有降级方案等情况。
+校验会拒绝重复用例 ID、无证据却标记已落地、高风险用例缺少人工批准、允许自主资金写入、模型
+与提示不可追溯、发布门禁过期、缺少关闭责任、缺少禁用动作或没有降级方案等情况。

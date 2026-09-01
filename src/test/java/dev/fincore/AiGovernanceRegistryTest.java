@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -32,7 +33,9 @@ class AiGovernanceRegistryTest {
     private static final ObjectMapper JSON = new ObjectMapper();
 
     /** 允许的交付状态。 */
-    private static final Set<String> STATUSES = Set.of("planned", "pilot", "landed", "retired");
+    private static final Set<String> STATUSES = Set.of(
+        "proposed", "planned", "shadow", "assisted", "landed", "retired"
+    );
 
     /** 允许的数据等级。 */
     private static final Set<String> DATA_CLASSES = Set.of(
@@ -80,6 +83,7 @@ class AiGovernanceRegistryTest {
 
             requiredText(useCase, "owner");
             requiredText(useCase, "businessOutcome");
+            assertModelAndReleaseContext(useCase, identifier);
             requiredArray(useCase, "allowedInputs");
             requiredArray(useCase, "prohibitedActions");
             requiredArray(useCase.path("evaluation"), "hardVetoes");
@@ -96,6 +100,15 @@ class AiGovernanceRegistryTest {
                     () -> "敏感或受限数据用例必须只读：" + identifier);
             }
             if ("landed".equals(useCase.path("status").asText())) {
+                assertFalse(requiredArray(useCase.path("modelContext"), "modelVersions").toString()
+                        .contains("must_be_selected"),
+                    () -> "已落地 AI 用例不能保留未选择的模型版本：" + identifier);
+                assertFalse(requiredText(useCase.path("governance"), "legalPrivacyReview")
+                        .startsWith("required_before"),
+                    () -> "已落地 AI 用例必须完成法务与隐私边界说明：" + identifier);
+                assertFalse(requiredText(useCase.path("governance"), "securityReview")
+                        .startsWith("required_before"),
+                    () -> "已落地 AI 用例必须完成安全边界说明：" + identifier);
                 JsonNode evidence = requiredArray(useCase.path("evaluation"), "evidence");
                 for (JsonNode pathNode : evidence) {
                     Path evidencePath = Path.of(pathNode.asText());
@@ -104,6 +117,50 @@ class AiGovernanceRegistryTest {
                 }
             }
         }
+    }
+
+    /**
+     * 验证模型版本、价值基线、发布阈值、工具权限和关闭责任均可追溯。
+     *
+     * @param useCase AI 用例节点
+     * @param identifier 用例编号
+     */
+    private static void assertModelAndReleaseContext(JsonNode useCase, String identifier) {
+        JsonNode modelContext = useCase.path("modelContext");
+        requiredArray(modelContext, "providers");
+        requiredArray(modelContext, "modelVersions");
+        requiredText(modelContext, "promptVersion");
+        requiredText(modelContext, "retrievalVersion");
+        requiredText(modelContext, "toolPolicyVersion");
+        requiredText(modelContext, "dataResidency");
+        requiredText(modelContext, "retention");
+        assertEquals("not_authorized", requiredText(modelContext, "trainingUse"),
+            () -> "AI 数据不得默认授权训练：" + identifier);
+
+        JsonNode baseline = useCase.path("valueBaseline");
+        requiredText(baseline, "currentProcess");
+        requiredText(baseline, "targetOutcome");
+        requiredText(baseline, "unitCostCeiling");
+        requiredText(baseline, "measurementWindow");
+
+        JsonNode releaseGate = useCase.path("releaseGate");
+        requiredArray(releaseGate, "minimumThresholds");
+        LocalDate reviewed = LocalDate.parse(requiredText(releaseGate, "lastReviewed"));
+        LocalDate nextReview = LocalDate.parse(requiredText(releaseGate, "nextReview"));
+        LocalDate expiresAt = LocalDate.parse(requiredText(releaseGate, "expiresAt"));
+        assertTrue(nextReview.isAfter(reviewed), () -> "AI 下次复查日期必须晚于本次复查：" + identifier);
+        assertFalse(expiresAt.isBefore(nextReview), () -> "AI 发布门禁不能早于下次复查：" + identifier);
+        assertFalse(expiresAt.isBefore(LocalDate.now()), () -> "AI 发布门禁已过期：" + identifier);
+
+        JsonNode toolAccess = useCase.path("toolAccess");
+        requiredArray(toolAccess, "allowedTools");
+        requiredArray(toolAccess, "deniedScopes");
+        requiredText(toolAccess, "killSwitchOwner");
+
+        JsonNode governance = useCase.path("governance");
+        requiredText(governance, "legalPrivacyReview");
+        requiredText(governance, "securityReview");
+        requiredText(governance, "exitOwner");
     }
 
     /**
