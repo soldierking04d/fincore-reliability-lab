@@ -52,7 +52,7 @@ printf '%s\n' \
 sudo sysctl --system >/dev/null
 
 export FINCORE_BIND_ADDRESS=127.0.0.1
-export FINCORE_PUBLIC_BASE_URL="${FINCORE_PUBLIC_BASE_URL:-http://124.223.164.254}"
+export FINCORE_PUBLIC_BASE_URL="${FINCORE_PUBLIC_BASE_URL:-https://124.223.164.254}"
 
 sudo docker compose -f docker-compose.yml -f docker-compose.cloud.yml \
   up -d --build postgres kafka app prometheus grafana nginx

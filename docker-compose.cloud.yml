@@ -49,13 +49,13 @@ services:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.retention.time=24h
       - --storage.tsdb.retention.size=256MB
-      - --web.external-url=${FINCORE_PUBLIC_BASE_URL:-http://124.223.164.254}/prometheus/
+      - --web.external-url=${FINCORE_PUBLIC_BASE_URL:-https://124.223.164.254}/prometheus/
 
   grafana:
     mem_limit: 300m
     cpus: 0.35
     environment:
-      GF_SERVER_ROOT_URL: ${FINCORE_PUBLIC_BASE_URL:-http://124.223.164.254}/grafana/
+      GF_SERVER_ROOT_URL: ${FINCORE_PUBLIC_BASE_URL:-https://124.223.164.254}/grafana/
       GF_SERVER_SERVE_FROM_SUB_PATH: "true"
       PROMETHEUS_URL: http://prometheus:9090/prometheus
 
