@@ -8,7 +8,8 @@ public class ValidateProject {
         Path root = Path.of(args.length == 0 ? "." : args[0]).toAbsolutePath().normalize();
         DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(root.resolve("pom.xml").toFile());
         List<String> required = List.of(
-            "docker-compose.yml", "Dockerfile", "README.md", "AGENTS.md",
+            "docker-compose.yml", "Dockerfile", "README.md", "README.en.md", "AGENTS.md",
+            "LICENSE", "CONTRIBUTING.md", "docs/showcase/github-social-preview.jpg",
             "src/main/resources/application.yml", "src/main/resources/db/migration/V1__baseline.sql",
             "src/main/resources/db/migration/V2__operational_hardening.sql",
             "src/main/resources/db/migration/V5__concurrency_indexes.sql",

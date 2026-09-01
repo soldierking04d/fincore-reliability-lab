@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 在线项目演示 / Live portfolio
+    url: https://fincore-reliability-demo.soldierking04d.chatgpt.site/
+    about: 先查看完整业务链路、架构、管理、AI 与数字资产展示。
+  - name: 安全问题 / Security report
+    url: https://github.com/soldierking04d/fincore-reliability-lab/security/policy
+    about: 安全问题请按 SECURITY.md 的范围和方式反馈，不要公开敏感细节。
