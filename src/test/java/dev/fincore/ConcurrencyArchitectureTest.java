@@ -57,6 +57,10 @@ class ConcurrencyArchitectureTest {
         assertTrue(mapper.contains("markPublishedBatch"));
         assertTrue(mapper.contains("releaseForRetryBatch"));
         assertTrue(mapper.contains("FOR UPDATE SKIP LOCKED"));
+        String uuidBinding = "#{eventId,javaType=java.util.UUID,jdbcType=OTHER,"
+            + "typeHandler=dev.fincore.infrastructure.persistence.type.PostgresUuidTypeHandler}";
+        assertTrue(mapper.indexOf(uuidBinding) != mapper.lastIndexOf(uuidBinding),
+            "Outbox 成功与失败批量回写都必须显式绑定 PostgreSQL UUID");
     }
 
     /** 容器 JVM 必须限制堆比例、输出 GC/JFR 证据并在 OOM 时退出。 */
