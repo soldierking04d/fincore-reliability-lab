@@ -76,3 +76,22 @@ services:
         condition: service_started
       grafana:
         condition: service_started
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    mem_limit: 96m
+    cpus: 0.20
+    ports:
+      - "0.0.0.0:443:443"
+    volumes:
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - fincore-caddy-data:/data
+      - fincore-caddy-config:/config
+    depends_on:
+      nginx:
+        condition: service_started
+
+volumes:
+  fincore-caddy-data:
+  fincore-caddy-config:

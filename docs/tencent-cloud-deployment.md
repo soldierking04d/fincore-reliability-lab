@@ -7,14 +7,15 @@
 
 | 服务 | 公网地址 |
 |---|---|
-| FinCore 云端入口与实时实验 | <http://124.223.164.254/> |
-| Spring Boot 健康检查 | <http://124.223.164.254/actuator/health> |
-| Grafana 实时监控面板 | <http://124.223.164.254/grafana/d/fincore-overview/fincore-reliability-overview?orgId=1&from=now-15m&to=now&refresh=5s> |
-| Prometheus 查询界面 | <http://124.223.164.254/prometheus/> |
+| FinCore 云端入口与实时实验 | <https://124-223-164-254.sslip.io/> |
+| Spring Boot 健康检查 | <https://124-223-164-254.sslip.io/actuator/health> |
+| Grafana 实时监控面板 | <https://124-223-164-254.sslip.io/grafana/d/fincore-overview/fincore-reliability-overview?orgId=1&from=now-15m&to=now&refresh=5s> |
+| Prometheus 查询界面 | <https://124-223-164-254.sslip.io/prometheus/> |
 | 完整项目讲解网站 | <https://fincore-reliability-demo.soldierking04d.chatgpt.site/> |
 | AI Agent 评测网站 | <https://fincore-agent-benchmark.soldierking04d.chatgpt.site/> |
 
-公网入口由 Nginx 提供。PostgreSQL、Kafka、Spring Boot、Prometheus 和 Grafana 的宿主机端口
+公网 HTTPS 由 Caddy 自动签发和续期证书，再转发给 Nginx；HTTP IP 入口仍保留用于兼容访问。
+PostgreSQL、Kafka、Spring Boot、Prometheus 和 Grafana 的宿主机端口
 均只绑定 `127.0.0.1`，数据库与消息队列不会直接暴露到互联网。
 
 ## 4 GB 演示模式
@@ -33,14 +34,15 @@
 
 ## 公网安全边界
 
-- Nginx 只公开 TCP/80；SSH 使用腾讯云密钥登录；
+- Caddy 公开 TCP/443，Nginx 保留 TCP/80；SSH 使用腾讯云密钥登录；
 - `/api/` 和 `/actuator/` 的公网访问仅允许读取；
 - `/lab/faults/**` 等任意故障注入入口禁止公网访问；
 - 仅公开“完整实验”和“市场暴跌日”两个固定场景，且全局限制为每分钟最多启动一次；
 - Grafana 使用匿名只读 Viewer，Prometheus 仅提供查询；
 - 项目使用完全虚构的账户与交易数据，不承载真实资金。
 
-当前使用公网 IP 的 HTTP 演示地址。接入自有域名并完成 ICP 备案后，应增加 HTTPS，并把
+当前 HTTPS 地址使用 `sslip.io` 将主机名解析到固定公网 IP，适合本项目演示以及讲解网站的
+服务端安全代理。正式生产环境仍应接入自有域名、完成所需备案并把
 `FINCORE_PUBLIC_BASE_URL` 更新为正式域名。
 
 ## 上线验收记录
@@ -71,7 +73,7 @@
 ```bash
 cd /opt/fincore-reliability-lab
 git pull --ff-only
-FINCORE_PUBLIC_BASE_URL=http://124.223.164.254 \
+FINCORE_PUBLIC_BASE_URL=https://124-223-164-254.sslip.io \
   ./scripts/deploy/deploy-tencent-cloud.sh
 ```
 

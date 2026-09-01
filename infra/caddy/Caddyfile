@@ -1,0 +1,8 @@
+124-223-164-254.sslip.io {
+    encode zstd gzip
+
+    reverse_proxy nginx:80 {
+        header_up Host {host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+}
