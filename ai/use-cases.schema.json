@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/soldierking04d/fincore-reliability-lab/ai/use-cases.schema.json",
+  "title": "FinCore AI Use Case Registry",
+  "type": "object",
+  "required": ["registryVersion", "policy", "useCases"],
+  "properties": {
+    "registryVersion": { "type": "string", "minLength": 1 },
+    "policy": {
+      "type": "object",
+      "required": [
+        "defaultDeny",
+        "autonomousFinancialWritesAllowed",
+        "landedRequiresPublicEvidence",
+        "highRiskRequiresHumanApproval",
+        "rawProductionDataAllowed"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "defaultDeny": { "const": true },
+        "autonomousFinancialWritesAllowed": { "const": false },
+        "landedRequiresPublicEvidence": { "const": true },
+        "highRiskRequiresHumanApproval": { "const": true },
+        "rawProductionDataAllowed": { "const": false }
+      }
+    },
+    "useCases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "title",
+          "status",
+          "owner",
+          "businessOutcome",
+          "riskTier",
+          "dataClass",
+          "automationLevel",
+          "authority",
+          "allowedInputs",
+          "prohibitedActions",
+          "humanApproval",
+          "evaluation",
+          "fallback",
+          "monitoring"
+        ],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+          "title": { "type": "string", "minLength": 1 },
+          "status": { "enum": ["proposed", "planned", "shadow", "assisted", "landed", "retired"] },
+          "owner": { "type": "string", "minLength": 1 },
+          "businessOutcome": { "type": "string", "minLength": 1 },
+          "riskTier": { "enum": ["low", "medium", "high", "prohibited"] },
+          "dataClass": { "enum": ["public", "synthetic_source", "internal_operational", "sensitive_customer", "restricted_financial"] },
+          "automationLevel": { "enum": ["advisory", "draft_only", "candidate_generation", "bounded_action"] },
+          "authority": { "enum": ["read_only", "isolated_candidate_only", "bounded_tool"] },
+          "allowedInputs": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+          "prohibitedActions": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+          "humanApproval": {
+            "type": "object",
+            "required": ["required", "gate"],
+            "properties": {
+              "required": { "type": "boolean" },
+              "gate": { "type": "string", "minLength": 1 }
+            }
+          },
+          "evaluation": {
+            "type": "object",
+            "required": ["dataset", "hardVetoes", "evidence"],
+            "properties": {
+              "dataset": { "type": "string", "minLength": 1 },
+              "hardVetoes": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+              "evidence": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+          "fallback": { "type": "string", "minLength": 1 },
+          "monitoring": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+        }
+      }
+    }
+  }
+}

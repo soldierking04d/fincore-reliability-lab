@@ -47,6 +47,7 @@
 - Software bill of materials, dependency/secret scanning, artifact provenance, and staged security gates
 - Data classification, retention, access review, and audit-control evidence
 - FinOps baseline, unit economics, vendor scorecards, and tested exit plans
+- Read-only AI workflow prototypes for incident triage, reconciliation explanation, support summaries, and capacity analysis
 
 The management handbook defines how these controls should be owned and verified. Items without executable
 controls, target-environment tests, or independent review remain research backlog and must not be described as
