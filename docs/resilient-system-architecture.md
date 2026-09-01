@@ -75,6 +75,62 @@ flowchart LR
 | 资金处理 | 消费积压、重复投递、Worker 接管 | Outbox、Inbox、Fencing、平衡账本 | 丢成交或重复动钱 |
 | 证明与恢复 | 漏数、错值、幽灵数据、修复误伤 | 权威事实反查、分类、隔离 | 为了对平而改写权威历史 |
 
+## 全局服务拓扑（运行视角）
+
+业务链说明“一笔订单经历什么”，服务拓扑说明“请求落到哪个实例、事件由谁消费、数据写到哪里、怎样横向扩容”。
+
+```mermaid
+flowchart LR
+    C[Web / App] --> TLS[Caddy / TLS]
+    TLS --> N[Nginx\n路由 限速 超时]
+    N --> A1[API Replica A\nSpring Boot Java 21]
+    N -.生产扩容.-> A2[API Replica B..N]
+
+    A1 --> R[Symbol Router]
+    A2 --> R
+    R --> M0[Match Shard 0\nBounded Lanes]
+    R -.热点独占.-> MN[Match Shard 1..N]
+
+    M0 --> O[Outbox Publisher]
+    MN --> O
+    O --> K[Kafka KRaft\n演示 1 / 生产 3+]
+    K --> W[Settlement Workers\nPartition + Lease + Epoch]
+    W --> S[Settlement Service\nInbox + 有序账户锁]
+
+    A1 --> PG[(PostgreSQL Primary)]
+    M0 --> PG
+    MN --> PG
+    S --> PG
+    PG -.生产主备.-> RDB[(Standby / Read Replica)]
+
+    PG --> REC[Reconciliation Workers\n分页 限速 可重跑]
+    RDB -.卸载查询.-> REC
+    A1 -.metrics.-> P[Prometheus]
+    M0 -.metrics.-> P
+    K -.metrics.-> P
+    W -.metrics.-> P
+    P --> G[Grafana / Alerts]
+    REC --> G
+```
+
+当前腾讯云使用 Caddy、Nginx、单个 FinCore 应用容器、单 Kafka KRaft、单 PostgreSQL、Prometheus 和 Grafana
+组成可运行演示。图中的 API 副本、撮合分片、Kafka 多节点和 PostgreSQL 主备属于生产扩容拓扑，使用虚线区分，
+不能表述成当前服务器已经具备多可用区能力。
+
+## 六套单服务拓扑
+
+| 服务域 | 入口 | 应用服务 | Mapper / Adapter | 权威状态 | 输出去向 |
+|---|---|---|---|---|---|
+| 用户 / KYC | `TradingLifecycleController` | `TradingLifecycleService` | `TradingLifecycleMapper` / KYC Adapter | `customer_profile` / `risk_profile` | 资格快照进入盘前风控 |
+| 行情 | Market Feed / Reference API | `TradingLifecycleService` 行情能力 | Quote Normalizer / `TradingLifecycleMapper` | `market_reference_price` | 参考价进入价格笼子 |
+| 风控账户 | `TradingLifecycleController` | `TradingLifecycleService.place` | `TradingLifecycleMapper` / `AccountService` | `account` / `pre_trade_decision` | APPROVED 进入 `TradingOrderCoordinator` |
+| 准入撮合 | `TradingOrderCoordinator` | `StripedTaskExecutor` / `MatchingService` | `MatchingMapper` / `OutboxMapper` | `matching_order` / `trade_execution` | `matching.events.v1` 进入 Kafka |
+| 结算账本 | `SettlementListener` | `SettlementService` / `WorkerLeaseManager` | `SettlementMapper` / `LedgerMapper` | Inbox / Balance / Ledger / Lease | 结算结果进入投影和对账 |
+| 对账恢复 | Controller / Scheduler | `ReconciliationService` | `TradeReliabilityMapper` / `ReconciliationMapper` | 权威成交 / 投影 / 差异记录 | CLEAN / REBUILT / QUARANTINED |
+
+每套拓扑都必须同时表达同步入口、内部应用服务、持久化端口、外部依赖、事件输出和失败回路。网站将这六套图全部
+展开，并保留单模块深入视图用于解释并发、行情、扩容和自动证据。
+
 ## 三、订单洪峰怎样被逐层削峰
 
 ```mermaid
