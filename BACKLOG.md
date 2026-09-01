@@ -37,9 +37,17 @@
 
 ## P2 — Production-readiness research
 
+- [x] Publish the technical-lead responsibility map and management playbooks
 - Authentication and role-based authorization
 - Secrets management and encryption
 - Disaster-recovery runbook and restore verification
 - Multi-instance deployment topology
 - Capacity certification and service-level objectives
 - Independent security and financial-control review
+- Software bill of materials, dependency/secret scanning, artifact provenance, and staged security gates
+- Data classification, retention, access review, and audit-control evidence
+- FinOps baseline, unit economics, vendor scorecards, and tested exit plans
+
+The management handbook defines how these controls should be owned and verified. Items without executable
+controls, target-environment tests, or independent review remain research backlog and must not be described as
+production certification.
