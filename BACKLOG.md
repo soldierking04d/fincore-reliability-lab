@@ -38,6 +38,8 @@
 ## P2 — Production-readiness research
 
 - [x] Publish the technical-lead responsibility map and management playbooks
+- [x] Add machine-readable service, risk, metric, technology-radar, and audit-evidence registers
+- [x] Enforce governance cross-references, review dates, AI release gates, and evidence paths in Maven/CI
 - Authentication and role-based authorization
 - Secrets management and encryption
 - Disaster-recovery runbook and restore verification
@@ -48,7 +50,10 @@
 - Data classification, retention, access review, and audit-control evidence
 - FinOps baseline, unit economics, vendor scorecards, and tested exit plans
 - Read-only AI workflow prototypes for incident triage, reconciliation explanation, support summaries, and capacity analysis
+- Independent legal review of open-source licenses, notices, intellectual property, and release artifacts
+- Measured AI unit economics and resource/sustainability baselines using auditable provider data
 
-The management handbook defines how these controls should be owned and verified. Items without executable
-controls, target-environment tests, or independent review remain research backlog and must not be described as
-production certification.
+The [management handbook](docs/management/README.md) defines how these controls should be owned and verified;
+the [governance registers](governance/README.md) record current owners, review dates, limitations, and evidence.
+Items without executable controls, target-environment tests, or independent review remain research backlog and
+must not be described as production certification.

@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/soldierking04d/fincore-reliability-lab/governance/schemas/metric-catalog.schema.json",
+  "title": "FinCore Metric Catalog",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["registryVersion", "registryType", "metrics"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "registryVersion": { "type": "string", "minLength": 1 },
+    "registryType": { "const": "metric_catalog" },
+    "metrics": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["metricId", "name", "version", "purpose", "type", "unit", "owner", "steward", "definition", "source", "authority", "freshness", "qualityRules", "thresholds", "dimensions", "consumers", "demoOnly", "lastReviewed", "nextReview"],
+        "properties": {
+          "metricId": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+          "name": { "type": "string", "minLength": 1 },
+          "version": { "type": "string", "pattern": "^v[0-9]+$" },
+          "purpose": { "type": "string", "minLength": 1 },
+          "type": { "enum": ["business", "correctness", "reliability", "performance", "cost", "demonstration"] },
+          "unit": { "type": "string", "minLength": 1 },
+          "owner": { "type": "string", "minLength": 1 },
+          "steward": { "type": "string", "minLength": 1 },
+          "definition": { "type": "string", "minLength": 1 },
+          "source": { "type": "string", "minLength": 1 },
+          "authority": { "enum": ["authoritative", "derived", "demonstration"] },
+          "freshness": { "type": "string", "minLength": 1 },
+          "qualityRules": { "$ref": "#/$defs/nonEmptyStrings" },
+          "thresholds": { "$ref": "#/$defs/nonEmptyStrings" },
+          "dimensions": { "$ref": "#/$defs/nonEmptyStrings" },
+          "consumers": { "$ref": "#/$defs/nonEmptyStrings" },
+          "demoOnly": { "type": "boolean" },
+          "lastReviewed": { "$ref": "#/$defs/date" },
+          "nextReview": { "$ref": "#/$defs/date" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "date": { "type": "string", "format": "date" },
+    "nonEmptyStrings": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
+  }
+}

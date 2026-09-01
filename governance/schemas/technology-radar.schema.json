@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/soldierking04d/fincore-reliability-lab/governance/schemas/technology-radar.schema.json",
+  "title": "FinCore Technology Radar",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["registryVersion", "registryType", "technologies"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "registryVersion": { "type": "string", "minLength": 1 },
+    "registryType": { "const": "technology_radar" },
+    "technologies": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["technologyId", "name", "category", "ring", "owner", "problem", "decision", "evidence", "risks", "constraints", "successCriteria", "exitCriteria", "lastReviewed", "nextReview"],
+        "properties": {
+          "technologyId": { "type": "string", "pattern": "^TECH-[0-9]{3}$" },
+          "name": { "type": "string", "minLength": 1 },
+          "category": { "enum": ["application", "runtime", "data", "platform", "ai", "observability", "security"] },
+          "ring": { "enum": ["adopt", "trial", "assess", "hold"] },
+          "owner": { "type": "string", "minLength": 1 },
+          "problem": { "type": "string", "minLength": 1 },
+          "decision": { "type": "string", "minLength": 1 },
+          "evidence": { "$ref": "#/$defs/nonEmptyStrings" },
+          "risks": { "$ref": "#/$defs/nonEmptyStrings" },
+          "constraints": { "$ref": "#/$defs/nonEmptyStrings" },
+          "successCriteria": { "$ref": "#/$defs/nonEmptyStrings" },
+          "exitCriteria": { "$ref": "#/$defs/nonEmptyStrings" },
+          "lastReviewed": { "$ref": "#/$defs/date" },
+          "nextReview": { "$ref": "#/$defs/date" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "date": { "type": "string", "format": "date" },
+    "nonEmptyStrings": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
+  }
+}

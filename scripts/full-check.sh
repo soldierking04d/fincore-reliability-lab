@@ -5,6 +5,7 @@ cd "$project_dir"
 
 ./scripts/verify-code-conventions.sh
 ./scripts/verify-ai-governance.sh
+./scripts/verify-governance.sh
 ./scripts/verify-core.sh
 java scripts/ValidateProject.java .
 

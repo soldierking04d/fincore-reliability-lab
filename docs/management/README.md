@@ -45,6 +45,10 @@ FinCore 已有的撮合、结算、Outbox、Worker 接管、对账和监控能�
 11. [FinOps 与供应商治理：让技术成本能够解释和优化](11-finops-vendor-management.md)
 12. [客户支持与高层沟通：从现场问题回到技术决策](12-customer-support-executive-communication.md)
 13. [AI 工程化落地：从工具试用到受控业务能力](13-ai-engineering-adoption.md)
+14. [平台工程、开发者体验与知识治理：把工程能力做成内部产品](14-platform-engineering-developer-experience.md)
+15. [数据产品、指标口径与数据质量：让每个数字都能追溯和负责](15-data-product-metric-governance.md)
+16. [企业技术风险、审计与监管准备：把分散风险变成统一决策](16-enterprise-technology-risk-audit.md)
+17. [技术雷达、创新组合与组织采用：让试验能够停止、转化和退出](17-technology-radar-innovation-adoption.md)
 
 ## 详细实践层
 
@@ -62,6 +66,10 @@ FinCore 已有的撮合、结算、Outbox、Worker 接管、对账和监控能�
 12. [FinOps 与供应商治理实战](detailed/12-finops-vendor-playbook.md)
 13. [客户支持与高层沟通实战](detailed/13-customer-support-executive-playbook.md)
 14. [AI 工程化落地实战](detailed/14-ai-engineering-adoption-playbook.md)
+15. [平台工程、开发者体验与知识治理实战](detailed/15-platform-developer-experience-playbook.md)
+16. [数据产品、指标口径与数据质量治理实战](detailed/16-data-product-metric-governance-playbook.md)
+17. [企业技术风险、审计与监管准备实战](detailed/17-enterprise-technology-risk-audit-playbook.md)
+18. [技术雷达、创新组合与组织采用实战](detailed/18-technology-radar-innovation-adoption-playbook.md)
 
 ## 统一原则
 

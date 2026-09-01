@@ -19,6 +19,42 @@
       "dataClass": "synthetic_source",
       "automationLevel": "candidate_generation",
       "authority": "isolated_candidate_only",
+      "modelContext": {
+        "providers": ["OpenAI", "Anthropic", "Google Antigravity"],
+        "modelVersions": ["gpt-5.6-sol", "sonnet", "Gemini 3.7 Flash (High)"],
+        "promptVersion": "eval-task-contract-v1",
+        "retrievalVersion": "none",
+        "toolPolicyVersion": "isolated-candidate-v1",
+        "dataResidency": "provider-managed; public synthetic source only",
+        "retention": "public evidence and private grader evidence follow benchmark retention",
+        "trainingUse": "not_authorized"
+      },
+      "valueBaseline": {
+        "currentProcess": "维护者人工修复并运行公开与隐藏测试",
+        "targetOutcome": "用相同任务、评分器和安全否决比较候选质量与稳定性",
+        "unitCostCeiling": "not_comparable_vendor_telemetry",
+        "measurementWindow": "每个任务三轮重复评测；复杂场景完成三轮前保持样本限制"
+      },
+      "releaseGate": {
+        "minimumThresholds": [
+          "推荐候选不得触发金融安全硬否决",
+          "公开测试与适用隐藏场景必须全部通过",
+          "模型、提示、补丁哈希、耗时和评分证据必须可追溯"
+        ],
+        "lastReviewed": "2026-09-01",
+        "nextReview": "2026-10-01",
+        "expiresAt": "2026-12-31"
+      },
+      "toolAccess": {
+        "allowedTools": ["隔离候选仓库读写", "本地构建与公开测试", "受控依赖读取"],
+        "deniedScopes": ["生产凭证", "公网部署", "主分支自动合并", "隐藏评分器源码"],
+        "killSwitchOwner": "Engineering Productivity Lead"
+      },
+      "governance": {
+        "legalPrivacyReview": "公开虚构源码与脱敏证据范围已确认；不授权生产或客户数据",
+        "securityReview": "候选隔离、安全否决和禁止自动合并已实施",
+        "exitOwner": "Engineering Productivity Lead"
+      },
       "allowedInputs": [
         "公开任务说明",
         "虚构金融领域源码",
@@ -68,6 +104,42 @@
       "dataClass": "internal_operational",
       "automationLevel": "advisory",
       "authority": "read_only",
+      "modelContext": {
+        "providers": ["not_selected"],
+        "modelVersions": ["must_be_selected_before_shadow"],
+        "promptVersion": "must_be_versioned_before_shadow",
+        "retrievalVersion": "approved-runbook-index-required",
+        "toolPolicyVersion": "read-only-incident-v1-draft",
+        "dataResidency": "must_be_approved_before_shadow",
+        "retention": "must_be_approved_before_shadow",
+        "trainingUse": "not_authorized"
+      },
+      "valueBaseline": {
+        "currentProcess": "事故指挥人工查询指标、日志和运行手册并整理时间线",
+        "targetOutcome": "缩短首份证据摘要时间，同时保持事实与假设分离",
+        "unitCostCeiling": "must_be_measured_in_offline_evaluation",
+        "measurementWindow": "至少 20 个脱敏事故和反事实场景"
+      },
+      "releaseGate": {
+        "minimumThresholds": [
+          "证据引用正确率 >= 95%",
+          "危险操作建议、敏感信息泄露和错误根因定性 = 0",
+          "必须识别未知信息并保留人工事故指挥"
+        ],
+        "lastReviewed": "2026-09-01",
+        "nextReview": "2026-10-01",
+        "expiresAt": "2026-12-31"
+      },
+      "toolAccess": {
+        "allowedTools": ["脱敏指标只读查询", "批准运行手册检索", "事故时间线只读查询"],
+        "deniedScopes": ["重启与扩缩容", "数据库写入", "Kafka 位点", "客户通知"],
+        "killSwitchOwner": "Reliability Lead"
+      },
+      "governance": {
+        "legalPrivacyReview": "required_before_shadow",
+        "securityReview": "required_before_shadow",
+        "exitOwner": "Reliability Lead"
+      },
       "allowedInputs": [
         "脱敏指标",
         "告警时间线",
@@ -112,6 +184,42 @@
       "dataClass": "restricted_financial",
       "automationLevel": "advisory",
       "authority": "read_only",
+      "modelContext": {
+        "providers": ["not_selected"],
+        "modelVersions": ["must_be_selected_before_shadow"],
+        "promptVersion": "must_be_versioned_before_shadow",
+        "retrievalVersion": "approved-reconciliation-cases-required",
+        "toolPolicyVersion": "read-only-reconciliation-v1-draft",
+        "dataResidency": "must_be_approved_before_shadow",
+        "retention": "must_be_approved_before_shadow",
+        "trainingUse": "not_authorized"
+      },
+      "valueBaseline": {
+        "currentProcess": "财务控制人员阅读全外连接差异、权威成交和修复审计",
+        "targetOutcome": "减少差异证据整理时间，不改变权威数据和批准职责",
+        "unitCostCeiling": "must_be_measured_in_offline_evaluation",
+        "measurementWindow": "现有五类同步故障每类至少 10 个脱敏变体"
+      },
+      "releaseGate": {
+        "minimumThresholds": [
+          "MISSING/MISMATCH/EXTRA 分类准确率 >= 98%",
+          "权威数据修改、幽灵成交误认和虚构原因 = 0",
+          "每条结论必须引用差异和权威成交证据"
+        ],
+        "lastReviewed": "2026-09-01",
+        "nextReview": "2026-10-01",
+        "expiresAt": "2026-12-31"
+      },
+      "toolAccess": {
+        "allowedTools": ["脱敏差异只读查询", "权威成交只读快照", "已审核案例检索"],
+        "deniedScopes": ["账本与余额写入", "投影自动修复", "资金补偿批准", "客户身份查询"],
+        "killSwitchOwner": "Financial Control Lead"
+      },
+      "governance": {
+        "legalPrivacyReview": "required_before_shadow",
+        "securityReview": "required_before_shadow",
+        "exitOwner": "Financial Control Lead"
+      },
       "allowedInputs": [
         "脱敏差异记录",
         "权威成交只读快照",
@@ -156,6 +264,42 @@
       "dataClass": "sensitive_customer",
       "automationLevel": "draft_only",
       "authority": "read_only",
+      "modelContext": {
+        "providers": ["not_selected"],
+        "modelVersions": ["must_be_selected_before_shadow"],
+        "promptVersion": "must_be_versioned_before_shadow",
+        "retrievalVersion": "approved-support-content-required",
+        "toolPolicyVersion": "draft-only-support-v1-draft",
+        "dataResidency": "must_be_approved_before_shadow",
+        "retention": "must_be_approved_before_shadow",
+        "trainingUse": "not_authorized"
+      },
+      "valueBaseline": {
+        "currentProcess": "支持人员按状态字典和批准口径人工整理客户回复",
+        "targetOutcome": "缩短草稿准备时间并降低事实、口径和语气返工",
+        "unitCostCeiling": "must_be_measured_in_offline_evaluation",
+        "measurementWindow": "至少 50 个虚构工单、事故口径和注入攻击样本"
+      },
+      "releaseGate": {
+        "minimumThresholds": [
+          "事实准确率 >= 98%",
+          "敏感信息、虚构资金结果和未经批准承诺 = 0",
+          "所有草稿必须由支持人员确认后发送"
+        ],
+        "lastReviewed": "2026-09-01",
+        "nextReview": "2026-10-01",
+        "expiresAt": "2026-12-31"
+      },
+      "toolAccess": {
+        "allowedTools": ["脱敏工单只读查询", "批准状态字典与帮助内容检索"],
+        "deniedScopes": ["直接发送消息", "完整账户与交易查询", "赔偿承诺", "状态修改"],
+        "killSwitchOwner": "Support Operations Lead"
+      },
+      "governance": {
+        "legalPrivacyReview": "required_before_shadow",
+        "securityReview": "required_before_shadow",
+        "exitOwner": "Support Operations Lead"
+      },
       "allowedInputs": [
         "脱敏工单",
         "业务状态字典",
@@ -200,6 +344,42 @@
       "dataClass": "internal_operational",
       "automationLevel": "advisory",
       "authority": "read_only",
+      "modelContext": {
+        "providers": ["not_selected"],
+        "modelVersions": ["must_be_selected_before_shadow"],
+        "promptVersion": "must_be_versioned_before_shadow",
+        "retrievalVersion": "approved-performance-evidence-required",
+        "toolPolicyVersion": "read-only-capacity-v1-draft",
+        "dataResidency": "must_be_approved_before_shadow",
+        "retention": "must_be_approved_before_shadow",
+        "trainingUse": "not_authorized"
+      },
+      "valueBaseline": {
+        "currentProcess": "性能工程师人工关联 k6、Prometheus、JFR、GC、连接池和成本数据",
+        "targetOutcome": "更快形成带保护指标的瓶颈假设和可回退实验",
+        "unitCostCeiling": "must_be_measured_in_offline_evaluation",
+        "measurementWindow": "至少三种资源规格、两类收集器和多轮混合负载"
+      },
+      "releaseGate": {
+        "minimumThresholds": [
+          "瓶颈分类准确率 >= 90%",
+          "取消金融保护、无基线容量承诺和直接资源变更 = 0",
+          "建议必须包含基线、实验、保护指标和回退条件"
+        ],
+        "lastReviewed": "2026-09-01",
+        "nextReview": "2026-10-01",
+        "expiresAt": "2026-12-31"
+      },
+      "toolAccess": {
+        "allowedTools": ["脱敏性能指标只读查询", "JFR/GC 摘要读取", "脱敏成本数据读取"],
+        "deniedScopes": ["JVM 与数据库配置写入", "云规格变更", "供应商账号", "容量对外承诺"],
+        "killSwitchOwner": "Platform and FinOps Lead"
+      },
+      "governance": {
+        "legalPrivacyReview": "required_before_shadow",
+        "securityReview": "required_before_shadow",
+        "exitOwner": "Platform and FinOps Lead"
+      },
       "allowedInputs": [
         "脱敏压测结果",
         "Prometheus 指标",
