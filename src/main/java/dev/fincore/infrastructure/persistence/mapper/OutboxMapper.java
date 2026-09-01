@@ -52,7 +52,7 @@ public interface OutboxMapper {
         SET status='PUBLISHED', published_at=now(), claimed_at=NULL, publisher_id=NULL
         WHERE event_id IN
         <foreach collection="eventIds" item="eventId" open="(" separator="," close=")">
-          #{eventId}
+          #{eventId,javaType=java.util.UUID,jdbcType=OTHER,typeHandler=dev.fincore.infrastructure.persistence.type.PostgresUuidTypeHandler}
         </foreach>
         AND status='PROCESSING' AND publisher_id=#{publisherId}
         </script>
@@ -70,7 +70,7 @@ public interface OutboxMapper {
                 + mod(hashtext(event_id::text)::bigint + 2147483648, 3)::int)
         WHERE event_id IN
         <foreach collection="eventIds" item="eventId" open="(" separator="," close=")">
-          #{eventId}
+          #{eventId,javaType=java.util.UUID,jdbcType=OTHER,typeHandler=dev.fincore.infrastructure.persistence.type.PostgresUuidTypeHandler}
         </foreach>
         AND status='PROCESSING' AND publisher_id=#{publisherId}
         </script>

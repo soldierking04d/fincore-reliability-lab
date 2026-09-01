@@ -1,0 +1,78 @@
+services:
+  postgres:
+    mem_limit: 600m
+    cpus: 0.75
+    shm_size: 128m
+    command:
+      - postgres
+      - -c
+      - shared_buffers=128MB
+      - -c
+      - max_connections=30
+      - -c
+      - work_mem=4MB
+      - -c
+      - maintenance_work_mem=64MB
+
+  kafka:
+    mem_limit: 900m
+    cpus: 0.75
+    environment:
+      KAFKA_HEAP_OPTS: -Xms256m -Xmx512m
+      KAFKA_NUM_NETWORK_THREADS: 2
+      KAFKA_NUM_IO_THREADS: 4
+      KAFKA_LOG_RETENTION_HOURS: 24
+      KAFKA_LOG_SEGMENT_BYTES: 134217728
+
+  app:
+    build:
+      context: .
+      args:
+        MAVEN_SETTINGS: /opt/fincore/settings-tencent.xml
+    mem_limit: 1100m
+    cpus: 2.0
+    pids_limit: 256
+    environment:
+      FINCORE_MATCHING_LANES: 2
+      FINCORE_MATCHING_QUEUE_CAPACITY: 128
+      FINCORE_SETTLEMENT_CONSUMERS: 2
+      FINCORE_DB_POOL_SIZE: 6
+      FINCORE_KAFKA_MAX_POLL_RECORDS: 25
+      FINCORE_OUTBOX_BATCH_SIZE: 100
+      FINCORE_HTTP_MAX_CONNECTIONS: 512
+      FINCORE_HTTP_ACCEPT_COUNT: 128
+
+  prometheus:
+    mem_limit: 384m
+    cpus: 0.35
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=24h
+      - --storage.tsdb.retention.size=256MB
+      - --web.external-url=${FINCORE_PUBLIC_BASE_URL:-http://124.223.164.254}/prometheus/
+
+  grafana:
+    mem_limit: 300m
+    cpus: 0.35
+    environment:
+      GF_SERVER_ROOT_URL: ${FINCORE_PUBLIC_BASE_URL:-http://124.223.164.254}/grafana/
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      PROMETHEUS_URL: http://prometheus:9090/prometheus
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    mem_limit: 96m
+    cpus: 0.20
+    ports:
+      - "0.0.0.0:80:80"
+    volumes:
+      - ./infra/nginx/cloud.conf:/etc/nginx/nginx.conf:ro
+      - ./infra/nginx/html:/usr/share/nginx/html:ro
+    depends_on:
+      app:
+        condition: service_started
+      prometheus:
+        condition: service_started
+      grafana:
+        condition: service_started

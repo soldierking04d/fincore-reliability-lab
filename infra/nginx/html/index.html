@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FinCore Reliability Lab｜腾讯云实时环境</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #07111f; color: #dbeafe; }
+    main { width: min(1080px, calc(100% - 32px)); margin: 0 auto; padding: 56px 0 72px; }
+    .eyebrow { color: #38bdf8; letter-spacing: .12em; font-size: 12px; font-weight: 700; }
+    h1 { margin: 12px 0; max-width: 820px; font-size: clamp(34px, 6vw, 64px); line-height: 1.02; }
+    .lead { max-width: 820px; color: #94a3b8; font-size: 18px; line-height: 1.75; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; margin: 32px 0; }
+    .card { min-height: 150px; padding: 20px; border: 1px solid #1e3a5f; border-radius: 16px; background: #0b1b2e; }
+    .label { color: #7dd3fc; font-size: 13px; }
+    .value { margin: 10px 0 4px; font-size: 28px; font-weight: 750; }
+    .hint { color: #64748b; line-height: 1.5; }
+    .actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 28px 0; }
+    a, button { border: 1px solid #2563eb; border-radius: 10px; padding: 11px 16px; color: #dbeafe; background: #102a4c; text-decoration: none; font: inherit; cursor: pointer; }
+    a:hover, button:hover { background: #163b6c; }
+    button.primary { background: #0369a1; border-color: #0ea5e9; }
+    button:disabled { cursor: wait; opacity: .65; }
+    pre { min-height: 150px; overflow: auto; padding: 18px; border: 1px solid #1e3a5f; border-radius: 14px; background: #020617; color: #a7f3d0; line-height: 1.55; white-space: pre-wrap; }
+    .ok { color: #34d399; }
+    .bad { color: #fb7185; }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="eyebrow">LIVE CLOUD ENVIRONMENT · SHANGHAI</div>
+    <h1>FinCore Reliability Lab</h1>
+    <p class="lead">Spring Boot、MyBatis、PostgreSQL、Kafka、Prometheus 与 Grafana 组成的金融可靠性实验环境。这里展示的是腾讯云服务器上的真实运行状态与自动实验结果，不是预制截图。</p>
+
+    <section class="grid">
+      <article class="card"><div class="label">应用状态</div><div id="health" class="value">检查中…</div><div class="hint">Spring Boot Actuator 实时探活</div></article>
+      <article class="card"><div class="label">运行配置</div><div class="value">4C / 4G</div><div class="hint">低内存演示模式，压测从外部发起</div></article>
+      <article class="card"><div class="label">可靠性链路</div><div class="value">Inbox → Ledger → Outbox</div><div class="hint">事务、幂等、补偿、对账与 Epoch Fencing</div></article>
+    </section>
+
+    <div class="actions">
+      <button id="scenario" class="primary">运行“市场暴跌日”实验</button>
+      <a href="/grafana/d/fincore-overview/fincore-reliability-overview?orgId=1&amp;from=now-15m&amp;to=now&amp;refresh=5s">打开 Grafana 实时面板</a>
+      <a href="/prometheus/">打开 Prometheus</a>
+      <a href="/actuator/health">查看健康 JSON</a>
+      <a href="https://github.com/soldierking04d/fincore-reliability-lab">查看源码</a>
+      <a href="https://fincore-reliability-demo.soldierking04d.chatgpt.site/">查看完整项目讲解</a>
+    </div>
+
+    <h2>实时实验输出</h2>
+    <pre id="output">点击上方按钮后，服务会真实执行高流量撮合、重复结算、Worker 接管、乱序/漏失/错值/幽灵成交注入、派生数据修复与最终对账。</pre>
+  </main>
+  <script>
+    const health = document.querySelector('#health');
+    const output = document.querySelector('#output');
+    const button = document.querySelector('#scenario');
+
+    async function checkHealth() {
+      try {
+        const response = await fetch('/health', { cache: 'no-store' });
+        const data = await response.json();
+        health.textContent = data.status || 'UNKNOWN';
+        health.className = 'value ' + (data.status === 'UP' ? 'ok' : 'bad');
+      } catch (error) {
+        health.textContent = 'UNREACHABLE';
+        health.className = 'value bad';
+      }
+    }
+
+    button.addEventListener('click', async () => {
+      button.disabled = true;
+      output.textContent = '实验运行中，通常需要几十秒，请勿重复提交……';
+      try {
+        const response = await fetch('/lab/scenarios/market-crash-day', { method: 'POST' });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        const metrics = data.metrics || {};
+        const recovery = data.recovery || {};
+        const checks = Object.entries(data.checks || {}).map(([name, result]) => `${name}：${result}`);
+        output.textContent = [
+          `运行号：${data.runId}`,
+          `交易对：${data.symbol}`,
+          `最终状态：${data.finalStatus} / 对账 ${recovery.finalStatus || 'UNKNOWN'}`,
+          `成交：${metrics.tradeCount ?? 0} 笔（${metrics.observedTradesPerSecond ?? 0} trades/s）`,
+          `结算重复投递：${metrics.duplicateSettlementDeliveries ?? 0} 次；账本事务：${metrics.ledgerTransactions ?? 0} 笔`,
+          `异常投影：修复 ${metrics.repairedProjections ?? 0} 条 / 隔离 ${metrics.quarantinedProjections ?? 0} 条`,
+          `耗时：撮合 ${metrics.matchingElapsedMs ?? 0} ms / 端到端 ${metrics.endToEndElapsedMs ?? 0} ms`,
+          '',
+          ...checks,
+        ].join('\n');
+      } catch (error) {
+        output.textContent = `实验暂未启动：${error.message}。公网环境实行全局限流，请一分钟后重试。`;
+      } finally {
+        button.disabled = false;
+        checkHealth();
+      }
+    });
+
+    checkHealth();
+    setInterval(checkHealth, 15000);
+  </script>
+</body>
+</html>

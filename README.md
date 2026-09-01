@@ -148,6 +148,12 @@ reports/latest-scenario.json
 
 项目固定使用 Spring Boot 3.5.16，并采用 Apache 官方 Kafka Docker 镜像。Kafka 的单节点 KRaft 配置只用于本地实验，不代表生产部署方案。
 
+## 腾讯云公网演示
+
+4 核 4 GB 的腾讯云轻量服务器使用独立的低内存 Compose 配置运行 Spring Boot、PostgreSQL、
+Kafka、Prometheus、Grafana 和 Nginx。公网入口、实时实验、监控链接、资源限制、安全边界和更新命令见
+[腾讯云公网演示环境](docs/tencent-cloud-deployment.md)。
+
 服务地址：
 
 | 服务 | 地址 |
