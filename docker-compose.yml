@@ -50,6 +50,10 @@ services:
       SPRING_DATASOURCE_USERNAME: fincore
       SPRING_DATASOURCE_PASSWORD: fincore
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      FINCORE_JVM_PROFILE: ${FINCORE_JVM_PROFILE:-g1}
+      FINCORE_MATCHING_LANES: ${FINCORE_MATCHING_LANES:-4}
+      FINCORE_SETTLEMENT_CONSUMERS: ${FINCORE_SETTLEMENT_CONSUMERS:-4}
+      FINCORE_DB_POOL_SIZE: ${FINCORE_DB_POOL_SIZE:-12}
     ports:
       - "${FINCORE_BIND_ADDRESS:-127.0.0.1}:8080:8080"
     depends_on:
@@ -57,9 +61,11 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+    volumes:
+      - ./reports/runtime:/var/log/fincore
 
   app-test:
-    image: maven:3.9-eclipse-temurin-17
+    image: maven:3.9-eclipse-temurin-21
     profiles: ["test"]
     working_dir: /workspace
     command: ["mvn", "test"]
@@ -112,6 +118,25 @@ services:
         echo 'FinCore automated scenario completed: reports/latest-scenario.json'
     volumes:
       - ./reports:/reports
+    restart: "no"
+
+  performance-runner:
+    image: grafana/k6:0.54.0
+    profiles: ["performance"]
+    user: "${FINCORE_UID:-1000}:${FINCORE_GID:-1000}"
+    depends_on:
+      app:
+        condition: service_started
+    environment:
+      BASE_URL: http://app:8080
+      SETTLEMENT_RATE: ${FINCORE_SETTLEMENT_RATE:-150}
+      MATCHING_RATE: ${FINCORE_MATCHING_RATE:-100}
+      READ_RATE: ${FINCORE_READ_RATE:-100}
+      DURATION: ${FINCORE_PERFORMANCE_DURATION:-60s}
+    command: ["run", "/benchmarks/mixed-workload.js"]
+    volumes:
+      - ./benchmarks:/benchmarks:ro
+      - ./reports/performance:/reports
     restart: "no"
 
 volumes:

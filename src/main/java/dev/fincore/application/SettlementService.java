@@ -9,6 +9,7 @@ import dev.fincore.domain.LedgerPosting;
 import dev.fincore.domain.SettlementCommand;
 import dev.fincore.domain.SettlementOutcome;
 import dev.fincore.domain.SettlementStatus;
+import dev.fincore.domain.UuidOrder;
 import dev.fincore.infrastructure.persistence.mapper.LedgerMapper;
 import dev.fincore.infrastructure.persistence.mapper.OutboxMapper;
 import dev.fincore.infrastructure.persistence.mapper.SettlementMapper;
@@ -16,7 +17,7 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.math.BigDecimal;
 import java.util.ArrayList;
-import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -136,13 +137,11 @@ public class SettlementService {
         BalancedJournal.requireBalanced(postings);
         UUID transactionId = UUID.randomUUID();
         ledgerMapper.insertTransaction(transactionId, command.businessKey(), "SETTLEMENT", command.asset());
-        for (LedgerPosting posting : postings) {
-            if (posting.amount().signum() == 0) {
-                continue;
-            }
-            ledgerMapper.insertEntry(UUID.randomUUID(), transactionId, posting.accountId(),
-                posting.direction().name(), posting.amount());
-        }
+        ledgerMapper.insertEntries(transactionId, postings.stream()
+            .filter(posting -> posting.amount().signum() > 0)
+            .map(posting -> new LedgerMapper.LedgerEntryRow(
+                UUID.randomUUID(), posting.accountId(), posting.direction().name(), posting.amount()))
+            .toList());
 
         debit(command.payerAccountId(), totalDebit);
         credit(command.payeeAccountId(), command.amount());
@@ -170,13 +169,14 @@ public class SettlementService {
 
     /** 按 UUID 字符串顺序锁定付款、收款和手续费账户。 */
     private Map<UUID, LockedAccount> lockAccounts(SettlementCommand command) {
-        List<UUID> ids = new ArrayList<>(List.of(command.payerAccountId(), command.payeeAccountId(), command.feeAccountId()));
-        ids.sort(Comparator.comparing(UUID::toString));
-        return ids.stream().map(id -> {
+        List<UUID> ids = UuidOrder.uniqueSorted(
+            command.payerAccountId(), command.payeeAccountId(), command.feeAccountId());
+        Map<UUID, LockedAccount> locked = new LinkedHashMap<>(ids.size());
+        for (UUID id : ids) {
             LedgerMapper.LockedAccountRow row = ledgerMapper.lockAccount(id);
-            return new LockedAccount(row.accountId(), row.asset(), row.balance());
-        })
-            .collect(java.util.stream.Collectors.toMap(LockedAccount::id, a -> a));
+            locked.put(id, new LockedAccount(row.accountId(), row.asset(), row.balance()));
+        }
+        return locked;
     }
 
     /** 校验全部参与账户与结算资产一致。 */

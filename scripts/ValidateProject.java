@@ -11,10 +11,17 @@ public class ValidateProject {
             "docker-compose.yml", "Dockerfile", "README.md", "AGENTS.md",
             "src/main/resources/application.yml", "src/main/resources/db/migration/V1__baseline.sql",
             "src/main/resources/db/migration/V2__operational_hardening.sql",
+            "src/main/resources/db/migration/V5__concurrency_indexes.sql",
             "src/main/java/dev/fincore/FinCoreApplication.java",
             "src/main/java/dev/fincore/application/SettlementService.java",
+            "src/main/java/dev/fincore/application/MatchingCommandCoordinator.java",
+            "src/main/java/dev/fincore/application/WorkerLeaseManager.java",
+            "src/main/java/dev/fincore/infrastructure/concurrent/StripedTaskExecutor.java",
             "src/main/java/dev/fincore/application/LabScenarioService.java",
-            "src/test/java/dev/fincore/SettlementIntegrationTest.java"
+            "src/test/java/dev/fincore/SettlementIntegrationTest.java",
+            "config/jvm/g1.options", "config/jvm/zgc.options",
+            "benchmarks/mixed-workload.js",
+            "docs/high-concurrency-jvm-tuning.md"
         );
         for (String file : required) {
             if (!Files.isRegularFile(root.resolve(file)) || Files.size(root.resolve(file)) == 0) {
@@ -22,7 +29,8 @@ public class ValidateProject {
             }
         }
         String compose = Files.readString(root.resolve("docker-compose.yml"));
-        for (String service : List.of("postgres:", "kafka:", "app:", "prometheus:")) {
+        for (String service : List.of(
+            "postgres:", "kafka:", "app:", "prometheus:", "grafana:", "performance-runner:")) {
             if (!compose.contains(service)) throw new IllegalStateException("compose service missing: " + service);
         }
         String migration = Files.readString(root.resolve("src/main/resources/db/migration/V1__baseline.sql"));

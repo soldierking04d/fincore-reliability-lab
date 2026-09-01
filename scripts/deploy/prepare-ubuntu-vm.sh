@@ -42,7 +42,7 @@ fi
 
 sudo apt-get update
 sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
-  ca-certificates curl jq git openjdk-17-jdk maven docker.io docker-compose-v2
+  ca-certificates curl jq git openjdk-21-jdk maven docker.io docker-compose-v2
 sudo systemctl enable --now docker
 sudo usermod -aG docker "$(id -un)"
 

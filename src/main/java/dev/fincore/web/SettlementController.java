@@ -3,6 +3,11 @@ package dev.fincore.web;
 import dev.fincore.application.SettlementService;
 import dev.fincore.domain.SettlementCommand;
 import dev.fincore.domain.SettlementOutcome;
+import dev.fincore.infrastructure.concurrent.ConcurrencyProperties;
+import dev.fincore.messaging.MessageSubmissionException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -32,26 +37,47 @@ public class SettlementController {
     private final KafkaTemplate<String, Object> kafka;
     /** 结算命令 Topic。 */
     private final String topic;
+    /** 等待 Broker 确认接收的最长时间。 */
+    private final long submitTimeoutNanos;
 
     /** 创建结算接入控制器。 */
     public SettlementController(SettlementService service, KafkaTemplate<String, Object> kafka,
-                                @Value("${fincore.kafka.settlement-topic}") String topic) {
+                                @Value("${fincore.kafka.settlement-topic}") String topic,
+                                ConcurrencyProperties properties) {
         this.service = service;
         this.kafka = kafka;
         this.topic = topic;
+        this.submitTimeoutNanos = properties.getKafkaSubmitTimeout().toNanos();
     }
 
     /**
-     * 异步提交结算命令。
+     * 提交结算命令并等待 Kafka Broker 确认持久接收。
      *
      * @param command 结算命令
-     * @return 已接收回执；该回执不代表资金已经结算成功
+     * @return Broker 已接收回执；该回执不代表资金已经结算成功
      */
     @PostMapping
     @ResponseStatus(HttpStatus.ACCEPTED)
     public Accepted submit(@RequestBody SettlementCommand command) {
-        kafka.send(topic, command.businessKey(), command);
-        return new Accepted(command.messageId(), command.businessKey(), "ACCEPTED");
+        try {
+            // 只有 Broker 确认后才返回 202；等待发生在虚拟线程，不占用一条 Tomcat 平台线程。
+            kafka.send(topic, command.businessKey(), command)
+                .get(submitTimeoutNanos, TimeUnit.NANOSECONDS);
+            return new Accepted(command.messageId(), command.businessKey(), "ACCEPTED");
+        } catch (TimeoutException | ExecutionException exception) {
+            throw new MessageSubmissionException(
+                "Kafka acknowledgement failed or is unknown; retry with the same messageId and businessKey",
+                exception
+            );
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new MessageSubmissionException("Kafka acknowledgement wait interrupted", exception);
+        } catch (RuntimeException exception) {
+            throw new MessageSubmissionException(
+                "Kafka submission failed before acknowledgement; retry with the same messageId and businessKey",
+                exception
+            );
+        }
     }
 
     /**

@@ -2,7 +2,7 @@
 
 [简体中文](README.md) | English
 
-![Java 17](https://img.shields.io/badge/Java-17-ED8B00?logo=openjdk&logoColor=white)
+![Java 21](https://img.shields.io/badge/Java-21-ED8B00?logo=openjdk&logoColor=white)
 ![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.5-6DB33F?logo=springboot&logoColor=white)
 ![MyBatis](https://img.shields.io/badge/MyBatis-3.0.5-CB2E31?logo=apache&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
@@ -14,6 +14,8 @@ FinCore Reliability Lab is a runnable matching-and-settlement reliability system
 All accounts, transactions, and operating parameters are fictional. The repository contains no former-employer source code or confidential production data.
 
 The current baseline uses Spring Boot 3.5.16 and MyBatis Spring Boot Starter 3.0.5. Production services no longer execute `JdbcTemplate` SQL directly: adapters handle HTTP/Kafka, application services own transactions and financial invariants, and 11 domain-focused Mapper interfaces own parameterized SQL. See the [Spring Boot + MyBatis persistence architecture](docs/mybatis-architecture.md) for the full call path and safety boundaries.
+
+The concurrency baseline now uses Java 21 virtual threads for request I/O, bounded single-writer matching lanes, explicit platform threads for Kafka and scheduling, a short-lived worker-lease cache with mandatory in-transaction fencing, asynchronous Outbox batching, batched journal inserts, bounded HikariCP, G1/ZGC runtime profiles, GC/JFR diagnostics, and a reproducible mixed k6 workload. See the Chinese-first [high-concurrency and JVM tuning guide](docs/high-concurrency-jvm-tuning.md).
 
 ## Why this repository exists
 
@@ -43,6 +45,10 @@ This repository turns those failure modes into executable experiments. The publi
 - Limit and market orders, price-time priority, maker pricing, partial fills, cancellation, and self-trade prevention
 - Durable order/trade sequence, matching audit, and a dedicated matching event topic
 - Transactional Inbox and Outbox
+- Bounded per-symbol matching lanes with explicit 429/503 backpressure
+- Platform-thread Kafka consumers and a data-plane-safe worker lease cache
+- Asynchronous Outbox batches and batched append-only journal inserts
+- G1 and Generational ZGC profiles with GC logs, heap dumps, and continuous JFR
 - Message-ID and business-key idempotency
 - Deterministic UUID account-lock ordering
 - Conditional debit and insufficient-balance rejection

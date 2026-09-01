@@ -95,6 +95,70 @@
       "targets": [{"editorMode": "code", "expr": "sum by (id) (jvm_memory_used_bytes{area=\"heap\"})", "legendFormat": "{{id}}", "range": true, "refId": "A"}],
       "title": "JVM heap usage",
       "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "custom": {"drawStyle": "line", "fillOpacity": 15, "lineWidth": 2, "showPoints": "never"}, "max": 1, "min": 0, "unit": "percentunit"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 28},
+      "id": 10,
+      "options": {"legend": {"calcs": ["lastNotNull", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [
+        {"editorMode": "code", "expr": "process_cpu_usage", "legendFormat": "JVM process", "range": true, "refId": "A"},
+        {"editorMode": "code", "expr": "system_cpu_usage", "legendFormat": "system", "range": true, "refId": "B"}
+      ],
+      "title": "CPU utilization",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "custom": {"drawStyle": "line", "fillOpacity": 15, "lineWidth": 2, "showPoints": "never"}, "unit": "s"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 28},
+      "id": 11,
+      "options": {"legend": {"calcs": ["lastNotNull", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{"editorMode": "code", "expr": "histogram_quantile(0.99, sum by (le, action, cause) (rate(jvm_gc_pause_seconds_bucket[5m])))", "legendFormat": "p99 {{action}} {{cause}}", "range": true, "refId": "A"}],
+      "title": "GC pause p99",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "custom": {"drawStyle": "line", "fillOpacity": 15, "lineWidth": 2, "showPoints": "never"}}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 36},
+      "id": 12,
+      "options": {"legend": {"calcs": ["lastNotNull", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [
+        {"editorMode": "code", "expr": "fincore_matching_queue_depth_total", "legendFormat": "queued", "range": true, "refId": "A"},
+        {"editorMode": "code", "expr": "rate(fincore_matching_queue_rejected_total[1m])", "legendFormat": "rejected/s", "range": true, "refId": "B"}
+      ],
+      "title": "Matching backpressure",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "custom": {"drawStyle": "line", "fillOpacity": 15, "lineWidth": 2, "showPoints": "never"}}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 36},
+      "id": 13,
+      "options": {"legend": {"calcs": ["lastNotNull", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [
+        {"editorMode": "code", "expr": "fincore_outbox_ready_backlog", "legendFormat": "ready backlog", "range": true, "refId": "A"},
+        {"editorMode": "code", "expr": "rate(fincore_outbox_published_total[1m])", "legendFormat": "published/s", "range": true, "refId": "B"},
+        {"editorMode": "code", "expr": "hikaricp_connections_pending", "legendFormat": "DB waiters", "range": true, "refId": "C"}
+      ],
+      "title": "Outbox and DB saturation",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "custom": {"drawStyle": "line", "fillOpacity": 15, "lineWidth": 2, "showPoints": "never"}}, "overrides": []},
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 44},
+      "id": 14,
+      "options": {"legend": {"calcs": ["lastNotNull", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [
+        {"editorMode": "code", "expr": "rate(jvm_threads_virtual_pinned_seconds_count[1m])", "legendFormat": "virtual-thread pinned/s", "range": true, "refId": "A"},
+        {"editorMode": "code", "expr": "fincore_settlement_consumer_inflight", "legendFormat": "settlement inflight", "range": true, "refId": "B"},
+        {"editorMode": "code", "expr": "rate(fincore_worker_lease_cache_hit_total[1m])", "legendFormat": "lease cache hit/s", "range": true, "refId": "C"}
+      ],
+      "title": "Thread model health",
+      "type": "timeseries"
     }
   ],
   "refresh": "5s",

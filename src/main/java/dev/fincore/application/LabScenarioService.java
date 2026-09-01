@@ -164,7 +164,7 @@ public class LabScenarioService {
      * @param deliveries 并发投递次数
      */
     private void runConcurrentDuplicateStorm(SettlementCommand command, int deliveries) {
-        ExecutorService pool = Executors.newFixedThreadPool(12);
+        ExecutorService pool = Executors.newVirtualThreadPerTaskExecutor();
         try {
             List<Callable<SettlementOutcome>> tasks = new java.util.ArrayList<>();
             for (int i = 0; i < deliveries; i++) {

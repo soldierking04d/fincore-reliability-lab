@@ -5,12 +5,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.fincore.domain.BalancedJournal;
 import dev.fincore.domain.LedgerDirection;
 import dev.fincore.domain.LedgerPosting;
+import dev.fincore.domain.UuidOrder;
 import dev.fincore.infrastructure.persistence.mapper.CompensationMapper;
 import dev.fincore.infrastructure.persistence.mapper.LedgerMapper;
 import dev.fincore.infrastructure.persistence.mapper.OutboxMapper;
 import java.math.BigDecimal;
 import java.util.ArrayList;
-import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -100,10 +101,10 @@ public class CompensationService {
         // 反向分录、余额、补偿状态和 Outbox 位于同一事务，任一步失败都会整体回滚。
         UUID tx = UUID.randomUUID();
         ledgerMapper.insertTransaction(tx, compensationKey, "COMPENSATION", original.asset());
-        for (LedgerPosting posting : postings) {
-            ledgerMapper.insertEntry(UUID.randomUUID(), tx, posting.accountId(),
-                posting.direction().name(), posting.amount());
-        }
+        ledgerMapper.insertEntries(tx, postings.stream()
+            .map(posting -> new LedgerMapper.LedgerEntryRow(
+                UUID.randomUUID(), posting.accountId(), posting.direction().name(), posting.amount()))
+            .toList());
         debit(original.payee(), original.amount());
         if (original.fee().signum() > 0) {
             debit(original.feeAccount(), original.fee());
@@ -117,10 +118,13 @@ public class CompensationService {
 
     /** 按 UUID 字符串顺序锁定补偿涉及的全部账户余额。 */
     private Map<UUID, BigDecimal> lockBalances(OriginalSettlement original) {
-        List<UUID> ids = new ArrayList<>(List.of(original.payer(), original.payee(), original.feeAccount()));
-        ids.sort(Comparator.comparing(UUID::toString));
-        return ids.stream().collect(java.util.stream.Collectors.toMap(id -> id,
-            id -> ledgerMapper.lockAccount(id).balance()));
+        List<UUID> ids = UuidOrder.uniqueSorted(
+            original.payer(), original.payee(), original.feeAccount());
+        Map<UUID, BigDecimal> balances = new LinkedHashMap<>(ids.size());
+        for (UUID id : ids) {
+            balances.put(id, ledgerMapper.lockAccount(id).balance());
+        }
+        return balances;
     }
 
     /** 使用余额下限条件执行原子扣款。 */

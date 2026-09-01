@@ -50,6 +50,7 @@ for package_dir in src/main/java/dev/fincore \
                    src/main/java/dev/fincore/application \
                    src/main/java/dev/fincore/domain \
                    src/main/java/dev/fincore/infrastructure \
+                   src/main/java/dev/fincore/infrastructure/concurrent \
                    src/main/java/dev/fincore/infrastructure/persistence \
                    src/main/java/dev/fincore/infrastructure/persistence/mapper \
                    src/main/java/dev/fincore/messaging \

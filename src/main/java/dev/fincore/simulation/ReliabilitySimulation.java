@@ -49,7 +49,7 @@ public final class ReliabilitySimulation {
         SettlementCommand command = new SettlementCommand("msg-100", "order-100", payer, payee, fee,
             "USDT", new BigDecimal("10"), new BigDecimal("1"));
 
-        ExecutorService pool = Executors.newFixedThreadPool(12);
+        ExecutorService pool = Executors.newVirtualThreadPerTaskExecutor();
         List<Callable<SettlementOutcome>> tasks = new ArrayList<>();
         for (int i = 0; i < 100; i++) {
             tasks.add(() -> engine.settle(command));

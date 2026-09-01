@@ -4,12 +4,12 @@ import dev.fincore.domain.BalancedJournal;
 import dev.fincore.domain.FeeShardRouter;
 import dev.fincore.domain.LedgerDirection;
 import dev.fincore.domain.LedgerPosting;
+import dev.fincore.domain.UuidOrder;
 import dev.fincore.infrastructure.persistence.mapper.FeeAggregationMapper;
 import dev.fincore.infrastructure.persistence.mapper.LedgerMapper;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -110,7 +110,7 @@ public class FeeAggregationService {
             .map(LedgerMapper.AccountIdRow::accountId)
             .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
         ids.add(treasuryAccountId);
-        ids.sort(Comparator.comparing(UUID::toString));
+        UuidOrder.sortAndRemoveDuplicates(ids);
         // 所有账户按固定 UUID 顺序加锁，避免多个归集任务形成锁顺序环。
         List<AccountRow> locked = new ArrayList<>();
         for (UUID id : ids) {
@@ -138,10 +138,10 @@ public class FeeAggregationService {
         UUID transactionId = UUID.randomUUID();
         ledgerMapper.insertTransaction(
             transactionId, "FEE_AGG:" + aggregationKey, "FEE_AGGREGATION", asset);
-        for (LedgerPosting posting : postings) {
-            ledgerMapper.insertEntry(UUID.randomUUID(), transactionId, posting.accountId(),
-                posting.direction().name(), posting.amount());
-        }
+        ledgerMapper.insertEntries(transactionId, postings.stream()
+            .map(posting -> new LedgerMapper.LedgerEntryRow(
+                UUID.randomUUID(), posting.accountId(), posting.direction().name(), posting.amount()))
+            .toList());
         for (AccountRow shard : shards) {
             if (ledgerMapper.debitExact(shard.id(), shard.balance(), shard.balance()) != 1) {
                 throw new IllegalStateException("fee shard changed during aggregation");

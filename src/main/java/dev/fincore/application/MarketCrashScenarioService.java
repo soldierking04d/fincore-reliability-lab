@@ -237,7 +237,7 @@ public class MarketCrashScenarioService {
                 symbol, OrderSide.SELL, OrderType.MARKET,
                 null, new BigDecimal("5")));
         }
-        ExecutorService pool = Executors.newFixedThreadPool(CONCURRENT_SELLERS);
+        ExecutorService pool = Executors.newVirtualThreadPerTaskExecutor();
         CountDownLatch start = new CountDownLatch(1);
         List<Future<MatchingResult>> futures = new ArrayList<>();
         long started = System.nanoTime();
@@ -360,7 +360,7 @@ public class MarketCrashScenarioService {
     /** 并发重复执行同一结算命令，并统计真实资金效果与幂等返回。 */
     private SettlementStorm runSettlementStorm(
         SettlementCommand command, FenceToken fence) {
-        ExecutorService pool = Executors.newFixedThreadPool(12);
+        ExecutorService pool = Executors.newVirtualThreadPerTaskExecutor();
         try {
             List<Callable<SettlementOutcome>> tasks = new ArrayList<>();
             for (int i = 0; i < DUPLICATE_DELIVERIES; i++) {

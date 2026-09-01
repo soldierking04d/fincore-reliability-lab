@@ -12,6 +12,9 @@
 - [x] MISSING/MISMATCH/EXTRA 对账与只修派生投影的修复边界
 - [x] 修复与撮合共享交易对锁，覆盖权威成交事务在途提交
 - [x] Prometheus、Grafana、故障注入与一键实验
+- [x] Java 21 虚拟线程、有界撮合 Lane 与 Kafka/调度平台线程隔离
+- [x] Worker Lease 缓存、Outbox 异步批处理与账本批量写入
+- [x] G1/ZGC、GC 日志、Heap Dump、JFR 与混合负载基线脚本
 - [x] JUnit、PostgreSQL Testcontainers、纯 JDK 模拟与 k6 压测
 - [x] 中英双语业务、技术、评测与演示文档
 - [x] 8 个公开 Coding Agent 任务、缺陷补丁和分支生成器
@@ -22,8 +25,8 @@
 
 ## Ubuntu 24.04 ARM64 实验机验证
 
-- Java 17 编译、Maven/JUnit 与纯领域验证通过。
-- PostgreSQL Testcontainers、Flyway V1～V4 迁移通过。
+- 原版本已在实验机完成 Java 17 验证；当前高并发版本已经升级到 Java 21，重新部署时将执行全套回归。
+- 原版本 PostgreSQL Testcontainers、Flyway V1～V4 迁移通过；当前版本新增 V5 并由 CI 重新验证。
 - Docker Compose 应用、PostgreSQL、Kafka、Prometheus、Grafana 可启动。
 - 重复结算、反向补偿、手续费归集、过期 Epoch 拒写和对账差异实验通过。
 - 撮合并发、成交重放和投影修复场景通过。
@@ -47,5 +50,5 @@
 - 对 FC-006～FC-008 各再执行两轮，形成与前五题一致的三轮重复性证据。
 - 把 FC-008 的在途事务竞态加入公开业务说明，但继续隐藏具体评分实现。
 - 增加 Kafka listener 级重复、乱序、DLT 与 replay 场景。
-- 增加跨交易对容量基线，量化表级锁与交易对级锁的吞吐差异。
+- 在不同 CPU/内存配额下重复混合压测，形成 G1/ZGC 与 Lane/连接池参数的容量曲线。
 - 在任何非实验环境开放前补齐认证、授权、密钥、灾备和安全审查。

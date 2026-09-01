@@ -1,11 +1,23 @@
 package dev.fincore.messaging;
 
+import dev.fincore.infrastructure.concurrent.ConcurrencyProperties;
 import dev.fincore.infrastructure.persistence.mapper.OutboxMapper;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
+import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicLong;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -21,6 +33,11 @@ import org.springframework.stereotype.Component;
  * @since 2026-08-27
  */
 @Component
+@ConditionalOnProperty(
+    name = "spring.task.scheduling.enabled",
+    havingValue = "true",
+    matchIfMissing = true
+)
 public class OutboxPublisher {
     /** 发布失败日志记录器。 */
     private static final Logger LOGGER = LoggerFactory.getLogger(OutboxPublisher.class);
@@ -35,17 +52,44 @@ public class OutboxPublisher {
     private final String matchingTopic;
     /** 当前 Publisher 唯一标识。 */
     private final String publisherId;
+    /** 单次原子抢占的最大事件数。 */
+    private final int batchSize;
+    /** 一批 Kafka 异步确认的最长等待时间。 */
+    private final Duration awaitTimeout;
+    /** 最近一次观测的可发布积压数。 */
+    private final AtomicLong readyBacklog = new AtomicLong();
+    /** 已抢占事件计数。 */
+    private final Counter claimed;
+    /** 已确认发布事件计数。 */
+    private final Counter published;
+    /** 明确发送失败事件计数。 */
+    private final Counter failed;
+    /** 等待超时且结果未知事件计数。 */
+    private final Counter uncertain;
+    /** 整批发布耗时。 */
+    private final Timer batchTimer;
 
     /** 创建 Outbox 发布器并注入 Topic 与 Worker 标识。 */
     public OutboxPublisher(OutboxMapper outboxMapper, KafkaTemplate<String, Object> kafka,
                            @Value("${fincore.kafka.outbox-topic}") String settlementTopic,
                            @Value("${fincore.kafka.matching-topic}") String matchingTopic,
-                           @Value("${fincore.worker.id:${HOSTNAME:local-worker}}") String publisherId) {
+                           @Value("${fincore.worker.id:${HOSTNAME:local-worker}}") String publisherId,
+                           ConcurrencyProperties properties, MeterRegistry registry) {
         this.outboxMapper = outboxMapper;
         this.kafka = kafka;
         this.settlementTopic = settlementTopic;
         this.matchingTopic = matchingTopic;
         this.publisherId = publisherId;
+        this.batchSize = properties.getOutboxBatchSize();
+        this.awaitTimeout = properties.getOutboxAwaitTimeout();
+        this.claimed = registry.counter("fincore.outbox.claimed");
+        this.published = registry.counter("fincore.outbox.published");
+        this.failed = registry.counter("fincore.outbox.failed");
+        this.uncertain = registry.counter("fincore.outbox.uncertain");
+        this.batchTimer = registry.timer("fincore.outbox.publish.batch");
+        Gauge.builder("fincore.outbox.ready.backlog", readyBacklog, AtomicLong::get)
+            .description("当前已到重试时间的 Outbox 事件数量")
+            .register(registry);
     }
 
     /**
@@ -56,20 +100,75 @@ public class OutboxPublisher {
      */
     @Scheduled(fixedDelayString = "${fincore.outbox-delay-ms:1000}")
     public void publishBatch() {
-        List<OutboxMapper.OutboxEventRow> events = outboxMapper.claimBatch(publisherId);
-        for (OutboxMapper.OutboxEventRow event : events) {
-            UUID id = event.eventId();
-            String eventType = event.eventType();
-            String topic = eventType.startsWith("MATCHING_") ? matchingTopic : settlementTopic;
-            try {
-                kafka.send(topic, event.aggregateId(), event.payload()).get();
-                outboxMapper.markPublished(id, publisherId);
-            } catch (Exception exception) {
-                // 发送失败必须保留事件并重试，不能删除或伪装成已发布。
-                LOGGER.warn("Outbox 事件发布失败，稍后重试：eventId={}, publisherId={}",
-                    id, publisherId, exception);
-                outboxMapper.releaseForRetry(id, publisherId);
+        Timer.Sample sample = Timer.start();
+        try {
+            List<OutboxMapper.OutboxEventRow> events = outboxMapper.claimBatch(publisherId, batchSize);
+            readyBacklog.set(outboxMapper.countReadyBacklog());
+            if (events.isEmpty()) {
+                return;
             }
+            claimed.increment(events.size());
+            publishClaimed(events);
+        } finally {
+            sample.stop(batchTimer);
+        }
+    }
+
+    /** 异步发送整个批次，并把明确成功和明确失败分别批量回写数据库。 */
+    private void publishClaimed(List<OutboxMapper.OutboxEventRow> events) {
+        List<PendingSend> sends = new ArrayList<>(events.size());
+        for (OutboxMapper.OutboxEventRow event : events) {
+            String topic = event.eventType().startsWith("MATCHING_") ? matchingTopic : settlementTopic;
+            CompletableFuture<SendResult> future;
+            try {
+                future = kafka.send(topic, event.aggregateId(), event.payload())
+                    .handle((result, exception) -> new SendResult(event.eventId(), exception));
+            } catch (RuntimeException exception) {
+                future = CompletableFuture.completedFuture(new SendResult(event.eventId(), exception));
+            }
+            sends.add(new PendingSend(event.eventId(), future));
+        }
+
+        try {
+            CompletableFuture.allOf(sends.stream()
+                .map(PendingSend::future)
+                .toArray(CompletableFuture[]::new))
+                .get(awaitTimeout.toNanos(), TimeUnit.NANOSECONDS);
+        } catch (TimeoutException exception) {
+            LOGGER.warn("Outbox 批次等待 Kafka 确认超时，未完成记录留给异常抢占恢复：publisherId={}",
+                publisherId);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            LOGGER.warn("Outbox 发布线程被中断，未完成记录留给异常抢占恢复：publisherId={}", publisherId);
+        } catch (java.util.concurrent.ExecutionException exception) {
+            throw new IllegalStateException("Outbox send result aggregation failed", exception);
+        }
+
+        List<UUID> successes = new ArrayList<>(sends.size());
+        List<UUID> failures = new ArrayList<>();
+        int incomplete = 0;
+        for (PendingSend send : sends) {
+            if (!send.future().isDone()) {
+                incomplete++;
+                continue;
+            }
+            SendResult result = send.future().getNow(null);
+            if (result.failure() == null) {
+                successes.add(result.eventId());
+            } else {
+                failures.add(result.eventId());
+                LOGGER.warn("Outbox 事件发布失败，稍后退避重试：eventId={}, publisherId={}",
+                    result.eventId(), publisherId, result.failure());
+            }
+        }
+        if (!successes.isEmpty()) {
+            published.increment(outboxMapper.markPublishedBatch(successes, publisherId));
+        }
+        if (!failures.isEmpty()) {
+            failed.increment(outboxMapper.releaseForRetryBatch(failures, publisherId));
+        }
+        if (incomplete > 0) {
+            uncertain.increment(incomplete);
         }
     }
 
@@ -81,5 +180,13 @@ public class OutboxPublisher {
     @Scheduled(fixedDelayString = "${fincore.outbox-recovery-delay-ms:30000}")
     public void recoverAbandonedClaims() {
         outboxMapper.recoverAbandonedClaims();
+    }
+
+    /** 单个已提交 Kafka 发送及其事件编号。 */
+    private record PendingSend(UUID eventId, CompletableFuture<SendResult> future) {
+    }
+
+    /** Kafka 确认结果；failure 为空表示 Broker 已确认。 */
+    private record SendResult(UUID eventId, Throwable failure) {
     }
 }
