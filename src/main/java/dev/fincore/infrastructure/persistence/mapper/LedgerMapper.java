@@ -59,7 +59,10 @@ public interface LedgerMapper {
         INSERT INTO ledger_entry(entry_id, transaction_id, account_id, direction, amount)
         VALUES
         <foreach collection="entries" item="entry" separator=",">
-          (#{entry.entryId}, #{transactionId}, #{entry.accountId}, #{entry.direction}, #{entry.amount})
+          (#{entry.entryId,javaType=java.util.UUID,jdbcType=OTHER,typeHandler=dev.fincore.infrastructure.persistence.type.PostgresUuidTypeHandler},
+           #{transactionId,javaType=java.util.UUID,jdbcType=OTHER,typeHandler=dev.fincore.infrastructure.persistence.type.PostgresUuidTypeHandler},
+           #{entry.accountId,javaType=java.util.UUID,jdbcType=OTHER,typeHandler=dev.fincore.infrastructure.persistence.type.PostgresUuidTypeHandler},
+           #{entry.direction}, #{entry.amount})
         </foreach>
         </script>
         """)
