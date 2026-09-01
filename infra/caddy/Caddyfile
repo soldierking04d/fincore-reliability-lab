@@ -1,4 +1,12 @@
-124.223.164.254.nip.io {
+https://124.223.164.254 {
+    # 中国大陆服务器会拦截未备案域名。这里直接为公网 IPv4 申请
+    # Let's Encrypt 的短期 IP 证书，由 Caddy 自动续期。
+    tls {
+        issuer acme {
+            profile shortlived
+        }
+    }
+
     encode zstd gzip
 
     reverse_proxy nginx:80 {
