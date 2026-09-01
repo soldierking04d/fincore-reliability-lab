@@ -1,6 +1,6 @@
 # FinCore 团队建设与协作手册
 
-> 状态：内部草稿。当前只纳入本地 Git 版本管理，不接入项目演示网站。
+> 状态：公开版本。概要内容已经接入项目演示网站，完整手册与模板保存在本目录。
 
 ## 为什么技术项目还需要管理体系
 
@@ -31,11 +31,19 @@ FinCore 已有的撮合、结算、Outbox、Worker 接管、对账和监控能�
 
 ## 概要层
 
+0. [技术负责人职责全景：从技术正确到组织经营](00-technical-lead-responsibility-map.md)
 1. [团队梯队建设：让关键系统不依赖某一个人](01-team-talent-pipeline.md)
 2. [团队能力提升：把项目经历转化为组织能力](02-team-capability-growth.md)
 3. [跨部门沟通：用共同事实减少协作损耗](03-cross-functional-communication.md)
 4. [贴合运营与产品：从业务目标反推研发方案](04-product-operations-alignment.md)
 5. [管理运行机制：把协作要求变成稳定节奏](05-management-operating-system.md)
+6. [技术战略与架构治理：让技术投入服务长期业务](06-technical-strategy-architecture-governance.md)
+7. [人才全生命周期与团队健康：从招聘到离职交接](07-talent-lifecycle-team-health.md)
+8. [交付效能与质量治理：管理结果而不是任务数量](08-delivery-quality-governance.md)
+9. [安全合规与数据治理：把风险控制放进研发流程](09-security-compliance-data-governance.md)
+10. [SLO、值班与灾备：把可靠性承诺变成可验证目标](10-slo-disaster-recovery.md)
+11. [FinOps 与供应商治理：让技术成本能够解释和优化](11-finops-vendor-management.md)
+12. [客户支持与高层沟通：从现场问题回到技术决策](12-customer-support-executive-communication.md)
 
 ## 详细实践层
 
@@ -45,6 +53,13 @@ FinCore 已有的撮合、结算、Outbox、Worker 接管、对账和监控能�
 4. [产品运营协同实战：从活动目标到上线后业务验证](detailed/04-product-operations-delivery-playbook.md)
 5. [管理机制实战：会议、看板、升级和 90 天导入](detailed/05-management-operating-system-playbook.md)
 6. [完整案例：一次高流量交易活动如何跨团队闭环](detailed/06-end-to-end-case-study.md)
+7. [技术战略与架构治理实战](detailed/07-technical-strategy-architecture-playbook.md)
+8. [人才全生命周期与绩效实战](detailed/08-talent-lifecycle-performance-playbook.md)
+9. [交付效能与质量治理实战](detailed/09-delivery-quality-playbook.md)
+10. [安全、合规与数据治理实战](detailed/10-security-compliance-data-playbook.md)
+11. [SLO、值班和灾备演练实战](detailed/11-slo-disaster-recovery-playbook.md)
+12. [FinOps 与供应商治理实战](detailed/12-finops-vendor-playbook.md)
+13. [客户支持与高层沟通实战](detailed/13-customer-support-executive-playbook.md)
 
 ## 统一原则
 
@@ -76,7 +91,7 @@ FinCore 已有的撮合、结算、Outbox、Worker 接管、对账和监控能�
 ## 建议使用方式
 
 - 管理者先使用第五篇建立最小会议和指标节奏；
-- 技术负责人依据第一、二篇建立领域负责人和能力矩阵；
+- 技术负责人先使用职责全景确定边界，再依据各专题建立负责人、机制和证据；
 - 项目经理或交付负责人依据第三篇统一跨部门输入和决策记录；
 - 产品、运营和研发共同使用第四篇完成需求定义、上线准备和结果复盘；
 - 每季度根据真实事件修订手册，避免文档与团队实际工作脱节。
