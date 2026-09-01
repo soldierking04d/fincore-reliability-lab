@@ -2,7 +2,7 @@
 
 [English](README.en.md) | 简体中文
 
-![Java 17](https://img.shields.io/badge/Java-17-ED8B00?logo=openjdk&logoColor=white)
+![Java 21](https://img.shields.io/badge/Java-21-ED8B00?logo=openjdk&logoColor=white)
 ![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.5-6DB33F?logo=springboot&logoColor=white)
 ![MyBatis](https://img.shields.io/badge/MyBatis-3.0.5-CB2E31?logo=apache&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
@@ -20,6 +20,11 @@
 `JdbcTemplate` SQL。Controller/Kafka Listener 负责协议接入，Application Service 负责事务与金融不变量，
 11 个领域 Mapper 负责参数化 SQL 和结果映射。完整分层、调用链和迁移边界见
 [Spring Boot + MyBatis 持久化架构](docs/mybatis-architecture.md)。
+
+高并发版本已经把 Java 21 虚拟线程、有界撮合 Lane、Kafka 平台线程隔离、Worker Lease 缓存、
+Outbox 异步批处理、账本批量写入、Hikari 限流、G1/ZGC 配置、GC/JFR 证据和混合 k6 压测完整落地。
+线程与连接池为什么不能无限放大、超时和部分失败如何收敛，以及全部监控指标见
+[高并发、线程、CPU 与 JVM/GC 落地说明](docs/high-concurrency-jvm-tuning.md)。
 
 ## 60 秒看懂项目
 
@@ -41,6 +46,10 @@
 ## 已实现的第一版闭环
 
 - Spring Boot Web/Kafka 接入、Application Service 事务编排与 MyBatis Mapper 持久化分层；
+- Java 21 虚拟线程接入、有界撮合 Lane 和 Kafka/定时任务平台线程隔离；
+- Outbox 有界批量异步发送、批量状态回写、指数退避与未知结果回收；
+- Worker Lease 短期缓存削减控制面写热点，资金事务继续执行强制 Epoch Fencing；
+- G1 默认与 Generational ZGC 备选启动配置、GC 日志、Heap Dump 和连续 JFR；
 - PostgreSQL 账户、余额和不可变账本；
 - 借贷平衡校验；
 - Kafka 结算命令；
@@ -344,7 +353,7 @@ docker compose --profile test run --rm app-test
 
 压测脚本位于 `benchmarks/settlement.js`。创建三个账户后，把账户 ID 通过环境变量传给 k6，并从较低 `RATE` 开始建立本机基线。
 
-只有 JDK 17 时，仍可验证纯领域规则：
+只有 JDK 21、但暂时没有 Docker 时，仍可验证纯领域规则：
 
 ```bash
 ./scripts/verify-core.sh

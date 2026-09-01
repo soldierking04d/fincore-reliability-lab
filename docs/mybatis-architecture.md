@@ -16,7 +16,7 @@ flowchart LR
 
 | 组件 | 版本 | 用途 |
 |---|---:|---|
-| Java | 17 | 运行基线与不可变 record 模型 |
+| Java | 21 | 虚拟线程接入、平台线程隔离与不可变 record 模型 |
 | Spring Boot | 3.5.16 | Web、Kafka、事务、配置和可观测性 |
 | MyBatis Spring Boot Starter | 3.0.5 | Mapper 扫描、会话和 Spring 事务集成 |
 | PostgreSQL | 16 | 金融事实、唯一约束、行锁和事务锁 |

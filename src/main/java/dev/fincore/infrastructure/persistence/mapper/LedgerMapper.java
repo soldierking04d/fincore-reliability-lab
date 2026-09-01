@@ -53,16 +53,18 @@ public interface LedgerMapper {
                           @Param("transactionType") String transactionType,
                           @Param("asset") String asset);
 
-    /** 追加一条不可变借贷分录。 */
+    /** 在一个 SQL 往返中追加整组不可变借贷分录。 */
     @Insert("""
+        <script>
         INSERT INTO ledger_entry(entry_id, transaction_id, account_id, direction, amount)
-        VALUES (#{entryId}, #{transactionId}, #{accountId}, #{direction}, #{amount})
+        VALUES
+        <foreach collection="entries" item="entry" separator=",">
+          (#{entry.entryId}, #{transactionId}, #{entry.accountId}, #{entry.direction}, #{entry.amount})
+        </foreach>
+        </script>
         """)
-    int insertEntry(@Param("entryId") UUID entryId,
-                    @Param("transactionId") UUID transactionId,
-                    @Param("accountId") UUID accountId,
-                    @Param("direction") String direction,
-                    @Param("amount") BigDecimal amount);
+    int insertEntries(@Param("transactionId") UUID transactionId,
+                      @Param("entries") List<LedgerEntryRow> entries);
 
     /** 在余额下限保护下原子扣款。 */
     @Update("""
@@ -96,5 +98,9 @@ public interface LedgerMapper {
 
     /** 单列账户编号查询的显式结果对象，避免把 UUID 当成构造器映射类型。 */
     record AccountIdRow(UUID accountId) {
+    }
+
+    /** 待批量写入的不可变账本分录。 */
+    record LedgerEntryRow(UUID entryId, UUID accountId, String direction, BigDecimal amount) {
     }
 }

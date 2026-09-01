@@ -7,3 +7,5 @@ target/
 .env
 reports/latest-scenario.json
 reports/vm-deployment-scenario.json
+reports/runtime/
+reports/performance/

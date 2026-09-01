@@ -80,7 +80,7 @@ public class AdvancedLabScenarioService {
         }
 
         int quantityPerTaker = makerCount / takerCount;
-        ExecutorService pool = Executors.newFixedThreadPool(Math.min(takerCount, 16));
+        ExecutorService pool = Executors.newVirtualThreadPerTaskExecutor();
         CountDownLatch start = new CountDownLatch(1);
         List<Future<MatchingResult>> futures = new ArrayList<>();
         long started = System.nanoTime();

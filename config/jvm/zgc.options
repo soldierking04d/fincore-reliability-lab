@@ -1,0 +1,11 @@
+# 低停顿备选：大堆且已用真实流量证明 G1 停顿不达标时再启用。
+-XX:+UseContainerSupport
+-XX:+UseZGC
+-XX:+ZGenerational
+-XX:InitialRAMPercentage=25.0
+-XX:MaxRAMPercentage=65.0
+-XX:+ExitOnOutOfMemoryError
+-XX:+HeapDumpOnOutOfMemoryError
+-XX:HeapDumpPath=/var/log/fincore/heapdump.hprof
+-Xlog:gc*,safepoint:file=/var/log/fincore/gc.log:time,uptime,level,tags:filecount=5,filesize=20M
+-XX:StartFlightRecording=filename=/var/log/fincore/fincore.jfr,dumponexit=true,maxage=6h,maxsize=256M,settings=profile

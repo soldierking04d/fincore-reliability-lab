@@ -1,0 +1,13 @@
+# 默认生产基线：中小堆、高吞吐且要求可控停顿时使用 G1。
+-XX:+UseContainerSupport
+-XX:+UseG1GC
+-XX:InitialRAMPercentage=25.0
+-XX:MaxRAMPercentage=65.0
+-XX:MaxGCPauseMillis=200
+-XX:+ParallelRefProcEnabled
+-XX:+UseStringDeduplication
+-XX:+ExitOnOutOfMemoryError
+-XX:+HeapDumpOnOutOfMemoryError
+-XX:HeapDumpPath=/var/log/fincore/heapdump.hprof
+-Xlog:gc*,safepoint:file=/var/log/fincore/gc.log:time,uptime,level,tags:filecount=5,filesize=20M
+-XX:StartFlightRecording=filename=/var/log/fincore/fincore.jfr,dumponexit=true,maxage=6h,maxsize=256M,settings=profile

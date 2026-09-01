@@ -1,14 +1,39 @@
 server:
   port: 8080
+  shutdown: graceful
+  tomcat:
+    max-connections: ${FINCORE_HTTP_MAX_CONNECTIONS:4096}
+    accept-count: ${FINCORE_HTTP_ACCEPT_COUNT:256}
+    connection-timeout: 2s
+    keep-alive-timeout: 15s
+    max-keep-alive-requests: 1000
+    mbeanregistry:
+      enabled: true
 spring:
   application:
     name: fincore-reliability-lab
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+  threads:
+    # Web 请求和短时 I/O 协调任务使用 Java 21 虚拟线程；撮合与 Kafka 使用独立平台线程池。
+    virtual:
+      enabled: true
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/fincore}
     username: ${SPRING_DATASOURCE_USERNAME:fincore}
     password: ${SPRING_DATASOURCE_PASSWORD:fincore}
     hikari:
-      maximum-pool-size: 20
+      pool-name: fincore-db-pool
+      maximum-pool-size: ${FINCORE_DB_POOL_SIZE:12}
+      minimum-idle: ${FINCORE_DB_POOL_SIZE:12}
+      connection-timeout: 1500
+      validation-timeout: 1000
+      max-lifetime: 1800000
+      keepalive-time: 120000
+      data-source-properties:
+        reWriteBatchedInserts: true
+        tcpKeepAlive: true
+        ApplicationName: fincore-reliability-lab
   kafka:
     bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:
@@ -17,11 +42,23 @@ spring:
       auto-offset-reset: earliest
       properties:
         spring.json.trusted.packages: dev.fincore.*
+        max.poll.records: ${FINCORE_KAFKA_MAX_POLL_RECORDS:50}
+        max.poll.interval.ms: 300000
+        session.timeout.ms: 45000
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
     producer:
+      acks: all
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        enable.idempotence: true
+        compression.type: lz4
+        linger.ms: 5
+        batch.size: 65536
+        delivery.timeout.ms: 120000
+        max.in.flight.requests.per.connection: 5
+        max.block.ms: 1000
     listener:
       ack-mode: record
   flyway:
@@ -43,7 +80,31 @@ management:
   endpoint:
     health:
       show-details: always
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+        fincore.matching.queue.wait: true
+        fincore.outbox.publish.batch: true
 fincore:
+  concurrency:
+    # 同一交易对固定进入同一单线程 Lane；多交易对可以并行，队列满时立即返回 429。
+    matching-lanes: ${FINCORE_MATCHING_LANES:4}
+    matching-queue-capacity-per-lane: ${FINCORE_MATCHING_QUEUE_CAPACITY:256}
+    matching-wait-timeout: ${FINCORE_MATCHING_WAIT_TIMEOUT:10s}
+    # Kafka 消费线程显式使用平台线程，数量不超过部署实例可用平台处理器。
+    settlement-consumers: ${FINCORE_SETTLEMENT_CONSUMERS:4}
+    kafka-submit-timeout: ${FINCORE_KAFKA_SUBMIT_TIMEOUT:3s}
+    worker-lease-ttl: ${FINCORE_WORKER_LEASE_TTL:30s}
+    worker-lease-renew-ahead: ${FINCORE_WORKER_LEASE_RENEW_AHEAD:10s}
+    # Outbox 一次抢占并异步发送的上限，成功/失败结果分别批量回写。
+    outbox-batch-size: ${FINCORE_OUTBOX_BATCH_SIZE:200}
+    outbox-await-timeout: ${FINCORE_OUTBOX_AWAIT_TIMEOUT:15s}
+    scheduler-threads: ${FINCORE_SCHEDULER_THREADS:2}
+  outbox-delay-ms: ${FINCORE_OUTBOX_DELAY_MS:100}
+  outbox-recovery-delay-ms: ${FINCORE_OUTBOX_RECOVERY_DELAY_MS:30000}
   worker:
     id: ${FINCORE_WORKER_ID:${HOSTNAME:local-worker}}
     shard-count: 8

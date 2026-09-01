@@ -1,6 +1,6 @@
 package dev.fincore.web;
 
-import dev.fincore.application.MatchingService;
+import dev.fincore.application.MatchingCommandCoordinator;
 import dev.fincore.domain.MatchingResult;
 import dev.fincore.domain.OrderBookView;
 import dev.fincore.domain.OrderView;
@@ -23,7 +23,8 @@ import org.springframework.web.bind.annotation.RestController;
  * 撮合订单、订单簿和成交查询接口。
  *
  * <p>控制器不直接访问数据库；交易对锁、价格时间优先、幂等和数量守恒全部由
- * {@link MatchingService} 在事务内保证。</p>
+ * {@link dev.fincore.application.MatchingService} 在事务内保证；写命令先经过有界 Lane 执行器，
+ * 队列饱和时明确返回可重试错误。</p>
  *
  * @author FinCore Reliability Lab
  * @since 2026-08-27
@@ -32,10 +33,10 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/matching")
 public class MatchingController {
     /** 撮合应用服务。 */
-    private final MatchingService matching;
+    private final MatchingCommandCoordinator matching;
 
     /** @param matching 撮合应用服务 */
-    public MatchingController(MatchingService matching) {
+    public MatchingController(MatchingCommandCoordinator matching) {
         this.matching = matching;
     }
 
