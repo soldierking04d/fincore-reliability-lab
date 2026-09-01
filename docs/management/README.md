@@ -17,13 +17,34 @@
 - 用产品、运营、研发共同验收的业务结果结束需求，而不是以“代码上线”结束；
 - 用复盘和能力认证推动团队成长，而不是只靠培训次数衡量提升。
 
-## 文章目录
+## 两层阅读结构
+
+这套手册分为两层，避免“简单介绍看不懂”和“第一次阅读就陷入细节”同时发生：
+
+- 概要层：说明为什么做、核心原则、管理框架和适用范围，适合管理者快速建立共同认识；
+- 详细实践层：说明真实工作中由谁做、拿什么数据、怎样开会、如何处理分歧、形成什么交付物，
+  并提供完整案例和可直接复制的模板。
+
+概要层回答“这件事说的是什么”，详细实践层回答“团队明天怎样真正执行”。详细案例全部以
+FinCore 已有的撮合、结算、Outbox、Worker 接管、对账和监控能力为背景；示例人员使用角色代号，
+不虚构真实员工经历或把模拟案例冒充已经发生的生产事故。
+
+## 概要层
 
 1. [团队梯队建设：让关键系统不依赖某一个人](01-team-talent-pipeline.md)
 2. [团队能力提升：把项目经历转化为组织能力](02-team-capability-growth.md)
 3. [跨部门沟通：用共同事实减少协作损耗](03-cross-functional-communication.md)
 4. [贴合运营与产品：从业务目标反推研发方案](04-product-operations-alignment.md)
 5. [管理运行机制：把协作要求变成稳定节奏](05-management-operating-system.md)
+
+## 详细实践层
+
+1. [梯队建设实战：从人员单点到可验证接管](detailed/01-talent-pipeline-playbook.md)
+2. [能力提升实战：把一次项目和事故变成团队资产](detailed/02-team-capability-growth-playbook.md)
+3. [跨部门沟通案例集：需求、上线、事故和口径冲突](detailed/03-cross-functional-casebook.md)
+4. [产品运营协同实战：从活动目标到上线后业务验证](detailed/04-product-operations-delivery-playbook.md)
+5. [管理机制实战：会议、看板、升级和 90 天导入](detailed/05-management-operating-system-playbook.md)
+6. [完整案例：一次高流量交易活动如何跨团队闭环](detailed/06-end-to-end-case-study.md)
 
 ## 统一原则
 
