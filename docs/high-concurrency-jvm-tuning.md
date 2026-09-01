@@ -298,7 +298,7 @@ G1 与 ZGC 都保留相同的堆比例、OOM 策略、GC 日志和 JFR，确保�
 
 ## 8. 可观测指标
 
-Actuator 已自动暴露 HTTP、JVM、CPU、GC、线程、Hikari 和 Kafka 指标。本项目新增：
+Actuator 已自动暴露 HTTP、JVM、CPU、GC、线程、Hikari 和 Kafka 指标。本项目还提供：
 
 项目额外引入 `micrometer-java21`，通过 JFR 事件暴露虚拟线程 pinned 时长和提交失败次数，便于发现
 阻塞代码把虚拟线程固定在载体线程上的问题。参考：
@@ -423,7 +423,7 @@ FINCORE_PERFORMANCE_DURATION=5m \
 
 ## 12. 自动证明
 
-新增测试覆盖：
+专项测试覆盖：
 
 - 相同业务键最大并发执行数始终为 1；
 - 不同 Lane 能同时开始执行；

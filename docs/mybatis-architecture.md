@@ -38,11 +38,12 @@ Spring Boot 3.5.x 为基线，因此项目锁定 3.0.5，而不是依赖浮动�
 Spring Boot 启动类通过 `@MapperScan` 扫描 Mapper。服务使用构造器注入接口，不持有数据库连接或
 `JdbcTemplate`。测试代码仍可使用 `JdbcTemplate` 构造故障和直接核验数据库事实，这不会进入生产调用链。
 
-## 11 个 Mapper 的边界
+## 12 个 Mapper 的边界
 
 | Mapper | 数据边界 | 关键并发或可靠性语义 |
 |---|---|---|
 | `AccountMapper` | 账户创建、账户和账本汇总查询 | 账户业务唯一键 |
+| `TradingLifecycleMapper` | 用户、KYC、风控、参考行情与盘前决定 | 用户风控行锁；行情单调更新；下单决定幂等 |
 | `LedgerMapper` | 账户行锁、余额 CAS、账本追加 | UUID 固定锁序；无账本更新/删除 SQL |
 | `SettlementMapper` | Inbox、结算单、状态审计 | 双层幂等；带原状态的 CAS |
 | `OutboxMapper` | 事务事件、抢占、发布确认和回收 | `SKIP LOCKED`；发布者身份校验 |
@@ -98,7 +99,7 @@ Mapper 不会自行提交事务。MyBatis 的 Spring 集成让本次调用中的
 
 - 生产源码不得引用 `JdbcTemplate` 或 `NamedParameterJdbcTemplate`；
 - 项目必须加载 MyBatis Starter 并配置 `@MapperScan`；
-- 核心领域 Mapper 不得少于 11 个；
+- 核心领域 Mapper 不得少于 12 个；
 - Mapper 不得出现 `${...}`；
 - 账本分录和权威成交不得出现更新或删除语句。
 
