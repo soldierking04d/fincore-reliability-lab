@@ -3,6 +3,7 @@ package dev.fincore.web;
 import dev.fincore.application.AdvancedLabScenarioService;
 import dev.fincore.application.LabScenarioService;
 import dev.fincore.application.MarketCrashScenarioService;
+import dev.fincore.application.TradingLifecycleScenarioService;
 import org.springframework.context.annotation.Profile;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -28,14 +29,18 @@ public class LabScenarioController {
     private final AdvancedLabScenarioService advanced;
     /** 市场暴跌日复合场景。 */
     private final MarketCrashScenarioService marketCrash;
+    /** 用户到撮合的完整交易链路场景。 */
+    private final TradingLifecycleScenarioService tradingLifecycle;
 
     /** 创建实验场景控制器。 */
     public LabScenarioController(LabScenarioService scenarios,
                                  AdvancedLabScenarioService advanced,
-                                 MarketCrashScenarioService marketCrash) {
+                                 MarketCrashScenarioService marketCrash,
+                                 TradingLifecycleScenarioService tradingLifecycle) {
         this.scenarios = scenarios;
         this.advanced = advanced;
         this.marketCrash = marketCrash;
+        this.tradingLifecycle = tradingLifecycle;
     }
 
     /** @return 完整资金可靠性实验报告 */
@@ -68,5 +73,11 @@ public class LabScenarioController {
     @PostMapping("/market-crash-day")
     public MarketCrashScenarioService.MarketCrashReport marketCrashDay() {
         return marketCrash.runMarketCrashDay();
+    }
+
+    /** @return 用户、KYC、风控、账户、行情和撮合完整链路报告 */
+    @PostMapping("/trading-lifecycle")
+    public TradingLifecycleScenarioService.LifecycleScenarioReport tradingLifecycle() {
+        return tradingLifecycle.run();
     }
 }

@@ -64,7 +64,7 @@ class PersistenceArchitectureTest {
             .toList();
         String mapperSource = joinJavaSources(MAPPER_SOURCE);
 
-        assertTrue(mappers.size() >= 11, "核心领域至少需要 11 个 MyBatis Mapper");
+        assertTrue(mappers.size() >= 12, "核心领域至少需要 12 个 MyBatis Mapper");
         assertFalse(mapperSource.contains("${"),
             "Mapper 禁止使用可能造成 SQL 注入的字符串直替参数");
     }
