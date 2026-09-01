@@ -7,38 +7,47 @@
 ![MyBatis](https://img.shields.io/badge/MyBatis-3.0.5-CB2E31?logo=apache&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
 ![Kafka](https://img.shields.io/badge/Kafka-KRaft-231F20?logo=apachekafka&logoColor=white)
-![CI](https://img.shields.io/badge/CI-Maven_%2B_Testcontainers-2088FF?logo=githubactions&logoColor=white)
+![CI](https://github.com/soldierking04d/fincore-reliability-lab/actions/workflows/ci.yml/badge.svg)
+![License](https://img.shields.io/badge/License-Apache--2.0-4C8BF5)
+![Release](https://img.shields.io/github/v/release/soldierking04d/fincore-reliability-lab)
 
-一个可运行的金融交易与结算可靠性实验项目，用于研究撮合、成交事件、资金账本、重复消息、状态竞争、补偿、对账、热点账户以及服务缩容时的 fencing 问题。项目使用完全虚构的数据，不包含任何前雇主代码或内部参数。
+> 一个面向招聘负责人、业务/产品负责人、技术管理者和工程师的**技术负责人综合能力作品集**。
+> 它不只展示代码，而是展示如何把业务目标、金融正确性、系统工程、团队治理、AI 落地和数字资产可靠性组织成一套可运行、可审计、可验证的系统。
 
-它的判断标准不是“接口能返回成功”，而是：在并发、重试、重复投递、部分失败、Worker 接管和服务恢复之后，资金结果是否仍然唯一、平衡、可审计并且可对账。
+![FinCore Reliability Lab：业务、金融、工程、管理、AI 与数字资产](docs/showcase/github-social-preview.jpg)
 
-源码已按阿里巴巴 P3C 规范补齐中文 Javadoc、枚举说明和关键事务注释；项目采用的格式、命名、检查命令
-以及不可弱化的金融规则见[Java 代码与中文注释规范](docs/java-coding-conventions.md)。
+[在线完整演示](https://fincore-reliability-demo.soldierking04d.chatgpt.site/) ·
+[腾讯云运行实例](https://124.223.164.254/) ·
+[总架构与服务拓扑](docs/resilient-system-architecture.md) ·
+[管理实战手册](docs/management/README.md) ·
+[AI 评测结果](https://fincore-agent-benchmark.soldierking04d.chatgpt.site) ·
+[5 分钟讲解稿](docs/showcase/demo-walkthrough.md)
 
-当前代码基线采用 Spring Boot 3.5.16 与 MyBatis Spring Boot Starter 3.0.5，生产服务不再直接拼写或执行
-`JdbcTemplate` SQL。Controller/Kafka Listener 负责协议接入，Application Service 负责事务与金融不变量，
-12 个领域 Mapper 负责参数化 SQL 和结果映射。完整分层、调用链和迁移边界见
-[Spring Boot + MyBatis 持久化架构](docs/mybatis-architecture.md)。
+## 这不是只给工程师看的项目
 
-高并发版本已经把 Java 21 虚拟线程、有界撮合 Lane、Kafka 平台线程隔离、Worker Lease 缓存、
-Outbox 异步批处理、账本批量写入、Hikari 限流、G1/ZGC 配置、GC/JFR 证据和混合 k6 压测完整落地。
-线程与连接池为什么不能无限放大、超时和部分失败如何收敛，以及全部监控指标见
-[高并发、线程、CPU 与 JVM/GC 落地说明](docs/high-concurrency-jvm-tuning.md)。
+FinCore 以一条完整金融交易链路为载体：从用户、KYC、风控、账户和行情开始，经过有界准入、撮合、清算、结算、不可变账本、对账修复，再延伸到线上运营、团队治理、AI 工程采用和数字资产场景。核心问题不是“接口能否返回成功”，而是系统遭遇行情剧烈波动、流量洪峰、消息重复、节点接管或部分失败后，业务是否还能继续，资金是否仍然唯一、平衡、可追溯。
 
-技术治理也已从文章扩展为运行系统：[技术负责人职责与实战手册](docs/management/README.md)覆盖
-13 类基础职责和平台工程、数据产品、企业风险、技术雷达、AI 五类跨域责任；
-[五份机器可读治理台账](governance/README.md)把服务 Owner、风险、指标口径、技术采用和审计证据
-关联起来，并由脚本与 Maven/CI 自动拒绝无责任人、过期 AI 门禁、错误引用或不存在的已证明证据。
+| 能力维度 | 这里展示什么 | 可核验证据 |
+|---|---|---|
+| 业务与产品运营 | 把用户准入、KYC、风控、账户、行情到交易后处理串成完整客户旅程；定义拒绝原因、降级边界和运营指标 | [完整交易链路](docs/full-trading-lifecycle.md)、[产品运营协同](docs/management/04-product-operations-alignment.md) |
+| 金融正确性与风险 | 用幂等、平衡账本、状态机、补偿、对账和审计保证“失败可恢复、资金不重复” | 17 次重复结算仅产生 1 次资金效果；[资金安全 ADR](docs/adr/0001-financial-invariants.md) |
+| 架构与高并发工程 | Java 21、Spring Boot、MyBatis、有界撮合 Lane、Kafka、Outbox、Epoch Fencing、G1/ZGC、Prometheus/Grafana | 60 笔成交 = 60 个唯一序列；[高并发与 JVM 落地](docs/high-concurrency-jvm-tuning.md) |
+| 团队、交付与治理 | 团队梯队、跨部门沟通、SLO/灾备、FinOps、安全合规、供应商、技术雷达和高管沟通 | [18 个职责与实战章节](docs/management/README.md)、[5 份机器可读治理台账](governance/README.md) |
+| AI 落地与评测 | 用例登记、人工基线、成本、权限、发布阈值、失效日期、Kill Switch，以及多 Agent 隔离评测 | 8 个任务、54 次受控运行；[AI 用例登记](ai/README.md)、[评测报告](reports/evaluations/README.md) |
+| 数字资产可靠性 | 将已验证机制映射到充值确认、链重组、提现未知结果、Nonce/UTXO、HSM/MPC 和链上链下对账 | [数字资产可靠性设计与实施边界](docs/blockchain-digital-asset-reliability.md) |
 
-AI 登记见 [`ai/use-cases.json`](ai/use-cases.json)：除了权限和评测，还记录模型/提示/检索/工具策略
-版本、人工价值基线、单位成本、发布阈值、复查与失效日期、允许工具、禁止范围和关闭开关。当前
-只有 Coding Agent 隔离评测标记为已落地；其他用例在专用评测前保持规划和只读。
+项目使用完全虚构的数据，不包含任何前雇主代码、客户信息或内部参数。已经运行验证的能力与仍处于设计阶段的内容均明确标注，避免把架构设想包装成生产事实。
 
-数字资产方向已补充[区块链与数字资产可靠性设计](docs/blockchain-digital-asset-reliability.md)：把当前已经验证的
-Inbox/Outbox、平衡账本、状态机、Epoch Fencing 和对账机制映射到充值确认、链重组、提现未知结果、
-EVM Nonce、Bitcoin UTXO、HSM/MPC 签名与链上链下对账。该文档明确区分“可迁移的现有证据”和
-“尚待测试网及安全评审的专项实现”，不宣称已经接入真实公链或生产钱包。
+## 一眼可见的结果
+
+| 场景 | 可验证结果 | 说明 |
+|---|---:|---|
+| 行情暴跌下的并发撮合 | `60 = 60` | 60 笔权威成交对应 60 个唯一序列，价格时间优先和数量守恒成立 |
+| 重复结算风暴 | `17 → 1` | 同一结算命令并发投递 17 次，最终只有 1 次资金效果 |
+| 完整客户交易生命周期 | `8 / 8 PASS` | 用户、KYC、风控、行情、账户、撮合、结算、对账全部通过 |
+| 市场暴跌恢复实验 | `10 / 10 PASS` | 覆盖重试、无流动性、接管、乱序、漏数、错值、幽灵成交和修复 |
+| Coding Agent 受控评测 | `54 runs` | 8 个金融可靠性任务，公开规则、隐藏验收、财务安全否决 |
+| 技术治理自动校验 | `5 registries` | Owner、风险、指标、技术采用、审计证据由 Maven/CI 检查 |
 
 ## 60 秒看懂项目
 
@@ -469,7 +478,9 @@ docker compose --profile test run --rm app-test
 - [中英文演示讲解](docs/showcase/demo-walkthrough.md)
 - [技术负责人职责全景与管理实战手册](docs/management/README.md)
 - [AI 用例登记、边界与评测证据](ai/README.md)
+- [区块链与数字资产可靠性设计](docs/blockchain-digital-asset-reliability.md)
 - [Grafana 仪表盘](infra/grafana/dashboards/fincore-overview.json)
+- [参与贡献](CONTRIBUTING.md)
 - [后续路线](BACKLOG.md)
 
 ## 重要声明

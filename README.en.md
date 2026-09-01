@@ -7,15 +7,47 @@
 ![MyBatis](https://img.shields.io/badge/MyBatis-3.0.5-CB2E31?logo=apache&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
 ![Kafka](https://img.shields.io/badge/Kafka-KRaft-231F20?logo=apachekafka&logoColor=white)
-![CI](https://img.shields.io/badge/CI-Maven_%2B_Testcontainers-2088FF?logo=githubactions&logoColor=white)
+![CI](https://github.com/soldierking04d/fincore-reliability-lab/actions/workflows/ci.yml/badge.svg)
+![License](https://img.shields.io/badge/License-Apache--2.0-4C8BF5)
+![Release](https://img.shields.io/github/v/release/soldierking04d/fincore-reliability-lab)
 
-FinCore Reliability Lab is a runnable matching-and-settlement reliability system and coding-agent evaluation foundation. It tests whether trade facts remain deterministic and whether money remains unique, balanced, auditable, and reconcilable after concurrency, retries, duplicate delivery, partial failure, worker takeover, and recovery.
+> An evidence-backed **technology leadership portfolio** for hiring leaders, business and product partners, technology executives, and engineers.
+> It shows more than code: business outcomes, financial correctness, scalable engineering, organizational governance, practical AI adoption, and digital-asset reliability in one runnable system.
 
-All accounts, transactions, and operating parameters are fictional. The repository contains no former-employer source code or confidential production data.
+![FinCore Reliability Lab across business, finance, engineering, leadership, AI, and digital assets](docs/showcase/github-social-preview.jpg)
 
-The current baseline uses Spring Boot 3.5.16 and MyBatis Spring Boot Starter 3.0.5. Production services no longer execute `JdbcTemplate` SQL directly: adapters handle HTTP/Kafka, application services own transactions and financial invariants, and 11 domain-focused Mapper interfaces own parameterized SQL. See the [Spring Boot + MyBatis persistence architecture](docs/mybatis-architecture.md) for the full call path and safety boundaries.
+[Live portfolio](https://fincore-reliability-demo.soldierking04d.chatgpt.site/) ·
+[Public runtime](https://124.223.164.254/) ·
+[System architecture](docs/resilient-system-architecture.md) ·
+[Leadership playbooks](docs/management/README.md) ·
+[AI benchmark](https://fincore-agent-benchmark.soldierking04d.chatgpt.site) ·
+[Five-minute walkthrough](docs/showcase/demo-walkthrough.md)
 
-The concurrency baseline now uses Java 21 virtual threads for request I/O, bounded single-writer matching lanes, explicit platform threads for Kafka and scheduling, a short-lived worker-lease cache with mandatory in-transaction fencing, asynchronous Outbox batching, batched journal inserts, bounded HikariCP, G1/ZGC runtime profiles, GC/JFR diagnostics, and a reproducible mixed k6 workload. See the Chinese-first [high-concurrency and JVM tuning guide](docs/high-concurrency-jvm-tuning.md).
+## More than an engineering repository
+
+FinCore follows the full financial lifecycle: customer onboarding, KYC, risk, accounts, market data, bounded admission, matching, clearing, settlement, immutable ledger, and reconciliation. It then connects that runtime to product operations, delivery governance, AI adoption, and digital-asset scenarios. The central question is not whether an endpoint returns `200 OK`; it is whether the business can keep operating and money remains unique, balanced, auditable, and reconcilable during market volatility, traffic bursts, duplicate delivery, worker takeover, and partial failure.
+
+| Leadership dimension | What this repository demonstrates | Verifiable evidence |
+|---|---|---|
+| Business and product operations | A complete customer journey with explicit rejection reasons, degradation rules, and operational measures | [Full trading lifecycle](docs/full-trading-lifecycle.md), [product and operations alignment](docs/management/04-product-operations-alignment.md) |
+| Financial correctness and risk | Idempotency, balanced journals, state machines, compensation, reconciliation, and auditability | 17 concurrent deliveries create one financial effect; [financial invariants ADR](docs/adr/0001-financial-invariants.md) |
+| Architecture and performance | Java 21, Spring Boot, MyBatis, bounded matching lanes, Kafka, Outbox, epoch fencing, G1/ZGC, Prometheus, and Grafana | 60 trades produce 60 unique sequences; [concurrency and JVM guide](docs/high-concurrency-jvm-tuning.md) |
+| People, delivery, and governance | Talent pipeline, cross-functional decisions, SLO/DR, FinOps, security, vendors, technology radar, and executive communication | [18 responsibility and playbook chapters](docs/management/README.md), [five machine-readable governance registries](governance/README.md) |
+| Practical AI adoption | Use-case registry, human baseline, cost, permissions, release gates, expiry, kill switch, and isolated multi-agent evaluation | Eight tasks and 54 controlled runs; [AI registry](ai/README.md), [evaluation evidence](reports/evaluations/README.md) |
+| Digital-asset reliability | Existing reliability mechanisms mapped to deposits, reorgs, unknown withdrawals, nonce/UTXO control, HSM/MPC, and on/off-chain reconciliation | [Digital-asset design and implementation boundary](docs/blockchain-digital-asset-reliability.md) |
+
+All accounts, transactions, and operating parameters are fictional. The repository contains no former-employer source code, customer data, or confidential production parameters. Implemented evidence and design-only extensions are explicitly separated.
+
+## Evidence at a glance
+
+| Scenario | Verified result | Meaning |
+|---|---:|---|
+| Concurrent matching during a market crash | `60 = 60` | 60 authoritative trades, 60 unique sequences, preserved priority and quantity |
+| Duplicate settlement storm | `17 → 1` | 17 concurrent deliveries create exactly one financial effect |
+| Full customer trading lifecycle | `8 / 8 PASS` | Customer, KYC, risk, market, account, matching, settlement, and reconciliation |
+| Market-crash recovery | `10 / 10 PASS` | Retries, no liquidity, takeover, disorder, missing/corrupt/ghost data, and repair |
+| Controlled coding-agent evaluation | `54 runs` | Eight financial-reliability tasks with hidden acceptance and safety vetoes |
+| Automated technology governance | `5 registries` | Ownership, risk, metrics, adoption, and audit evidence checked by Maven/CI |
 
 ## Why this repository exists
 
@@ -217,11 +249,17 @@ The intentional defect definitions are versioned under [`evals/defects/`](evals/
 ## Documentation
 
 - [Architecture overview](docs/architecture/overview.md)
+- [End-to-end resilient system architecture](docs/resilient-system-architecture.md)
+- [Spring Boot + MyBatis persistence architecture](docs/mybatis-architecture.md)
 - [Financial invariants ADR](docs/adr/0001-financial-invariants.md)
 - [Inbox/Outbox ADR](docs/adr/0002-inbox-outbox.md)
 - [Shard fencing ADR](docs/adr/0003-shard-fencing.md)
+- [Technology leadership responsibility map and playbooks](docs/management/README.md)
+- [AI use cases, boundaries, and evaluation evidence](ai/README.md)
+- [Digital-asset reliability design](docs/blockchain-digital-asset-reliability.md)
 - [Coding-agent evaluation kit](evals/README.md)
 - [Bilingual demo walkthrough](docs/showcase/demo-walkthrough.md)
+- [Contribution guide](CONTRIBUTING.md)
 - [Roadmap](BACKLOG.md)
 
 ## Scope and safety

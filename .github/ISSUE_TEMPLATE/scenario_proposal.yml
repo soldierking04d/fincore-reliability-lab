@@ -1,0 +1,58 @@
+name: 场景建议 / Scenario proposal
+description: 提议一个值得实现或验证的新业务、管理或可靠性场景
+title: "[Scenario] "
+body:
+  - type: dropdown
+    id: dimension
+    attributes:
+      label: 能力维度
+      options:
+        - 业务与产品运营
+        - 金融正确性与风控
+        - 架构与高并发工程
+        - 团队、交付与治理
+        - AI 落地与评测
+        - 数字资产可靠性
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: 真实问题
+      description: 这个场景在什么情况下发生，会造成什么业务后果？
+    validations:
+      required: true
+  - type: textarea
+    id: actors
+    attributes:
+      label: 相关角色与完整链路
+      description: 请写清用户、产品、运营、风控、研发、运维或外部供应商如何参与。
+    validations:
+      required: true
+  - type: textarea
+    id: failure
+    attributes:
+      label: 故障与边界
+      description: 哪些并发、超时、异常、错误数据或组织协作问题需要被覆盖？
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 可验证的验收标准
+      description: 用可以自动测试或审计的结果描述成功。
+      placeholder: 例如：同一提现回调重复 20 次，账本仍只有一次资产变更并保留全部审计事件。
+    validations:
+      required: true
+  - type: textarea
+    id: observability
+    attributes:
+      label: 指标、告警与运营处置
+      description: 如何发现问题，谁负责，降级或恢复动作是什么？
+  - type: checkboxes
+    id: status
+    attributes:
+      label: 实施状态
+      options:
+        - label: 我理解“建议/设计”不会被表述为“已经实现或生产验证”。
+          required: true
