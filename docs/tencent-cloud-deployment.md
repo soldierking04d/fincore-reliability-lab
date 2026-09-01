@@ -7,10 +7,10 @@
 
 | 服务 | 公网地址 |
 |---|---|
-| FinCore 云端入口与实时实验 | <https://124-223-164-254.sslip.io/> |
-| Spring Boot 健康检查 | <https://124-223-164-254.sslip.io/actuator/health> |
-| Grafana 实时监控面板 | <https://124-223-164-254.sslip.io/grafana/d/fincore-overview/fincore-reliability-overview?orgId=1&from=now-15m&to=now&refresh=5s> |
-| Prometheus 查询界面 | <https://124-223-164-254.sslip.io/prometheus/> |
+| FinCore 云端入口与实时实验 | <https://124.223.164.254.nip.io/> |
+| Spring Boot 健康检查 | <https://124.223.164.254.nip.io/actuator/health> |
+| Grafana 实时监控面板 | <https://124.223.164.254.nip.io/grafana/d/fincore-overview/fincore-reliability-overview?orgId=1&from=now-15m&to=now&refresh=5s> |
+| Prometheus 查询界面 | <https://124.223.164.254.nip.io/prometheus/> |
 | 完整项目讲解网站 | <https://fincore-reliability-demo.soldierking04d.chatgpt.site/> |
 | AI Agent 评测网站 | <https://fincore-agent-benchmark.soldierking04d.chatgpt.site/> |
 
@@ -41,7 +41,7 @@ PostgreSQL、Kafka、Spring Boot、Prometheus 和 Grafana 的宿主机端口
 - Grafana 使用匿名只读 Viewer，Prometheus 仅提供查询；
 - 项目使用完全虚构的账户与交易数据，不承载真实资金。
 
-当前 HTTPS 地址使用 `sslip.io` 将主机名解析到固定公网 IP，适合本项目演示以及讲解网站的
+当前 HTTPS 地址使用 `nip.io` 将主机名解析到固定公网 IP，适合本项目演示以及讲解网站的
 服务端安全代理。正式生产环境仍应接入自有域名、完成所需备案并把
 `FINCORE_PUBLIC_BASE_URL` 更新为正式域名。
 
@@ -73,7 +73,7 @@ PostgreSQL、Kafka、Spring Boot、Prometheus 和 Grafana 的宿主机端口
 ```bash
 cd /opt/fincore-reliability-lab
 git pull --ff-only
-FINCORE_PUBLIC_BASE_URL=https://124-223-164-254.sslip.io \
+FINCORE_PUBLIC_BASE_URL=https://124.223.164.254.nip.io \
   ./scripts/deploy/deploy-tencent-cloud.sh
 ```
 

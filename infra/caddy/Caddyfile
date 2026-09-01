@@ -1,4 +1,4 @@
-124-223-164-254.sslip.io {
+124.223.164.254.nip.io {
     encode zstd gzip
 
     reverse_proxy nginx:80 {
