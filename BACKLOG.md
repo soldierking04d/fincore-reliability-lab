@@ -52,6 +52,10 @@
 - Read-only AI workflow prototypes for incident triage, reconciliation explanation, support summaries, and capacity analysis
 - Independent legal review of open-source licenses, notices, intellectual property, and release artifacts
 - Measured AI unit economics and resource/sustainability baselines using auditable provider data
+- EVM/Bitcoin chain indexer, confirmation policy, canonical-chain replay, and reorganization fault laboratory
+- Digital-asset deposit/withdrawal state machines with Nonce/UTXO coordination and transaction replacement tracking
+- HSM/MPC signing boundary, hot/cold-wallet controls, key-lifecycle exercises, and independent custody security review
+- On-chain, wallet-inventory, internal-ledger, and customer-projection reconciliation with auditable adjustment workflows
 
 The [management handbook](docs/management/README.md) defines how these controls should be owned and verified;
 the [governance registers](governance/README.md) record current owners, review dates, limitations, and evidence.

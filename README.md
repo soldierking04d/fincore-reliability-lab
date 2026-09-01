@@ -35,6 +35,11 @@ AI 登记见 [`ai/use-cases.json`](ai/use-cases.json)：除了权限和评测，
 版本、人工价值基线、单位成本、发布阈值、复查与失效日期、允许工具、禁止范围和关闭开关。当前
 只有 Coding Agent 隔离评测标记为已落地；其他用例在专用评测前保持规划和只读。
 
+数字资产方向已补充[区块链与数字资产可靠性设计](docs/blockchain-digital-asset-reliability.md)：把当前已经验证的
+Inbox/Outbox、平衡账本、状态机、Epoch Fencing 和对账机制映射到充值确认、链重组、提现未知结果、
+EVM Nonce、Bitcoin UTXO、HSM/MPC 签名与链上链下对账。该文档明确区分“可迁移的现有证据”和
+“尚待测试网及安全评审的专项实现”，不宣称已经接入真实公链或生产钱包。
+
 ## 60 秒看懂项目
 
 项目介绍现在分为[业务风险与工程边界](docs/agent-evaluations/benchmark-introduction.md)和[可重复评测协议](reports/evaluations/repeatability-protocol.md)两部分：前者说明为什么这些故障重要，后者说明证据如何产生。
@@ -49,6 +54,7 @@ AI 登记见 [`ai/use-cases.json`](ai/use-cases.json)：除了权限和评测，
 | 手续费账户热点 | 确定性分片 + 幂等归集 | 分片总额实验 |
 | 缩容后旧 Worker 恢复写入 | Lease + Epoch + 数据面 Fencing | 接管与旧 Epoch 拒写实验 |
 | 余额遭到异常修改 | 余额—账本重算对账 | 故障注入和差异发现 |
+| 数字资产充值、提现和链重组 | 已完成可靠性架构映射；链专项实现仍在路线中 | [设计、状态机与验收路线](docs/blockchain-digital-asset-reliability.md) |
 
 ![FinCore Grafana 仪表盘](docs/showcase/grafana-dashboard.png)
 
