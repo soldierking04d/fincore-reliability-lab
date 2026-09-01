@@ -7,11 +7,11 @@
 
 | 服务 | 公网地址 |
 |---|---|
-| FinCore 云端入口与实时实验 | <https://124.223.164.254/> |
+| FinCore 完整项目讲解与腾讯云实时实验 | <https://124.223.164.254/> |
 | Spring Boot 健康检查 | <https://124.223.164.254/actuator/health> |
 | Grafana 实时监控面板 | <https://124.223.164.254/grafana/d/fincore-overview/fincore-reliability-overview?orgId=1&from=now-15m&to=now&refresh=5s> |
 | Prometheus 查询界面 | <https://124.223.164.254/prometheus/> |
-| 完整项目讲解网站 | <https://fincore-reliability-demo.soldierking04d.chatgpt.site/> |
+| 完整项目讲解网站（Sites 备用入口） | <https://fincore-reliability-demo.soldierking04d.chatgpt.site/> |
 | AI Agent 评测网站 | <https://fincore-agent-benchmark.soldierking04d.chatgpt.site/> |
 
 公网 HTTPS 由 Caddy 自动签发和续期证书，再转发给 Nginx；HTTP IP 入口仍保留用于兼容访问。
@@ -58,6 +58,12 @@ IP 证书，不依赖额外购买域名，也不会触发腾讯云对未备案�
 - 七个容器均无 OOM，宿主机稳定状态仍有约 2.1 GB 可用内存，Swap 基本未使用。
 
 该记录证明本次部署的链路和观测面可以工作，不应解释为生产容量或可用性认证。
+
+2026-09-02 已把完整技术负责人作品集同步到腾讯云首页，业务架构、服务拓扑、核心时序图、
+高并发监控、管理实践、AI 落地和区块链可靠性内容均可通过同一公网入口访问。部署后再次执行
+真实验收：完整交易链路运行号为 `0a9bde04`，8 项检查全部通过；市场暴跌日运行号为
+`091b20ea`，10 项检查全部通过并恢复到 `RECOVERED`。Spring Boot 健康检查、Grafana 和
+前端静态资源同时验证可用。
 
 ## 部署与更新
 
