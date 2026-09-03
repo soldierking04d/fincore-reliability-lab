@@ -78,6 +78,13 @@ class KafkaVolumeRecoveryIntegrationTest {
                     docker.copyArchiveToContainerCmd(helper.getContainerId()).withRemotePath("/var/lib/kafka/data")
                         .withTarInputStream(archive).exec();
                 }
+                // 生产迁移中的 docker cp 会把宿主机备份归给 root；先复现，再验证脚本要求的修复。
+                var ownership = helper.execInContainer("sh", "-ec",
+                    "chown -R 0:0 /var/lib/kafka/data; chmod 700 /var/lib/kafka/data; "
+                        + "test \"$(stat -c %u:%g /var/lib/kafka/data)\" = 0:0; "
+                        + "chown -R 1000:1000 /var/lib/kafka/data; chmod 755 /var/lib/kafka/data; "
+                        + "test \"$(stat -c %u:%g /var/lib/kafka/data)\" = 1000:1000");
+                assertEquals(0, ownership.getExitCode(), ownership.getStderr());
                 var metadata = helper.execInContainer("test", "-f", "/var/lib/kafka/data/meta.properties");
                 assertEquals(0, metadata.getExitCode(), "复制后根目录必须包含集群元数据，不得套错一层目录");
             }
@@ -102,7 +109,8 @@ class KafkaVolumeRecoveryIntegrationTest {
                 "recordedAt", Instant.now().toString(), "kafkaImage", KAFKA_IMAGE,
                 "scope", "isolated stopped-container copy into named volume; not online migration or HA",
                 "originalMessages", 10, "restoredCommittedOffset", 5, "finalEndOffset", 11,
-                "elapsedMillis", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started), "verified", true));
+                "elapsedMillis", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started),
+                "ownershipRepairVerified", true, "verified", true));
         } finally {
             // 唯一删除目标来自本方法刚创建的随机测试卷；禁止 volume prune 等全局命令。
             docker.removeVolumeCmd(volume).exec();
