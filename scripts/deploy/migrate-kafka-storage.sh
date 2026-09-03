@@ -73,7 +73,13 @@ if docker volume inspect "$volume" >/dev/null 2>&1; then echo "目标卷已存�
 docker volume create --label fincore.purpose=preserved-kafka "$volume" > "$backup/volume.txt"
 docker run --rm --network none --user 0 --entrypoint /bin/sh \
   -v "$backup/kafka-data:/source:ro" -v "$volume:/target" "$image" -ec \
-  'test -z "$(ls -A /target)"; cp -a /source/. /target/; test -s /target/meta.properties'
+  'test -z "$(ls -A /target)"; cp -a /source/. /target/;
+   chown -R 1000:1000 /target; chmod 755 /target; test -s /target/meta.properties'
+# `docker cp` 从容器复制到宿主机时会把文件归给 root；Kafka 镜像实际以 appuser(1000:1000)
+# 运行。内容摘要不能发现所有权错误，因此在启动前单独验证命名卷可由 Kafka 用户读取。
+docker run --rm --network none --user 0 --entrypoint /bin/sh \
+  -v "$volume:/target:ro" "$image" -ec \
+  'test "$(stat -c %u:%g /target)" = 1000:1000; su appuser -s /bin/sh -c "test -r /target/meta.properties"'
 docker run --rm --network none --user 0 --entrypoint /bin/sh \
   -v "$backup:/proof:ro" -v "$volume:/target:ro" "$image" -ec \
   'cd /target; sha256sum --check --strict /proof/data.SHA256SUMS' > "$backup/volume-verification.txt"
