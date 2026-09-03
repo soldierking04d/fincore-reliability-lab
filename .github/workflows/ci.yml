@@ -22,4 +22,20 @@ jobs:
       - name: Validate public evaluation kit
         run: ./scripts/eval/validate-eval-kit.sh
       - name: Maven tests
-        run: mvn --batch-mode verify
+        run: mvn --batch-mode -Dfincore.test.require-database=true clean verify
+      - name: Reject skipped or missing integration tests
+        if: always()
+        run: java scripts/VerifyTestReports.java
+      - name: Retain test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fincore-test-evidence
+          path: target/surefire-reports/
+          if-no-files-found: error
+      - name: Retain verified application
+        uses: actions/upload-artifact@v4
+        with:
+          name: fincore-verified-application
+          path: target/fincore-reliability-lab-*.jar
+          if-no-files-found: error
