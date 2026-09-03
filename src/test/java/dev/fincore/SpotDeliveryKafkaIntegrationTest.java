@@ -24,6 +24,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.CountDownLatch;
+import org.apache.kafka.clients.admin.Admin;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.lang.management.ManagementFactory;
@@ -75,7 +77,7 @@ class SpotDeliveryKafkaIntegrationTest {
     static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
     /** 固定版本的真实 Kafka Broker。 */
     @Container
-    static KafkaContainer kafka = new KafkaContainer("apache/kafka-native:3.8.0");
+    static KafkaContainer kafka = new KafkaContainer(KafkaVolumeRecoveryIntegrationTest.KAFKA_IMAGE);
 
     /** 注入隔离基础设施。 */
     @DynamicPropertySource
@@ -223,7 +225,7 @@ class SpotDeliveryKafkaIntegrationTest {
     @Test
     @Order(3)
     void brokerRestartPreservesPublishedPendingDelivery() throws Exception {
-        listeners.stop();
+        stopListeners();
         LoadFixture f = fixture();
         trading.place(order(f.seller(), f.symbol(), OrderSide.SELL));
         UUID trade = trading.place(order(f.buyer(), f.symbol(), OrderSide.BUY)).matching().trades().getFirst().tradeId();
@@ -232,7 +234,17 @@ class SpotDeliveryKafkaIntegrationTest {
             Integer.class, trade.toString()) == 1);
         assertEquals("PENDING", deliveries.get(trade).status());
         long started = System.nanoTime();
-        kafka.getDockerClient().restartContainerCmd(kafka.getContainerId()).withTimeout(10).exec();
+        kafka.getDockerClient().stopContainerCmd(kafka.getContainerId()).withTimeout(30).exec();
+        kafka.getDockerClient().startContainerCmd(kafka.getContainerId()).exec();
+        await().atMost(Duration.ofSeconds(60)).until(() -> {
+            try (var admin = Admin.create(Map.of("bootstrap.servers", kafka.getBootstrapServers(),
+                "request.timeout.ms", "2000", "default.api.timeout.ms", "2000"))) {
+                admin.listTopics().names().get(2, TimeUnit.SECONDS);
+                return true;
+            } catch (Exception unavailable) {
+                return false;
+            }
+        });
         listeners.start();
         await().atMost(Duration.ofSeconds(90)).until(() -> "SETTLED".equals(deliveries.get(trade).status()));
         long recoveryMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started);
@@ -265,7 +277,7 @@ class SpotDeliveryKafkaIntegrationTest {
         assertFunds(f);
         await().atMost(Duration.ofSeconds(30)).until(() -> jdbc.queryForObject(
             "SELECT count(*) FROM outbox_event WHERE status <> 'PUBLISHED'", Integer.class) == 0);
-        listeners.stop();
+        stopListeners();
         var before = databaseDigest(jdbc);
         var dump = postgres.execInContainer("pg_dump", "-U", postgres.getUsername(), "-d", postgres.getDatabaseName(),
             "-Fc", "--no-owner", "--no-privileges", "-f", "/tmp/fincore-recovery.dump");
@@ -337,6 +349,14 @@ class SpotDeliveryKafkaIntegrationTest {
             result.put(table, database.queryForMap("SELECT count(*) AS rows, md5(coalesce(string_agg(row_to_json(t)::text, E'\\n' ORDER BY row_to_json(t)::text), '')) AS digest FROM " + table + " t"));
         }
         return result;
+    }
+
+    /** 等待全部 Listener 真正停止，避免停止/启动竞争造成测试假失败。 */
+    private void stopListeners() throws InterruptedException {
+        CountDownLatch stopped = new CountDownLatch(1);
+        listeners.stop(stopped::countDown);
+        assertTrue(stopped.await(30, TimeUnit.SECONDS), "Kafka Listener 未在时限内停止");
+        assertTrue(listeners.getListenerContainers().stream().noneMatch(container -> container.isRunning()));
     }
 
     /** 性能指标允许浮点，所有交易金额仍使用 BigDecimal。 */

@@ -24,7 +24,9 @@ java scripts/VerifyTestReports.java
 tests 的 total/failed/errors/skipped。后端 JAR 来自该 commit 的成功 CI；前端从已通过测试和生产构建的同一提交导出，不手改压缩脚本。
 
 第二阶段升级到 V8，增加委托预占和成交在途。旧 V7 应用不理解这些资金状态，不能在迁移后盲目回退。
-当前发行门禁要求 V8、至少 109 项且无跳过的完整测试，包含真实 Kafka 交割套件。此前 V7 发布记录保留为历史证据。
+当前发行门禁要求 V8、至少 113 项且无跳过的完整测试，包含真实 Kafka 交割、固定 HTTP 并发、
+Broker 重启、数据库还原及 Kafka 持久卷迁移套件。四份运行证据缺少任一份也不能发行。
+此前 V7 发布记录保留为历史证据。
 
 ## 安全部署顺序
 
@@ -49,5 +51,6 @@ tests 的 total/failed/errors/skipped。后端 JAR 来自该 commit 的成功 CI
 
 监控独立读取应用 CPU、业务 HTTP QPS、JVM 堆和数据库连接，失效/缺失时显示缺数。回放曲线与实测分开，价格教学曲线不宣称来自外部真实行情。
 
-V8 限价现货资金闭环见[第二阶段实现](spot-funds-closure.md)。仍待后续专项实施：手续费和真实资金通道、
-完整强平/保险/ADL、Kafka 持久化卷迁移及瓶颈定位、隔离环境压测/恢复演练。
+V8 限价现货资金闭环见[第二阶段实现](spot-funds-closure.md)。隔离运行证据见
+[容量与恢复验收](recovery-capacity-evidence.md)。仍待后续专项实施：手续费和真实资金通道、
+完整强平/保险/ADL、多 Broker 容灾和持续容量测试。
