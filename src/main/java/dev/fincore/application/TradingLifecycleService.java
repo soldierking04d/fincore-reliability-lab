@@ -28,8 +28,8 @@ import org.springframework.transaction.annotation.Transactional;
  * 单笔/日累计额度与交易账户余额，持久化不可覆盖的盘前决定，最后加入现有撮合事务。相同
  * {@code userId + clientOrderId} 重试复用原决定和原订单，不会再次消耗风控额度。</p>
  *
- * <p>当前账户校验是保守的盘前可用余额检查，尚未实现开放委托资金冻结；因此该入口用于可靠性实验，
- * 不宣称已经达到生产交易账户的可用/冻结/在途资金完整模型。</p>
+ * <p>资金订单在同一事务内预占，成交转在途，由有效 Worker 通过 Kafka 执行双资产交割。
+ * 本模型仍为不含手续费的限价现货实验，不宣称具备完整生产认证授权或外部资金通道。</p>
  *
  * @author FinCore Reliability Lab
  * @since 1.2.0
@@ -44,6 +44,8 @@ public class TradingLifecycleService {
     private final AccountService accountService;
     /** 已有确定性撮合服务。 */
     private final MatchingService matchingService;
+    /** 现货资金精度校验和分桶服务。 */
+    private final SpotFundsService spotFunds;
     /** 批准盘前决定计数器。 */
     private final Counter approvedCounter;
     /** 拒绝盘前决定计数器。 */
@@ -60,10 +62,11 @@ public class TradingLifecycleService {
     public TradingLifecycleService(TradingLifecycleMapper lifecycleMapper,
                                    AccountService accountService,
                                    MatchingService matchingService,
-                                   MeterRegistry meterRegistry) {
+                                   MeterRegistry meterRegistry, SpotFundsService spotFunds) {
         this.lifecycleMapper = lifecycleMapper;
         this.accountService = accountService;
         this.matchingService = matchingService;
+        this.spotFunds = spotFunds;
         this.approvedCounter = meterRegistry.counter("fincore.pretrade.decisions", "decision", "approved");
         this.rejectedCounter = meterRegistry.counter("fincore.pretrade.decisions", "decision", "rejected");
     }
@@ -201,13 +204,16 @@ public class TradingLifecycleService {
     @Transactional
     public TradingOrderResult place(PlaceOrderCommand command) {
         Objects.requireNonNull(command, "command");
+        spotFunds.validate(command);
+        lifecycleMapper.lockRequest(command.userId(), command.clientOrderId());
+        matchingService.lockForTrading(command.symbol());
         TradingLifecycleMapper.PreTradeDecisionRow replay =
             lifecycleMapper.findDecision(command.userId(), command.clientOrderId());
         if (replay != null) {
             requireSameRequest(command, replay);
             PreTradeDecisionView decision = toDecision(replay, true);
             MatchingResult matching = "APPROVED".equals(replay.decision())
-                ? matchingService.place(command) : null;
+                ? matchingService.placeFunded(command) : null;
             return new TradingOrderResult(decision, matching);
         }
 
@@ -277,15 +283,20 @@ public class TradingLifecycleService {
             return reject(command, quote.price(), orderNotional, null,
                 "ACCOUNT_MISSING", "用户缺少下单所需资产的交易账户");
         }
-        if (account.balance().compareTo(requiredBalance) < 0) {
+        var money = spotFunds.view(account.accountId());
+        if (money.financialHold()) {
             return reject(command, quote.price(), orderNotional, account.accountId(),
-                "INSUFFICIENT_BALANCE", "交易账户余额不足");
+                "ACCOUNT_FROZEN", "资金对账存在待复核问题");
+        }
+        if (money.available().compareTo(requiredBalance) < 0) {
+            return reject(command, quote.price(), orderNotional, account.accountId(),
+                "INSUFFICIENT_BALANCE", "交易账户可用余额不足（已扣除委托预占与成交在途）");
         }
 
         PreTradeDecisionView decision = saveDecision(command, quote.price(), orderNotional,
             account.accountId(), "APPROVED", "PASS", "用户、KYC、风控、账户和行情检查全部通过");
         approvedCounter.increment();
-        MatchingResult matching = matchingService.place(command);
+        MatchingResult matching = matchingService.placeFunded(command);
         return new TradingOrderResult(decision, matching);
     }
 

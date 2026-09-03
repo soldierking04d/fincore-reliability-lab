@@ -112,3 +112,5 @@ fincore:
     settlement-topic: settlement.commands.v1
     outbox-topic: settlement.events.v1
     matching-topic: matching.events.v1
+    # 与通用结算复用有界平台线程池；事件由数据库 Outbox 发布，不能从 HTTP 直调资金事务。
+    spot-topic: spot.delivery.commands.v1

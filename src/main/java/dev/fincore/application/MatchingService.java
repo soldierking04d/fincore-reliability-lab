@@ -51,6 +51,8 @@ public class MatchingService {
     private final Counter trades;
     /** 被拒绝或撤销的订单计数器。 */
     private final Counter rejected;
+    /** 受控市场的委托资金预占与撤单释放。 */
+    private final SpotFundsService spotFunds;
 
     /**
      * 创建撮合服务并注册业务指标。
@@ -61,10 +63,11 @@ public class MatchingService {
      * @param registry Micrometer 指标注册表
      */
     public MatchingService(MatchingMapper matchingMapper, OutboxMapper outboxMapper,
-                           ObjectMapper json, MeterRegistry registry) {
+                           ObjectMapper json, MeterRegistry registry, SpotFundsService spotFunds) {
         this.matchingMapper = matchingMapper;
         this.outboxMapper = outboxMapper;
         this.json = json;
+        this.spotFunds = spotFunds;
         this.accepted = registry.counter("fincore.matching.orders.accepted");
         this.duplicates = registry.counter("fincore.matching.orders.duplicate");
         this.trades = registry.counter("fincore.matching.trades.executed");
@@ -82,6 +85,28 @@ public class MatchingService {
      */
     @Transactional
     public MatchingResult place(PlaceOrderCommand command) {
+        lockSymbol(command.symbol());
+        spotFunds.requireUnfundedMarket(command.symbol());
+        return placeInternal(command);
+    }
+
+    /** 只供已完成盘前决定的内部入口调用；资金与撮合必须同事务。 */
+    @Transactional
+    public MatchingResult placeFunded(PlaceOrderCommand command) {
+        lockSymbol(command.symbol());
+        spotFunds.requireFundedMarket(command.symbol());
+        MatchingResult result = placeInternal(command);
+        spotFunds.capture(result);
+        return result;
+    }
+
+    /** 盘前与撮合统一先取交易对锁，之后才能持有风控和账户锁。 */
+    public void lockForTrading(String symbol) {
+        lockSymbol(symbol);
+    }
+
+    /** 共用价格时间优先撮合算法，资金市场与历史纯撮合市场不混单。 */
+    private MatchingResult placeInternal(PlaceOrderCommand command) {
         // 先锁定交易对，使同一交易对的价格时间优先顺序在多实例部署时仍然确定。
         lockSymbol(command.symbol());
         Optional<OrderView> replay = findByClientOrder(command.userId(), command.clientOrderId());
@@ -200,6 +225,7 @@ public class MatchingService {
             throw new IllegalStateException("terminal order cannot be canceled: " + current.status());
         }
         terminalize(orderId, current.status(), OrderStatus.CANCELED, "canceled by user");
+        spotFunds.releaseCanceled(orderId);
         outbox(orderId.toString(), "MATCHING_ORDER_CANCELED", Map.of(
             "eventType", "MATCHING_ORDER_CANCELED",
             "orderId", orderId,

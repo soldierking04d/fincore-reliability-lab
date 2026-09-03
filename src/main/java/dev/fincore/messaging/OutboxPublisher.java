@@ -1,5 +1,8 @@
 package dev.fincore.messaging;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.fincore.domain.SpotDeliveryCommand;
 import dev.fincore.infrastructure.concurrent.ConcurrencyProperties;
 import dev.fincore.infrastructure.persistence.mapper.OutboxMapper;
 import io.micrometer.core.instrument.Counter;
@@ -50,6 +53,10 @@ public class OutboxPublisher {
     private final String settlementTopic;
     /** 撮合事件 Topic。 */
     private final String matchingTopic;
+    /** 成交驱动双资产交割命令 Topic。 */
+    private final String spotTopic;
+    /** 将已持久化交割通知还原为类型化命令，保留 Kafka JSON 类型头。 */
+    private final ObjectMapper json;
     /** 当前 Publisher 唯一标识。 */
     private final String publisherId;
     /** 单次原子抢占的最大事件数。 */
@@ -73,12 +80,15 @@ public class OutboxPublisher {
     public OutboxPublisher(OutboxMapper outboxMapper, KafkaTemplate<String, Object> kafka,
                            @Value("${fincore.kafka.outbox-topic}") String settlementTopic,
                            @Value("${fincore.kafka.matching-topic}") String matchingTopic,
+                           @Value("${fincore.kafka.spot-topic:spot.delivery.commands.v1}") String spotTopic,
                            @Value("${fincore.worker.id:${HOSTNAME:local-worker}}") String publisherId,
-                           ConcurrencyProperties properties, MeterRegistry registry) {
+                           ConcurrencyProperties properties, MeterRegistry registry, ObjectMapper json) {
         this.outboxMapper = outboxMapper;
         this.kafka = kafka;
         this.settlementTopic = settlementTopic;
         this.matchingTopic = matchingTopic;
+        this.spotTopic = spotTopic;
+        this.json = json;
         this.publisherId = publisherId;
         this.batchSize = properties.getOutboxBatchSize();
         this.awaitTimeout = properties.getOutboxAwaitTimeout();
@@ -121,7 +131,9 @@ public class OutboxPublisher {
             String topic = event.eventType().startsWith("MATCHING_") ? matchingTopic : settlementTopic;
             CompletableFuture<SendResult> future;
             try {
-                future = kafka.send(topic, event.aggregateId(), event.payload())
+                boolean delivery = "SPOT_DVP_REQUESTED".equals(event.eventType());
+                Object payload = delivery ? deliveryCommand(event.payload()) : event.payload();
+                future = kafka.send(delivery ? spotTopic : topic, event.aggregateId(), payload)
                     .handle((result, exception) -> new SendResult(event.eventId(), exception));
             } catch (RuntimeException exception) {
                 future = CompletableFuture.completedFuture(new SendResult(event.eventId(), exception));
@@ -169,6 +181,15 @@ public class OutboxPublisher {
         }
         if (incomplete > 0) {
             uncertain.increment(incomplete);
+        }
+    }
+
+    /** 解析错误不能标记已发布，保留原事件供修正后重试。 */
+    private SpotDeliveryCommand deliveryCommand(String payload) {
+        try {
+            return json.readValue(payload, SpotDeliveryCommand.class);
+        } catch (JsonProcessingException exception) {
+            throw new IllegalArgumentException("invalid persisted delivery command", exception);
         }
     }
 

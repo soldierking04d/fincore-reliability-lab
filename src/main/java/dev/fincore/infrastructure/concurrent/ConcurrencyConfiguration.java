@@ -10,6 +10,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.task.AsyncTaskExecutor;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
+import org.springframework.kafka.listener.DefaultErrorHandler;
+import org.springframework.util.backoff.FixedBackOff;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 
@@ -77,6 +79,14 @@ public class ConcurrencyConfiguration {
         configurer.configure(factory, consumerFactory);
         factory.setConcurrency(properties.effectiveSettlementConsumers());
         factory.getContainerProperties().setListenerTaskExecutor(consumerExecutor);
+        // 资金命令失败不得由默认“重试耗尽后记录日志并跳过”策略确认。
+        // 阻塞所在分区并退避，数据库在途仍保留；需人工处置的坏消息必须走审核，不静默丢弃。
+        DefaultErrorHandler errors = new DefaultErrorHandler(
+            (record, exception) -> { throw new IllegalStateException("financial command cannot be discarded", exception); },
+            new FixedBackOff(1000L, FixedBackOff.UNLIMITED_ATTEMPTS));
+        errors.setClassifications(java.util.Map.of(Exception.class, true), true);
+        errors.setAckAfterHandle(false);
+        factory.setCommonErrorHandler(errors);
         return factory;
     }
 
