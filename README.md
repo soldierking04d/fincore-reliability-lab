@@ -57,7 +57,7 @@ docker compose up --build
 curl -s -X POST http://127.0.0.1:8080/lab/scenarios/market-crash-day
 ```
 
-完整验证使用 `./scripts/full-check.sh`；只有 JDK 21、暂时没有 Docker 时，可先运行 `./scripts/verify-core.sh`。更适合第一次浏览的入口是[总架构与服务拓扑](docs/resilient-system-architecture.md)、[完整交易链路](docs/full-trading-lifecycle.md)和[故障实验说明](docs/market-crash-day.md)。
+完整验证使用 `./scripts/full-check.sh`；只有 JDK 21、暂时没有 Docker 时，可先运行 `./scripts/verify-core.sh`。更适合第一次浏览的入口是[总架构与服务拓扑](docs/resilient-system-architecture.md)、[完整交易链路](docs/full-trading-lifecycle.md)、[低延迟与 CPU/GPU 专项手册](docs/low-latency-compute-playbook.md)和[故障实验说明](docs/market-crash-day.md)。
 
 ## 不止于工程实现
 
@@ -67,7 +67,7 @@ FinCore 同时是一份有证据边界的技术负责人能力作品集，但这
 |---|---|---|
 | 业务与产品运营 | 把用户准入、KYC、风控、账户、行情到交易后处理串成完整客户旅程；定义拒绝原因、降级边界和运营指标 | [完整交易链路](docs/full-trading-lifecycle.md)、[产品运营协同](docs/management/04-product-operations-alignment.md) |
 | 金融正确性与风险 | 用幂等、平衡账本、状态机、补偿、对账和审计保证“失败可恢复、资金不重复” | 17 次重复结算仅产生 1 次资金效果；[资金安全 ADR](docs/adr/0001-financial-invariants.md) |
-| 架构与高并发工程 | Java 21、Spring Boot、MyBatis、有界撮合 Lane、Kafka、Outbox、Epoch Fencing、G1/ZGC、Prometheus/Grafana | 60 笔成交 = 60 个唯一序列；[高并发与 JVM 落地](docs/high-concurrency-jvm-tuning.md) |
+| 架构、高并发与低延迟判断 | Java 21、Spring Boot、MyBatis、有界撮合 Lane、Kafka、Outbox、Epoch Fencing、G1/ZGC、Prometheus/Grafana；并区分 CPU/NUMA、网络、FPGA、GPU 的适用边界 | 60 笔成交 = 60 个唯一序列；[高并发与 JVM 落地](docs/high-concurrency-jvm-tuning.md)、[低延迟与异构计算手册](docs/low-latency-compute-playbook.md)、[手册缺口覆盖矩阵](docs/handbook-gap-coverage.md) |
 | 团队、交付与治理 | 团队梯队、跨部门沟通、SLO/灾备、FinOps、安全合规、供应商、技术雷达和高管沟通 | [18 个职责与实战章节](docs/management/README.md)、[5 份机器可读治理台账](governance/README.md) |
 | AI 落地与评测 | 用例登记、人工基线、成本、权限、发布阈值、失效日期、Kill Switch，以及多 Agent 隔离评测 | 8 个任务、54 次受控运行；[AI 用例登记](ai/README.md)、[评测报告](reports/evaluations/README.md) |
 | 数字资产可靠性 | 将已验证机制映射到充值确认、链重组、提现未知结果、Nonce/UTXO、HSM/MPC 和链上链下对账 | [数字资产可靠性设计与实施边界](docs/blockchain-digital-asset-reliability.md) |
