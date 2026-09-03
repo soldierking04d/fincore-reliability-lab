@@ -11,6 +11,7 @@ import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
@@ -61,13 +62,14 @@ public class SettlementListener {
     /**
      * 消费结算命令并在有效围栏保护下执行资金事务。
      *
-     * @param command Kafka 反序列化后的结算命令
+     * @param record Kafka 消息；明确从 value 读取类型化命令，避免 Object 参数被解析为消息包装器
      */
     @KafkaListener(
         topics = {"${fincore.kafka.settlement-topic}", "${fincore.kafka.spot-topic:spot.delivery.commands.v1}"},
         containerFactory = "settlementKafkaListenerContainerFactory"
     )
-    public void onCommand(Object command) {
+    public void onCommand(ConsumerRecord<String, Object> record) {
+        Object command = record.value();
         int shardId;
         if (command instanceof SettlementCommand settlement) {
             shardId = router.shardFor(settlement.payerAccountId().toString());

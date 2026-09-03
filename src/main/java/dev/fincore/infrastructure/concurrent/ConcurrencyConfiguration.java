@@ -12,6 +12,8 @@ import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.util.backoff.FixedBackOff;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 
@@ -28,6 +30,8 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(ConcurrencyProperties.class)
 public class ConcurrencyConfiguration {
+    /** 重试日志不打印消息载荷，首次及每分钟保留原因供定位。 */
+    private static final Logger LOGGER = LoggerFactory.getLogger(ConcurrencyConfiguration.class);
     /** 注册虚拟线程固定载体和提交失败指标，应用关闭时同时关闭内部 JFR 流。 */
     @Bean(destroyMethod = "close")
     VirtualThreadMetrics virtualThreadMetrics() {
@@ -86,6 +90,12 @@ public class ConcurrencyConfiguration {
             new FixedBackOff(1000L, FixedBackOff.UNLIMITED_ATTEMPTS));
         errors.setClassifications(java.util.Map.of(Exception.class, true), true);
         errors.setAckAfterHandle(false);
+        errors.setRetryListeners((record, exception, attempt) -> {
+            if (attempt == 1 || attempt % 60 == 0) {
+                LOGGER.warn("资金消息等待恢复：topic={}, partition={}, offset={}, attempt={}",
+                    record.topic(), record.partition(), record.offset(), attempt, exception);
+            }
+        });
         factory.setCommonErrorHandler(errors);
         return factory;
     }
