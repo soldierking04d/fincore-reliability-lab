@@ -19,6 +19,7 @@
 [在线完整演示](https://fincore-reliability-demo.soldierking04d.chatgpt.site/) ·
 [腾讯云运行实例](https://124.223.164.254/) ·
 [总架构与服务拓扑](docs/resilient-system-architecture.md) ·
+[合约关键故障实验](docs/derivatives-failure-lab.md) ·
 [管理实战手册](docs/management/README.md) ·
 [AI 评测结果](https://fincore-agent-benchmark.soldierking04d.chatgpt.site) ·
 [5 分钟讲解稿](docs/showcase/demo-walkthrough.md)
@@ -92,6 +93,10 @@ FinCore 同时是一份有证据边界的技术负责人能力作品集，但这
 ![FinCore Grafana 仪表盘](docs/showcase/grafana-dashboard.png)
 
 ## 已实现的第一版闭环
+
+合约方向另有[四类关键故障实验](docs/derivatives-failure-lab.md)：保证金并发占用、周期资金费幂等、
+只减仓防反向开仓、过期强平任务 Fencing。已加入隔离的服务、持久化与自动验收用例；
+它不是完整合约交易系统，也不代表新增场景已经部署。数据库并发测试的实际验证状态见实验文档。
 
 - Spring Boot Web/Kafka 接入、Application Service 事务编排与 MyBatis Mapper 持久化分层；
 - 用户注册、KYC 状态、交易开关和用户生命周期管理；

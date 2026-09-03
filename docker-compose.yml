@@ -68,7 +68,7 @@ services:
     image: maven:3.9-eclipse-temurin-21
     profiles: ["test"]
     working_dir: /workspace
-    command: ["mvn", "test"]
+    command: ["sh", "-ec", "mvn -B -Dfincore.test.require-database=true clean verify && java scripts/VerifyTestReports.java"]
     volumes:
       - .:/workspace
       - fincore-maven:/root/.m2
