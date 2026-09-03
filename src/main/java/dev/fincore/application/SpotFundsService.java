@@ -188,6 +188,11 @@ public class SpotFundsService {
         return Objects.requireNonNull(funds.funds(accountId), "account not found");
     }
 
+    /** 仅供内部场景按自己创建的用户和资产读取模拟资金；不新增公开账户查询接口。 */
+    public SpotFundsMapper.FundsRow view(String userId, String asset) {
+        return view(Objects.requireNonNull(funds.accountId(userId, asset), "account not found").accountId());
+    }
+
     /** 对账发现差异时冻结待审核，不直接修改余额或历史。 */
     @Transactional
     public boolean reconcile(UUID accountId) {

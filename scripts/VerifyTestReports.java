@@ -13,7 +13,8 @@ class VerifyTestReports {
             "dev.fincore.DerivativesLabIntegrationTest", "dev.fincore.SettlementIntegrationTest",
             "dev.fincore.MatchingIntegrationTest", "dev.fincore.TradingLifecycleIntegrationTest",
             "dev.fincore.TradeReliabilityIntegrationTest", "dev.fincore.FeeAggregationIntegrationTest",
-            "dev.fincore.LabScenarioIntegrationTest", "dev.fincore.SpotFundsIntegrationTest"));
+            "dev.fincore.LabScenarioIntegrationTest", "dev.fincore.SpotFundsIntegrationTest",
+            "dev.fincore.SpotDeliveryKafkaIntegrationTest"));
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
         factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");

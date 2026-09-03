@@ -104,8 +104,14 @@ public interface SpotFundsMapper {
     @Insert("""
         INSERT INTO spot_delivery(trade_id,buy_order_id,sell_order_id,buyer_quote_id,buyer_base_id,
           seller_base_id,seller_quote_id,base_asset,quote_asset,quantity,quote_amount)
-        VALUES(#{tradeId},#{buyOrderId},#{sellOrderId},#{buyerQuoteId},#{buyerBaseId},
-          #{sellerBaseId},#{sellerQuoteId},#{baseAsset},#{quoteAsset},#{quantity},#{quoteAmount})
+        VALUES(#{tradeId,jdbcType=OTHER,typeHandler=dev.fincore.infrastructure.persistence.type.PostgresUuidTypeHandler},
+          #{buyOrderId,jdbcType=OTHER,typeHandler=dev.fincore.infrastructure.persistence.type.PostgresUuidTypeHandler},
+          #{sellOrderId,jdbcType=OTHER,typeHandler=dev.fincore.infrastructure.persistence.type.PostgresUuidTypeHandler},
+          #{buyerQuoteId,jdbcType=OTHER,typeHandler=dev.fincore.infrastructure.persistence.type.PostgresUuidTypeHandler},
+          #{buyerBaseId,jdbcType=OTHER,typeHandler=dev.fincore.infrastructure.persistence.type.PostgresUuidTypeHandler},
+          #{sellerBaseId,jdbcType=OTHER,typeHandler=dev.fincore.infrastructure.persistence.type.PostgresUuidTypeHandler},
+          #{sellerQuoteId,jdbcType=OTHER,typeHandler=dev.fincore.infrastructure.persistence.type.PostgresUuidTypeHandler},
+          #{baseAsset},#{quoteAsset},#{quantity},#{quoteAmount})
         """)
     int insertDelivery(DeliveryRow row);
 
