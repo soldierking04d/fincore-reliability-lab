@@ -16,7 +16,9 @@ flock -n 9 || { echo "已有 FinCore 发布进行中。" >&2; exit 2; }
 cd "$release_dir"
 [[ -f app.jar && -f release.json && -f SHA256SUMS && -f web/index.html && -f .dockerignore ]] || exit 2
 sha256sum --check --strict SHA256SUMS
-jq -e '.tests.failed == 0 and .tests.errors == 0 and .tests.skipped == 0 and .tests.total >= 109
+jq -e '.tests.failed == 0 and .tests.errors == 0 and .tests.skipped == 0 and .tests.total >= 112
+  and .runtimeEvidence.httpLoad == true and .runtimeEvidence.brokerRecovery == true
+  and .runtimeEvidence.databaseRestore == true
   and (.backendCommit | test("^[0-9a-f]{40}$")) and (.frontendCommit | test("^[0-9a-f]{40}$"))
   and .databaseVersion == "8"' release.json >/dev/null
 release_id="$(jq -r .releaseId release.json)"

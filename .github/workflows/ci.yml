@@ -47,3 +47,9 @@ jobs:
           name: fincore-verified-application
           path: target/fincore-reliability-lab-*.jar
           if-no-files-found: error
+      - name: Retain isolated load and recovery evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: fincore-runtime-evidence
+          path: target/runtime-evidence/*.json
+          if-no-files-found: error

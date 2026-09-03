@@ -24,6 +24,9 @@ class VerifyTestReports {
             for (Path report : reports.filter(p -> p.getFileName().toString().matches("TEST-.*\\.xml")).toList()) {
                 var suite = factory.newDocumentBuilder().parse(report.toFile()).getDocumentElement();
                 long count = Long.parseLong(suite.getAttribute("tests"));
+                if (suite.getAttribute("name").equals("dev.fincore.SpotDeliveryKafkaIntegrationTest") && count < 4) {
+                    throw new IllegalStateException("缺少真实 Kafka、HTTP 并发、Broker 恢复或数据库恢复验收");
+                }
                 if (count > 0) required.remove(suite.getAttribute("name"));
                 tests += count;
                 skipped += Long.parseLong(suite.getAttribute("skipped"));
