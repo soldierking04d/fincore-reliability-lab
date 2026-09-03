@@ -9,6 +9,8 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
@@ -28,16 +30,41 @@ public class TradingLifecycleScenarioService {
     private final TradingLifecycleService lifecycle;
     /** 使用有界交易对 Lane 的完整下单入口。 */
     private final TradingOrderCoordinator orders;
+    /** 有界撤单入口。 */
+    private final MatchingCommandCoordinator matching;
+    /** 只读取本次随机新建的模拟账户，不接受外部账户编号。 */
+    private final SpotFundsService funds;
+    /** 只读等待真实 Worker 结果，公开固定场景不直接执行交割。 */
+    private final SpotDeliveryService deliveries;
+    /** 限制单进程场景并发，避免 synchronized 包裹长等待固定虚拟线程载体。 */
+    private final ReentrantLock runLock = new ReentrantLock();
 
     /** 创建完整交易链路实验服务。 */
     public TradingLifecycleScenarioService(TradingLifecycleService lifecycle,
-                                           TradingOrderCoordinator orders) {
+                                           TradingOrderCoordinator orders, MatchingCommandCoordinator matching,
+                                           SpotFundsService funds, SpotDeliveryService deliveries) {
         this.lifecycle = lifecycle;
         this.orders = orders;
+        this.matching = matching;
+        this.funds = funds;
+        this.deliveries = deliveries;
     }
 
     /** 运行一次隔离的完整交易链路实验。 */
-    public synchronized LifecycleScenarioReport run() {
+    public LifecycleScenarioReport run() {
+        if (!runLock.tryLock()) {
+            throw new IllegalStateException("trading lifecycle scenario is already running");
+        }
+        try {
+            return runIsolated();
+        } finally {
+            runLock.unlock();
+        }
+    }
+
+    /** 每次创建隔离的模拟账户，不读取其他用户余额，失败也不删除已提交的交易。 */
+    private LifecycleScenarioReport runIsolated() {
+        Instant startedAt = Instant.now();
         String runId = UUID.randomUUID().toString().substring(0, 8);
         String suffix = runId.toUpperCase();
         String baseAsset = "FLOW" + suffix;
@@ -93,12 +120,51 @@ public class TradingLifecycleScenarioService {
             "行情快照没有返回最近成交");
         checks.put("行情联动", "PASS：参考价、订单簿与最近成交统一返回");
 
+        // 以下数值只来自本次固定实验生成的模拟账户，金额不是网页动画生成的。
+        var cancellable = orders.place(limit("cancel-" + runId, buyerId, symbol, OrderSide.BUY, "90", "0.5"));
+        require(cancellable.matching() != null && cancellable.matching().order().status() == OrderStatus.OPEN,
+            "撤单样本未进入订单簿");
+        var held = funds.view(buyerId, "USDT");
+        require(held.reservedBalance().compareTo(new BigDecimal("45")) == 0, "挂单没有实际预占 45 USDT");
+        checks.put("委托预占", "PASS：0.5 × 90 的挂单实际预占 45 USDT，可用余额同步减少");
+        UUID canceledId = cancellable.matching().order().orderId();
+        matching.cancel(canceledId, buyerId);
+        matching.cancel(canceledId, buyerId);
+        var released = funds.view(buyerId, "USDT");
+        require(released.reservedBalance().signum() == 0
+            && released.available().subtract(held.available()).compareTo(new BigDecimal("45")) == 0,
+            "重复撤单没有精确释放未成交预占");
+        checks.put("撤单释放", "PASS：重复撤单只释放一次 45 USDT，不释放已成交在途");
+
+        UUID tradeId = buyer.matching().trades().getFirst().tradeId();
+        awaitDelivery(tradeId);
+        var settled = deliveries.get(tradeId);
+        var buyerQuote = funds.view(buyerId, "USDT");
+        var buyerBase = funds.view(buyerId, baseAsset);
+        var sellerBase = funds.view(sellerId, baseAsset);
+        var sellerQuote = funds.view(sellerId, "USDT");
+        require(buyerQuote.balance().compareTo(new BigDecimal("800")) == 0
+            && buyerBase.balance().compareTo(new BigDecimal("2")) == 0
+            && sellerBase.balance().compareTo(new BigDecimal("8")) == 0
+            && sellerQuote.balance().compareTo(new BigDecimal("200")) == 0,
+            "双资产交割实际余额不符");
+        checks.put("双资产交割", "PASS：Outbox → Kafka → 有效 Fence Worker；买方 -200 USDT/+2 基础资产，卖方相反");
+        for (var account : java.util.List.of(buyerQuote, buyerBase, sellerBase, sellerQuote)) {
+            require(account.pendingDebit().signum() == 0 && account.reservedBalance().signum() == 0
+                && funds.reconcile(account.accountId()), "交割后资金或账本不一致");
+        }
+        checks.put("资金对账", "PASS：4 个模拟资产账户的总余额、预占、在途与不可变账本逐一一致");
+        SpotFundsEvidence evidence = new SpotFundsEvidence(tradeId, settled.status(), baseAsset, "USDT",
+            held.reservedBalance(), held.available(), released.available(), buyerQuote.balance(),
+            buyerBase.balance(), sellerBase.balance(), sellerQuote.balance(), buyerQuote.pendingDebit(),
+            4, settled.settledAt());
+
         LifecycleData data = new LifecycleData(
             buyerId,
             "ACTIVE",
             "VERIFIED",
             "USDT",
-            new BigDecimal("1000"),
+            buyerQuote.balance(),
             symbol,
             market.reference().price(),
             new BigDecimal("2"),
@@ -108,7 +174,25 @@ public class TradingLifecycleScenarioService {
             buyer.matching().trades().size(),
             rejected.preTradeDecision().reasonCode()
         );
-        return new LifecycleScenarioReport(runId, "PASS", data, Map.copyOf(checks));
+        return new LifecycleScenarioReport(runId, "PASS", data, Map.copyOf(checks), evidence,
+            startedAt, Instant.now());
+    }
+
+    /** 最多等 20 秒，只查询 Worker 状态；超时不重复下单、不调用直连交割。 */
+    private void awaitDelivery(UUID tradeId) {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(20);
+        while (System.nanoTime() < deadline) {
+            if ("SETTLED".equals(deliveries.get(tradeId).status())) {
+                return;
+            }
+            try {
+                TimeUnit.MILLISECONDS.sleep(100);
+            } catch (InterruptedException exception) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("交割等待中断；结果未知，tradeId=" + tradeId, exception);
+            }
+        }
+        throw new IllegalStateException("交割仍在途；不得重复发起本场景，tradeId=" + tradeId);
     }
 
     /** 创建已验证、已开户且允许交易的实验用户。 */
@@ -136,12 +220,21 @@ public class TradingLifecycleScenarioService {
 
     /** 完整链路实验报告。 */
     public record LifecycleScenarioReport(String runId, String finalStatus,
-                                          LifecycleData data, Map<String, String> checks) {
+                                          LifecycleData data, Map<String, String> checks,
+                                          SpotFundsEvidence funds, Instant startedAt, Instant completedAt) {
         /** 固化检查结果，避免调用方修改报告。 */
         public LifecycleScenarioReport {
             checks = Map.copyOf(checks);
         }
     }
+
+    /** 本次新建模拟账户的资金证据，不接受任意账户查询参数。 */
+    public record SpotFundsEvidence(UUID tradeId, String deliveryStatus, String baseAsset, String quoteAsset,
+                                     BigDecimal reservedForCancel, BigDecimal availableWhileReserved,
+                                     BigDecimal availableAfterCancel, BigDecimal buyerQuoteBalance,
+                                     BigDecimal buyerBaseBalance, BigDecimal sellerBaseBalance,
+                                     BigDecimal sellerQuoteBalance, BigDecimal pendingDebit,
+                                     int reconciledAccounts, Instant settledAt) { }
 
     /** 一次成功订单及一个失败关闭样本的关键业务数据。 */
     public record LifecycleData(String userId, String userStatus, String kycStatus,
