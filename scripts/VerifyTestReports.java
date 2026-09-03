@@ -14,7 +14,7 @@ class VerifyTestReports {
             "dev.fincore.MatchingIntegrationTest", "dev.fincore.TradingLifecycleIntegrationTest",
             "dev.fincore.TradeReliabilityIntegrationTest", "dev.fincore.FeeAggregationIntegrationTest",
             "dev.fincore.LabScenarioIntegrationTest", "dev.fincore.SpotFundsIntegrationTest",
-            "dev.fincore.SpotDeliveryKafkaIntegrationTest"));
+            "dev.fincore.SpotDeliveryKafkaIntegrationTest", "dev.fincore.KafkaVolumeRecoveryIntegrationTest"));
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
         factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
@@ -35,8 +35,21 @@ class VerifyTestReports {
             }
         }
         System.out.printf("完整验收：tests=%d, skipped=%d, failures=%d, errors=%d%n", tests, skipped, failures, errors);
+        Path evidence = directory.getParent().resolve("runtime-evidence");
+        Set<String> requiredEvidence = Set.of("bounded-http-load.json", "broker-recovery.json",
+            "database-restore.json", "kafka-volume-migration.json");
+        Set<String> missingEvidence = new HashSet<>();
+        for (String file : requiredEvidence) {
+            Path path = evidence.resolve(file);
+            if (!Files.isRegularFile(path) || !Files.readString(path).contains("\"scope\"")) {
+                missingEvidence.add(file);
+            }
+        }
         if (tests == 0 || skipped != 0 || failures != 0 || errors != 0 || !required.isEmpty()) {
             throw new IllegalStateException("禁止发布不完整测试结果；缺失套件=" + required);
+        }
+        if (!missingEvidence.isEmpty()) {
+            throw new IllegalStateException("禁止发布缺少运行证据的构建；缺失=" + missingEvidence);
         }
     }
 }
