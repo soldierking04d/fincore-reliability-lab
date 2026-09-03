@@ -174,7 +174,8 @@ public class SettlementService {
         Map<UUID, LockedAccount> locked = new LinkedHashMap<>(ids.size());
         for (UUID id : ids) {
             LedgerMapper.LockedAccountRow row = ledgerMapper.lockAccount(id);
-            locked.put(id, new LockedAccount(row.accountId(), row.asset(), row.balance()));
+            // 通用转账也不能花掉现货订单已经预占或待交割的余额。
+            locked.put(id, new LockedAccount(row.accountId(), row.asset(), row.availableBalance()));
         }
         return locked;
     }

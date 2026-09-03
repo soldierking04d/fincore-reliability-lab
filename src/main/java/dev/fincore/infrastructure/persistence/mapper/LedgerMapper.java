@@ -20,7 +20,8 @@ import org.apache.ibatis.annotations.Update;
 public interface LedgerMapper {
     /** 锁定账户并返回资产与余额快照。 */
     @Select("""
-        SELECT account_id AS "accountId", asset, account_type AS "accountType", balance
+        SELECT account_id AS "accountId", asset, account_type AS "accountType", balance,
+               balance-reserved_balance-pending_debit AS "availableBalance"
         FROM account
         WHERE account_id=#{accountId}
         FOR UPDATE
@@ -29,7 +30,8 @@ public interface LedgerMapper {
 
     /** 不加锁读取账户类型与余额，用于进入资金锁序之前的参数校验。 */
     @Select("""
-        SELECT account_id AS "accountId", asset, account_type AS "accountType", balance
+        SELECT account_id AS "accountId", asset, account_type AS "accountType", balance,
+               balance-reserved_balance-pending_debit AS "availableBalance"
         FROM account
         WHERE account_id=#{accountId}
         """)
@@ -73,7 +75,8 @@ public interface LedgerMapper {
     @Update("""
         UPDATE account
         SET balance=balance-#{amount}, version=version+1, updated_at=now()
-        WHERE account_id=#{accountId} AND balance>=#{amount}
+        WHERE account_id=#{accountId} AND balance-reserved_balance-pending_debit>=#{amount}
+          AND financial_hold=false
         """)
     int debit(@Param("accountId") UUID accountId, @Param("amount") BigDecimal amount);
 
@@ -82,6 +85,7 @@ public interface LedgerMapper {
         UPDATE account
         SET balance=balance-#{amount}, version=version+1, updated_at=now()
         WHERE account_id=#{accountId} AND balance=#{expectedBalance}
+          AND balance-reserved_balance-pending_debit>=#{amount} AND financial_hold=false
         """)
     int debitExact(@Param("accountId") UUID accountId,
                    @Param("amount") BigDecimal amount,
@@ -96,7 +100,8 @@ public interface LedgerMapper {
     int credit(@Param("accountId") UUID accountId, @Param("amount") BigDecimal amount);
 
     /** 资金事务使用的已锁定账户快照。 */
-    record LockedAccountRow(UUID accountId, String asset, String accountType, BigDecimal balance) {
+    record LockedAccountRow(UUID accountId, String asset, String accountType, BigDecimal balance,
+                            BigDecimal availableBalance) {
     }
 
     /** 单列账户编号查询的显式结果对象，避免把 UUID 当成构造器映射类型。 */

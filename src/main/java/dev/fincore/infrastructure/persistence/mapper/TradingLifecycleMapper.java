@@ -18,6 +18,10 @@ import org.apache.ibatis.annotations.Update;
  * @since 1.2.0
  */
 public interface TradingLifecycleMapper {
+    /** 在读取决定前序列化同一幂等键；跨交易对偷换参数也不能发生并发重放竞态。 */
+    @Select("SELECT pg_advisory_xact_lock(hashtextextended(#{userId} || ':' || #{clientOrderId}, 2))")
+    Object lockRequest(@Param("userId") String userId, @Param("clientOrderId") String clientOrderId);
+
     /** 创建用户，重复用户编号由数据库唯一约束拒绝。 */
     @Insert("""
         INSERT INTO customer_profile(user_id, display_name, country_code)
