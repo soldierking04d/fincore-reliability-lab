@@ -13,6 +13,8 @@ java scripts/VerifyTestReports.java
 
 2026-09-03 的 [CI 证据](https://github.com/soldierking04d/fincore-reliability-lab/actions/runs/33762357631)：92 项执行、0 跳过，包括合约 13 项数据库验收。小规模并发/回滚测试不等于生产吞吐认证。
 
+实际部署使用后续提交 `9566aae` 的 [CI 33763673655](https://github.com/soldierking04d/fincore-reliability-lab/actions/runs/33763673655)，同样 92 项、0 跳过；部署版本和公网验收见[发布验收记录](release-acceptance-2026-09-03.md)。
+
 ## 发行包契约
 
 发行包包含 `app.jar`、`web/index.html` 与对应 `_next` 资源、`Dockerfile.release`、`.dockerignore`、
