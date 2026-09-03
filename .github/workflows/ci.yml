@@ -21,6 +21,14 @@ jobs:
         run: ./scripts/verify-core.sh
       - name: Validate public evaluation kit
         run: ./scripts/eval/validate-eval-kit.sh
+      - name: Check release scripts
+        run: |
+          bash -n scripts/deploy/deploy-app-release.sh
+          bash -n scripts/deploy/provision-tencent-host.sh
+          if bash scripts/deploy/provision-tencent-host.sh; then
+            echo "Unsafe: host provisioning must require explicit opt-in"
+            exit 1
+          fi
       - name: Maven tests
         run: mvn --batch-mode -Dfincore.test.require-database=true clean verify
       - name: Reject skipped or missing integration tests

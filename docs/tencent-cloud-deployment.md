@@ -67,21 +67,18 @@ IP 证书，不依赖额外购买域名，也不会触发腾讯云对未备案�
 
 ## 部署与更新
 
-部署脚本会配置腾讯云官方 Docker 镜像加速地址
-`https://mirror.ccs.tencentyun.com`，解决中国大陆地域访问 Docker Hub 容易超时的问题；如果
-`/etc/docker/daemon.json` 已有其他配置，脚本会合并保留。
+日常发布与整机初始化已分离。`deploy-tencent-cloud.sh` 现在只转入项目级发行脚本；不安装软件，
+不重启 Docker，不改全局网络、Swap 或其他项目。详见 [安全发布与验收](safe-release.md)。
 
-云端镜像构建还会使用腾讯云内网 Maven 仓库下载 Java 依赖；普通本地构建仍使用 Maven
-默认仓库，不受云端配置影响。
-
-在服务器项目目录执行：
+先准备验收通过、带有完整性校验的发行目录，再在服务器执行（用实际发行目录替换占位路径）：
 
 ```bash
-cd /opt/fincore-reliability-lab
-git pull --ff-only
-FINCORE_PUBLIC_BASE_URL=https://124.223.164.254 \
-  ./scripts/deploy/deploy-tencent-cloud.sh
+sudo bash /opt/fincore-reliability-lab/scripts/deploy/deploy-tencent-cloud.sh \
+  /opt/fincore-releases/实际发行编号
 ```
+
+`provision-tencent-host.sh` 只用于首次整机初始化，默认拒绝执行。它会安装软件、配置镜像加速、
+修改系统参数并重启 Docker，必须单独安排获准维护窗口，不能用于已有共享服务器的普通更新。
 
 查看服务与日志：
 

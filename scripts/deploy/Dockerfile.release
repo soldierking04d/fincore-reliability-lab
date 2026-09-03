@@ -1,0 +1,6 @@
+ARG FINCORE_RUNTIME_BASE
+FROM ${FINCORE_RUNTIME_BASE}
+WORKDIR /app
+COPY app.jar /app/app.jar
+# 基础镜像传入本机运行中镜像的精确 ID，保留 Java 21 和 JVM 启动环境。
+# 只替换 CI 已验收的包，不重新构建数据库/Kafka，不拉取 latest。
