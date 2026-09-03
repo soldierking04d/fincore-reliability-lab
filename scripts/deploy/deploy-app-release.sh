@@ -27,6 +27,11 @@ release_id="$(jq -r .releaseId release.json)"
 [[ ! -e "$release_dir/backup" ]] || { echo "发行目录已经执行过，禁止覆盖备份。" >&2; exit 2; }
 compose=(docker compose --project-name fincore-reliability-lab --project-directory "$project_dir"
   -f "$project_dir/docker-compose.yml" -f "$project_dir/docker-compose.cloud.yml")
+# 持久卷迁移成功后由受管覆盖文件固定 Kafka 镜像摘要、日志目录和命名卷；
+# 后续应用发布必须继续读取它，不能悄悄退回容器写层。
+if [[ -f "$project_dir/docker-compose.kafka-managed.json" ]]; then
+  compose+=(-f "$project_dir/docker-compose.kafka-managed.json")
+fi
 app_id="$("${compose[@]}" ps -q app)"
 postgres_id="$("${compose[@]}" ps -q postgres)"
 nginx_id="$("${compose[@]}" ps -q nginx)"

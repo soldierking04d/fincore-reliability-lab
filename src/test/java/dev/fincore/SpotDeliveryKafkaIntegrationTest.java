@@ -221,10 +221,10 @@ class SpotDeliveryKafkaIntegrationTest {
         }
     }
 
-    /** 已落 Broker 的待交割通知跨同容器重启仍可消费；仅重启本套件创建的测试容器。 */
+    /** 已落 Broker 的待交割通知跨 Broker 暂停故障仍可消费；只暂停本套件创建的测试容器。 */
     @Test
     @Order(3)
-    void brokerRestartPreservesPublishedPendingDelivery() throws Exception {
+    void brokerOutagePreservesPublishedPendingDelivery() throws Exception {
         stopListeners();
         LoadFixture f = fixture();
         trading.place(order(f.seller(), f.symbol(), OrderSide.SELL));
@@ -234,8 +234,9 @@ class SpotDeliveryKafkaIntegrationTest {
             Integer.class, trade.toString()) == 1);
         assertEquals("PENDING", deliveries.get(trade).status());
         long started = System.nanoTime();
-        kafka.getDockerClient().stopContainerCmd(kafka.getContainerId()).withTimeout(30).exec();
-        kafka.getDockerClient().startContainerCmd(kafka.getContainerId()).exec();
+        kafka.getDockerClient().pauseContainerCmd(kafka.getContainerId()).exec();
+        assertTrue(kafka.getDockerClient().inspectContainerCmd(kafka.getContainerId()).exec().getState().getPaused());
+        kafka.getDockerClient().unpauseContainerCmd(kafka.getContainerId()).exec();
         await().atMost(Duration.ofSeconds(60)).until(() -> {
             try (var admin = Admin.create(Map.of("bootstrap.servers", kafka.getBootstrapServers(),
                 "request.timeout.ms", "2000", "default.api.timeout.ms", "2000"))) {
@@ -249,14 +250,14 @@ class SpotDeliveryKafkaIntegrationTest {
         await().atMost(Duration.ofSeconds(90)).until(() -> "SETTLED".equals(deliveries.get(trade).status()));
         long recoveryMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started);
         producer.send("spot.delivery.commands.v1", trade.toString(),
-            new SpotDeliveryCommand("after-broker-restart-" + trade, trade)).get(20, TimeUnit.SECONDS);
+            new SpotDeliveryCommand("after-broker-outage-" + trade, trade)).get(20, TimeUnit.SECONDS);
         await().atMost(Duration.ofSeconds(30)).until(() -> jdbc.queryForObject(
             "SELECT count(*) FROM spot_delivery_inbox WHERE trade_id=?", Integer.class, trade) >= 2);
         assertFunds(f);
         assertEquals(2, jdbc.queryForObject("SELECT count(*) FROM ledger_transaction WHERE business_key LIKE ?",
             Integer.class, "spot:" + trade + ":%"));
         evidence("broker-recovery.json", Map.of("recordedAt", Instant.now().toString(),
-            "scope", "isolated same-container broker restart; not disk loss or multi-broker failover",
+            "scope", "isolated broker pause/outage recovery; broker recreation and durable offsets are verified separately",
             "recoveryMillis", recoveryMillis, "tradeId", trade, "status", "SETTLED",
             "balancedAssetTransactions", 2, "fundDifferences", 0));
     }
