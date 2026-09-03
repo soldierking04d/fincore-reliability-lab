@@ -3,7 +3,7 @@ set -euo pipefail
 umask 077
 
 # 发行目录必须来自完整验收。不接受任意工作树，不修改整机配置。
-# V7 仅新增独立实验表；应用回退不删表，不覆盖发布后产生的账务数据。
+# V8 建立预占与在途；旧 V7 应用不理解该资金模型，迁移后不得无条件退回旧应用。
 release_dir="${1:?用法：deploy-app-release.sh /绝对路径/发行目录}"
 project_dir="${FINCORE_PROJECT_DIR:-/opt/fincore-reliability-lab}"
 [[ "$release_dir" == /* && -d "$release_dir" && "$project_dir" == /opt/fincore-reliability-lab ]] || exit 2
@@ -16,9 +16,9 @@ flock -n 9 || { echo "已有 FinCore 发布进行中。" >&2; exit 2; }
 cd "$release_dir"
 [[ -f app.jar && -f release.json && -f SHA256SUMS && -f web/index.html && -f .dockerignore ]] || exit 2
 sha256sum --check --strict SHA256SUMS
-jq -e '.tests.failed == 0 and .tests.errors == 0 and .tests.skipped == 0 and .tests.total >= 92
+jq -e '.tests.failed == 0 and .tests.errors == 0 and .tests.skipped == 0 and .tests.total >= 109
   and (.backendCommit | test("^[0-9a-f]{40}$")) and (.frontendCommit | test("^[0-9a-f]{40}$"))
-  and .databaseVersion == "7"' release.json >/dev/null
+  and .databaseVersion == "8"' release.json >/dev/null
 release_id="$(jq -r .releaseId release.json)"
 [[ "$release_id" =~ ^[a-zA-Z0-9-]+$ ]] || exit 2
 [[ ! -e "$release_dir/backup" ]] || { echo "发行目录已经执行过，禁止覆盖备份。" >&2; exit 2; }
@@ -49,6 +49,15 @@ printf 'services:\n  app:\n    image: "%s"\n' "$new_image" > release-image.yml
 docker build --network=none --pull=false --build-arg "FINCORE_RUNTIME_BASE=$old_image" -f Dockerfile.release -t "$new_image" .
 rollback() {
   trap - ERR
+  # 新资金状态必须由兼容版本继续处理。失败关闭也不能启动会绕过预占的旧撮合实现。
+  current_schema="$(docker exec "$postgres_id" psql -X -U fincore -d fincore -Atc "SELECT count(*) FROM flyway_schema_history WHERE version='8' AND success")"
+  previous_schema="$(jq -r '.databaseVersion // "unknown"' backup/release.json 2>/dev/null || echo unknown)"
+  if [[ "$current_schema" != 0 && "$previous_schema" != 8 ]]; then
+    printf '%s\n' 'FAILED_REQUIRES_V8_COMPATIBLE_APP' > release-status.txt
+    "${compose[@]}" stop app
+    echo "V8 资金迁移已生效，旧版不兼容；应用已停止接单，保留资金和备份，须修复或使用 V8 兼容版本。" >&2
+    return
+  fi
   echo "发布失败，回退原应用与首页；保留新增表及所有账务数据。" >&2
   "${compose[@]}" -f "$release_dir/backup/rollback-image.yml" up -d --no-deps --no-build --pull never app || return 1
   cp backup/index.html "$project_dir/infra/nginx/html/index.html.rollback"
@@ -69,7 +78,7 @@ for attempt in $(seq 1 60); do
   sleep 3
 done
 [[ "$healthy" == true ]]
-docker exec "$postgres_id" psql -X -U fincore -d fincore -Atc "SELECT success FROM flyway_schema_history WHERE version='7'" | grep -qx t
+docker exec "$postgres_id" psql -X -U fincore -d fincore -Atc "SELECT success FROM flyway_schema_history WHERE version='8'" | grep -qx t
 # 先复制内容寻址资源，再原子替换首页；保留旧资源以支持已打开页面和回退。
 if [[ -d web/_next ]]; then cp -a web/_next "$project_dir/infra/nginx/html/"; fi
 for asset in favicon.svg og.png; do
