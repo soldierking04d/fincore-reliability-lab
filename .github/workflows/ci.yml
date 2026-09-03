@@ -2,7 +2,7 @@ name: fincore-ci
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "codex/spot-funds-closure"]
   pull_request:
     branches: ["main"]
 
