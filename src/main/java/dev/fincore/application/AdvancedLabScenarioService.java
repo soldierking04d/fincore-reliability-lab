@@ -254,13 +254,19 @@ public class AdvancedLabScenarioService {
             } catch (dev.fincore.infrastructure.concurrent.ConcurrencyRejectedException expected) {
                 overflowRejected = true;
             }
-            CompletableFuture<dev.fincore.domain.OrderView> cancellation = lane.submitPriority(
-                symbol, () -> matching.cancel(placed.order().orderId(), userId));
+            CompletableFuture<CancellationObservation> cancellation = lane.submitPriority(
+                symbol, () -> {
+                    var canceled = matching.cancel(placed.order().orderId(), userId);
+                    // 必须在撤单任务仍占用同一 Lane 时取样。若等 future 返回后再读取，Worker 可能
+                    // 已经开始下一条普通命令，从而把“调度顺序”误判成失败。
+                    return new CancellationObservation(canceled, completedOrdinary.get());
+                });
 
             releaseWorker.countDown();
             require(blocker.get(2, TimeUnit.SECONDS), "阻塞任务未正常结束 / blocker did not finish");
-            var canceled = cancellation.get(5, TimeUnit.SECONDS);
-            int completedAtCancellation = completedOrdinary.get();
+            var cancellationObservation = cancellation.get(5, TimeUnit.SECONDS);
+            var canceled = cancellationObservation.order();
+            int completedAtCancellation = cancellationObservation.ordinaryCompleted();
             CompletableFuture.allOf(backlog.toArray(CompletableFuture[]::new))
                 .get(5, TimeUnit.SECONDS);
 
@@ -331,6 +337,16 @@ public class AdvancedLabScenarioService {
         if (!condition) {
             throw new IllegalStateException(message);
         }
+    }
+
+    /**
+     * 撤单任务在仍持有 Lane 执行权时记录的原子观察值。
+     *
+     * @param order 权威数据库已提交的撤单结果
+     * @param ordinaryCompleted 该时刻已经完成的普通积压数量
+     */
+    private record CancellationObservation(dev.fincore.domain.OrderView order,
+                                           int ordinaryCompleted) {
     }
 
     /**
