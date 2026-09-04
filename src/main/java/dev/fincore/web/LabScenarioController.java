@@ -1,6 +1,7 @@
 package dev.fincore.web;
 
 import dev.fincore.application.AdvancedLabScenarioService;
+import dev.fincore.application.ExchangeCoverageScenarioService;
 import dev.fincore.application.LabScenarioService;
 import dev.fincore.application.MarketCrashScenarioService;
 import dev.fincore.application.TradingLifecycleScenarioService;
@@ -31,16 +32,20 @@ public class LabScenarioController {
     private final MarketCrashScenarioService marketCrash;
     /** 用户到撮合的完整交易链路场景。 */
     private final TradingLifecycleScenarioService tradingLifecycle;
+    /** 交易所外围能力补全场景。 */
+    private final ExchangeCoverageScenarioService exchangeCoverage;
 
     /** 创建实验场景控制器。 */
     public LabScenarioController(LabScenarioService scenarios,
                                  AdvancedLabScenarioService advanced,
                                  MarketCrashScenarioService marketCrash,
-                                 TradingLifecycleScenarioService tradingLifecycle) {
+                                 TradingLifecycleScenarioService tradingLifecycle,
+                                 ExchangeCoverageScenarioService exchangeCoverage) {
         this.scenarios = scenarios;
         this.advanced = advanced;
         this.marketCrash = marketCrash;
         this.tradingLifecycle = tradingLifecycle;
+        this.exchangeCoverage = exchangeCoverage;
     }
 
     /** @return 完整资金可靠性实验报告 */
@@ -91,5 +96,15 @@ public class LabScenarioController {
     @PostMapping("/trading-lifecycle")
     public TradingLifecycleScenarioService.LifecycleScenarioReport tradingLifecycle() {
         return tradingLifecycle.run();
+    }
+
+    /**
+     * 运行行情、订单、FIX、市场监察、安全、费用、恢复、合约和链上状态实验。
+     *
+     * @return 九个能力域的结构化检查报告
+     */
+    @PostMapping("/exchange-coverage")
+    public ExchangeCoverageScenarioService.CoverageReport exchangeCoverage() {
+        return exchangeCoverage.run();
     }
 }

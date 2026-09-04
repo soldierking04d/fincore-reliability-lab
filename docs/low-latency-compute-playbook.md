@@ -10,7 +10,7 @@ DPDK、NUMA、GPU、FPGA”，而是技术负责人能否定义指标、找到�
 
 | 标识 | 含义 | FinCore 当前例子 |
 |---|---|---|
-| `VERIFIED` | 已有代码、自动测试或运行报告 | 有界撮合 Lane、幂等、Outbox、Epoch Fencing、G1/ZGC 配置与指标 |
+| `VERIFIED` | 已有代码、自动测试或运行报告 | 有界撮合 Lane、行情缺口与快照恢复、撮合日志重放、幂等、Outbox、Epoch Fencing、G1/ZGC 配置与指标 |
 | `DEMO` | 有完整架构、故障路径和验收口径，可用于评审与演示 | 低延迟三平面、CPU/GPU 决策矩阵、HFT 故障推演 |
 | `POC` | 需要在目标硬件、网卡、交易所或数据规模上做专项实验 | 绑核、NUMA、DPDK、硬件时间戳、GPU 风险批计算 |
 | `OWNER` | 应由有直接生产经验的领域负责人实施，技术负责人负责目标与验收 | C++ 热路径、FPGA RTL、柜台协议、GPU 集群底层优化 |
@@ -98,7 +98,9 @@ flowchart LR
 
 ## 3. CPU：从线程数走到微架构和硬件拓扑
 
-FinCore 已经验证“同 symbol 单写、跨 symbol 并行、有界队列、减少临时对象和数据库往返”。这解决的是
+FinCore 已经验证“同 symbol 单写、跨 symbol 并行、有界队列、减少临时对象和数据库往返”，并新增了
+行情序号缺口、快照+增量恢复、慢消费者有界缓冲和撮合命令日志确定性重放模型。完整代码与测试映射见
+[交易所核心能力补全实验](exchange-core-capability-lab.md)。这些解决的是
 正确性与高并发基线。若进入专用低延迟节点，还要补下面的硬件协同。
 
 ### 3.1 核心、IRQ、网卡队列和线程要同拓扑
@@ -437,4 +439,3 @@ FinCore 的现货、衍生品故障实验、幂等、资金账本、对账和 Ep
 - [Oracle Java 21 G1 调优](https://docs.oracle.com/en/java/javase/21/gctuning/garbage-first-garbage-collector-tuning.html)
 - [NVIDIA CUDA Best Practices Guide](https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/)
 - [NVIDIA Reproducibility](https://docs.nvidia.com/deeplearning/frameworks/reproducibility/index.html)
-

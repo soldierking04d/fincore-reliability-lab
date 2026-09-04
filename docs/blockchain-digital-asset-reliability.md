@@ -7,12 +7,19 @@ FinCore 当前没有连接真实公链、测试网节点、托管钱包、HSM �
 Outbox、状态机、Worker Fencing 和对账能力，怎样迁移到数字资产充值、提现与链上链下资金一致性场景；
 哪些环节仍需要专项代码、测试网故障实验和安全评审。
 
-当前结论分为两类：
+2026-09-04 已新增一个不连接真实资产的确定性状态机，用于把链专项语义也放进自动测试。当前结论分为三类：
 
 - **已经由 FinCore 证明的通用机制**：业务唯一键、Inbox/Outbox、单事务资金写入、不可变平衡账本、CAS
   状态机、Epoch Fencing、全量对账与幂等修复；
-- **尚待实现和验证的链专项能力**：EVM/Bitcoin 索引器、链重组回放、确认策略、Nonce/UTXO 协调、
-  交易替换、HSM/MPC 签名和测试网端到端演练。
+- **确定性模拟已证明的链专项语义**：链上金额使用整数最小单位、充值事件去重、确认数推进、已入账重组转
+  `ADJUSTMENT_REQUIRED`、提现未知结果、Nonce Epoch 围栏、同一提现的替换交易哈希链；
+- **尚待真实集成验证的能力**：EVM/Bitcoin 索引器、多 RPC 规范链判断、动态确认策略、UTXO 协调、
+  HSM/MPC 签名、冷热钱包和测试网端到端演练。
+
+对应实现为 `DigitalAssetWorkflow`，测试为
+`creditedDepositReorgRequiresAdjustmentInsteadOfDeletion` 和
+`withdrawalReplacementChainKeepsOneBusinessIntent`；完整九域报告与时序图见
+[交易所核心能力补全实验](exchange-core-capability-lab.md)。
 
 ## 二、为什么区块链不是“换一个数据库”
 
@@ -37,7 +44,7 @@ Outbox、状态机、Worker Fencing 和对账能力，怎样迁移到数字资�
 | Lease + Epoch Fencing | 索引分片、Nonce 或 UTXO 协调者 | 新 Owner 接管后旧进程即使恢复，也不能继续分配 Nonce、UTXO 或提交资金结果 |
 | 权威事实对账 | 链上、钱包、内部账与客户投影 | 自动修复只触碰可重建投影；影响资产的差异必须经过确定性资金服务与授权 |
 
-这些映射说明已有基础可以复用，但不能据此宣称链专项能力已经完成。
+这些映射和确定性状态机说明已有基础可以复用，但不能据此宣称真实钱包与公链接入已经完成。
 
 ## 四、参考架构
 
