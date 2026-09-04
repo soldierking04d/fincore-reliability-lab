@@ -21,6 +21,7 @@
 [总架构与服务拓扑](docs/resilient-system-architecture.md) ·
 [互联网到数字资产交易](docs/internet-to-digital-asset-trading.md) ·
 [大流量撤单实现](docs/cancellation-under-load.md) ·
+[交易所九域补全实验](docs/exchange-core-capability-lab.md) ·
 [合约关键故障实验](docs/derivatives-failure-lab.md) ·
 [管理实战手册](docs/management/README.md) ·
 [AI 评测结果](https://fincore-agent-benchmark.soldierking04d.chatgpt.site) ·
@@ -41,6 +42,7 @@
 | 市场暴跌恢复实验 | `10 / 10 PASS` | 覆盖重试、无流动性、接管、乱序、漏数、错值、幽灵成交和修复 |
 | Coding Agent 受控评测 | `54 runs` | 8 个金融可靠性任务，公开规则、隐藏验收、财务安全否决 |
 | 技术治理自动校验 | `5 registries` | Owner、风险、指标、技术采用、审计证据由 Maven/CI 检查 |
+| 交易所外围核心能力 | `9 / 9 PASS` | 行情、订单语义、FIX/OMS、市场监察、安全、费用、撮合恢复、合约与链上状态可一键复算 |
 
 你可以在[在线完整演示](https://fincore-reliability-demo.soldierking04d.chatgpt.site/)里直接查看系统监控、价格波动、订单量、QPS、架构图、服务拓扑和核心时序图，也可以在本地复现全部实验。
 
@@ -58,6 +60,9 @@ docker compose up --build
 
 ```bash
 curl -s -X POST http://127.0.0.1:8080/lab/scenarios/market-crash-day
+
+# 行情、订单、FIX、监察、安全、费用、恢复、合约与链上九域实验
+curl -s -X POST http://127.0.0.1:8080/lab/scenarios/exchange-coverage
 ```
 
 完整验证使用 `./scripts/full-check.sh`；只有 JDK 21、暂时没有 Docker 时，可先运行 `./scripts/verify-core.sh`。更适合第一次浏览的入口是[总架构与服务拓扑](docs/resilient-system-architecture.md)、[互联网到数字资产交易](docs/internet-to-digital-asset-trading.md)、[大流量下撤单](docs/cancellation-under-load.md)、[完整交易链路](docs/full-trading-lifecycle.md)、[低延迟与 CPU/GPU 专项手册](docs/low-latency-compute-playbook.md)和[故障实验说明](docs/market-crash-day.md)。
@@ -73,7 +78,7 @@ FinCore 同时是一份有证据边界的技术负责人能力作品集，但这
 | 架构、高并发与低延迟判断 | Java 21、Spring Boot、MyBatis、有界撮合 Lane、Kafka、Outbox、Epoch Fencing、G1/ZGC、Prometheus/Grafana；并区分 CPU/NUMA、网络、FPGA、GPU 的适用边界 | 60 笔成交 = 60 个唯一序列；[高并发与 JVM 落地](docs/high-concurrency-jvm-tuning.md)、[低延迟与异构计算手册](docs/low-latency-compute-playbook.md)、[手册缺口覆盖矩阵](docs/handbook-gap-coverage.md) |
 | 团队、交付与治理 | 团队梯队、跨部门沟通、SLO/灾备、FinOps、安全合规、供应商、技术雷达和高管沟通 | [18 个职责与实战章节](docs/management/README.md)、[5 份机器可读治理台账](governance/README.md) |
 | AI 落地与评测 | 用例登记、人工基线、成本、权限、发布阈值、失效日期、Kill Switch，以及多 Agent 隔离评测 | 8 个任务、54 次受控运行；[AI 用例登记](ai/README.md)、[评测报告](reports/evaluations/README.md) |
-| 数字资产可靠性 | 将已验证机制映射到充值确认、链重组、提现未知结果、Nonce/UTXO、HSM/MPC 和链上链下对账 | [数字资产可靠性设计与实施边界](docs/blockchain-digital-asset-reliability.md) |
+| 数字资产可靠性 | 将已验证机制映射到充值确认、链重组、提现未知结果、Nonce/UTXO、HSM/MPC 和链上链下对账，并加入确定性状态机 | [数字资产可靠性设计与实施边界](docs/blockchain-digital-asset-reliability.md)、[交易所九域补全实验](docs/exchange-core-capability-lab.md) |
 
 项目使用完全虚构的数据，不包含任何前雇主代码、客户信息或内部参数。已经运行验证的能力与仍处于设计阶段的内容均明确标注，避免把架构设想包装成生产事实。
 
@@ -92,7 +97,7 @@ FinCore 同时是一份有证据边界的技术负责人能力作品集，但这
 | 手续费账户热点 | 确定性分片 + 幂等归集 | 分片总额实验 |
 | 缩容后旧 Worker 恢复写入 | Lease + Epoch + 数据面 Fencing | 接管与旧 Epoch 拒写实验 |
 | 余额遭到异常修改 | 余额—账本重算对账 | 故障注入和差异发现 |
-| 数字资产充值、提现和链重组 | 已完成可靠性架构映射；链专项实现仍在路线中 | [设计、状态机与验收路线](docs/blockchain-digital-asset-reliability.md) |
+| 数字资产充值、提现和链重组 | 已实现确定性状态机与自动测试；真实测试网、多 RPC 和 HSM/MPC 仍在路线中 | [状态机、代码与验收路线](docs/blockchain-digital-asset-reliability.md) |
 
 ![FinCore Grafana 仪表盘](docs/showcase/grafana-dashboard.png)
 
