@@ -69,6 +69,18 @@ public class LabScenarioController {
         return advanced.runTradeSyncRecovery();
     }
 
+    /**
+     * 运行新单队列满载时的撤单优先保护实验。
+     *
+     * @param backlog 普通命令积压量
+     * @return 撤单保留容量、执行次序和数量守恒报告
+     */
+    @PostMapping("/cancellation-storm")
+    public AdvancedLabScenarioService.CancellationStormReport cancellationStorm(
+        @RequestParam(defaultValue = "256") int backlog) {
+        return advanced.runCancellationStorm(backlog);
+    }
+
     /** @return 市场暴跌日端到端复合故障报告 */
     @PostMapping("/market-crash-day")
     public MarketCrashScenarioService.MarketCrashReport marketCrashDay() {

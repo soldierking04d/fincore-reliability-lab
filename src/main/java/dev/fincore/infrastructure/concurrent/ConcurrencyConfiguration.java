@@ -46,6 +46,7 @@ public class ConcurrencyConfiguration {
         return new StripedTaskExecutor(
             properties.getMatchingLanes(),
             properties.getMatchingQueueCapacityPerLane(),
+            properties.getMatchingCancelQueueCapacityPerLane(),
             registry
         );
     }

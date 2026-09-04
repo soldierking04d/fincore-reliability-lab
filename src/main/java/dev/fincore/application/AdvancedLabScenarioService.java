@@ -2,11 +2,14 @@ package dev.fincore.application;
 
 import dev.fincore.domain.MatchingResult;
 import dev.fincore.domain.OrderSide;
+import dev.fincore.domain.OrderStatus;
 import dev.fincore.domain.OrderType;
 import dev.fincore.domain.PlaceOrderCommand;
 import dev.fincore.domain.TradeSyncCommand;
 import dev.fincore.domain.TradeView;
 import dev.fincore.infrastructure.persistence.mapper.LabScenarioMapper;
+import dev.fincore.infrastructure.concurrent.StripedTaskExecutor;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -15,10 +18,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
@@ -204,6 +210,93 @@ public class AdvancedLabScenarioService {
     }
 
     /**
+     * 运行“普通下单积压 + 撤单风暴”确定性实验。
+     *
+     * <p>实验创建与生产相同的双有界 Lane：先阻塞唯一 Worker，再填满普通队列并验证后续新单被
+     * 明确拒绝；撤单使用独立保留容量受理。放行 Worker 后，撤单应先于全部普通积压进入权威数据库
+     * 事务。实验只使用独立交易对，不修改生产配置，结束时会关闭临时执行器。</p>
+     *
+     * @param ordinaryBacklog 普通命令积压量，范围为 8 至 512
+     * @return 撤单准入、执行顺序与数量守恒报告
+     */
+    public CancellationStormReport runCancellationStorm(int ordinaryBacklog) {
+        if (ordinaryBacklog < 8 || ordinaryBacklog > 512) {
+            throw new IllegalArgumentException("普通积压量需为 8—512");
+        }
+        String runId = Long.toString(System.currentTimeMillis());
+        String symbol = "CXL" + runId.substring(Math.max(0, runId.length() - 9)) + "-USDT";
+        String userId = "cancel-owner-" + runId;
+        var placed = matching.place(new PlaceOrderCommand(
+            "cancel-storm-" + runId, userId, symbol, OrderSide.BUY, OrderType.LIMIT,
+            new BigDecimal("99"), new BigDecimal("5")));
+
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        StripedTaskExecutor lane = new StripedTaskExecutor(1, ordinaryBacklog, 16, registry);
+        CountDownLatch workerStarted = new CountDownLatch(1);
+        CountDownLatch releaseWorker = new CountDownLatch(1);
+        AtomicInteger completedOrdinary = new AtomicInteger();
+        List<CompletableFuture<Integer>> backlog = new ArrayList<>();
+        long startedAt = System.nanoTime();
+        try {
+            CompletableFuture<Boolean> blocker = lane.submit(symbol, () -> {
+                workerStarted.countDown();
+                return releaseWorker.await(5, TimeUnit.SECONDS);
+            });
+            require(workerStarted.await(1, TimeUnit.SECONDS), "无法建立确定性积压 / worker did not block");
+            for (int index = 0; index < ordinaryBacklog; index++) {
+                backlog.add(lane.submit(symbol, completedOrdinary::incrementAndGet));
+            }
+
+            boolean overflowRejected;
+            try {
+                lane.submit(symbol, completedOrdinary::incrementAndGet);
+                overflowRejected = false;
+            } catch (dev.fincore.infrastructure.concurrent.ConcurrencyRejectedException expected) {
+                overflowRejected = true;
+            }
+            CompletableFuture<dev.fincore.domain.OrderView> cancellation = lane.submitPriority(
+                symbol, () -> matching.cancel(placed.order().orderId(), userId));
+
+            releaseWorker.countDown();
+            require(blocker.get(2, TimeUnit.SECONDS), "阻塞任务未正常结束 / blocker did not finish");
+            var canceled = cancellation.get(5, TimeUnit.SECONDS);
+            int completedAtCancellation = completedOrdinary.get();
+            CompletableFuture.allOf(backlog.toArray(CompletableFuture[]::new))
+                .get(5, TimeUnit.SECONDS);
+
+            boolean quantityInvariant = canceled.executedQuantity()
+                .add(canceled.remainingQuantity())
+                .compareTo(canceled.originalQuantity()) == 0;
+            require(overflowRejected, "普通队列饱和后仍受理新单 / overflow order was accepted");
+            require(canceled.status() == OrderStatus.CANCELED,
+                "撤单未形成权威终态 / cancellation not finalized");
+            require(completedAtCancellation == 0,
+                "撤单没有越过普通积压 / cancellation did not overtake backlog");
+            require(quantityInvariant, "订单数量不守恒 / order quantity invariant failed");
+
+            Map<String, String> checks = new LinkedHashMap<>();
+            checks.put("普通队列背压", "PASS：满载后新单返回 429 语义，不转移到无界队列");
+            checks.put("撤单保留容量", "PASS：普通队列已满仍能受理撤单");
+            checks.put("同交易对顺序", "PASS：不抢占进行中事务，随后优先于 " + ordinaryBacklog + " 笔积压");
+            checks.put("前端成功语义", "PASS：数据库返回 CANCELED 终态后才报告成功");
+            checks.put("订单数量守恒", "PASS：executed + remaining = original");
+            long elapsedMs = Math.max(1, TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt));
+            return new CancellationStormReport(runId, symbol, Instant.now(), ordinaryBacklog,
+                overflowRejected, canceled.status(), completedAtCancellation,
+                completedOrdinary.get(), quantityInvariant, elapsedMs, checks);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("撤单风暴实验被中断 / cancellation storm interrupted", exception);
+        } catch (ExecutionException | java.util.concurrent.TimeoutException exception) {
+            throw new IllegalStateException("撤单风暴实验失败 / cancellation storm failed", exception);
+        } finally {
+            releaseWorker.countDown();
+            lane.shutdown();
+            registry.close();
+        }
+    }
+
+    /**
      * 从持久化事实验证热点撮合的数量守恒、序号唯一和事件完整性。
      */
     private BurstReport verifyBurst(String runId, String symbol, int makers,
@@ -231,6 +324,13 @@ public class AdvancedLabScenarioService {
             .divide(BigDecimal.valueOf(elapsedMs), 2, java.math.RoundingMode.HALF_UP);
         return new BurstReport(runId, symbol, Instant.now(), makers, takers,
             storedTrades, elapsedMs, observedRate, checks);
+    }
+
+    /** 场景断言失败时立即终止，禁止生成伪成功报告。 */
+    private static void require(boolean condition, String message) {
+        if (!condition) {
+            throw new IllegalStateException(message);
+        }
     }
 
     /**
@@ -266,5 +366,27 @@ public class AdvancedLabScenarioService {
     public record SyncRecoveryReport(String runId, String symbol, Instant completedAt,
                                      Map<String, String> checks, UUID missingRunId,
                                      UUID corruptedRunId, UUID finalCleanRunId) {
+    }
+
+    /**
+     * 撤单风暴实验报告。
+     *
+     * @param runId 实验编号
+     * @param symbol 隔离交易对
+     * @param completedAt 完成时间
+     * @param ordinaryBacklog 普通命令积压量
+     * @param overflowRejected 普通队列满载后是否拒绝新单
+     * @param cancellationStatus 权威撤单终态
+     * @param ordinaryCompletedAtCancellation 撤单完成时已完成的普通积压数
+     * @param ordinaryCompleted 最终完成的普通积压数
+     * @param quantityInvariant 订单数量是否守恒
+     * @param elapsedMs 场景总耗时
+     * @param checks 场景断言
+     */
+    public record CancellationStormReport(
+        String runId, String symbol, Instant completedAt, int ordinaryBacklog,
+        boolean overflowRejected, OrderStatus cancellationStatus,
+        int ordinaryCompletedAtCancellation, int ordinaryCompleted,
+        boolean quantityInvariant, long elapsedMs, Map<String, String> checks) {
     }
 }

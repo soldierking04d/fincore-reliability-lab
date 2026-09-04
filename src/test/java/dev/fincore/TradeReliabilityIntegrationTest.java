@@ -59,6 +59,18 @@ class TradeReliabilityIntegrationTest {
     @Autowired AdvancedLabScenarioService advanced;
     @Autowired JdbcTemplate jdbc;
 
+    /** 普通下单积压不能挤占撤单容量，且撤单必须在权威终态后返回成功。 */
+    @Test
+    void cancellationStormPreservesExitCapacityAndOrderInvariant() {
+        var report = advanced.runCancellationStorm(32);
+        assertTrue(report.overflowRejected());
+        assertEquals(dev.fincore.domain.OrderStatus.CANCELED, report.cancellationStatus());
+        assertEquals(0, report.ordinaryCompletedAtCancellation());
+        assertEquals(32, report.ordinaryCompleted());
+        assertTrue(report.quantityInvariant());
+        assertTrue(report.checks().values().stream().allMatch(value -> value.startsWith("PASS")));
+    }
+
     @Test
     void outOfOrderDuplicateAndMissingEventRepairConverges() {
         String symbol = symbol("MISS");

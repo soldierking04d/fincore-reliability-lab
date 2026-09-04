@@ -85,6 +85,7 @@ fincore:
   concurrency:
     matching-lanes: 4
     matching-queue-capacity-per-lane: 256
+    matching-cancel-queue-capacity-per-lane: 32
     matching-wait-timeout: 10s
 ```
 
@@ -309,6 +310,9 @@ Actuator 已自动暴露 HTTP、JVM、CPU、GC、线程、Hikari 和 Kafka 指�
 | `fincore.matching.lane.queue.depth` | 每个 Lane 排队数 | 单个 Lane 持续上涨表示热点交易对饱和 |
 | `fincore.matching.queue.depth.total` | 全部撮合排队数 | 接近 Lane 数 × 单 Lane 容量 |
 | `fincore.matching.queue.rejected` | 入口过载拒绝数 | 任何持续增长都应扩容或降载 |
+| `fincore.matching.cancel.lane.queue.depth` | 单 Lane 撤单积压 | 与价格波动、订单/撤单比联动观察 |
+| `fincore.matching.cancel.queue.depth.total` | 全部撤单积压 | 快速上涨时优先限制新单并保护退出能力 |
+| `fincore.matching.cancel.queue.rejected` | 撤单保留容量拒绝数 | 最高优先级事故，不能与普通 429 等同处理 |
 | `fincore.matching.queue.wait` | 排队等待分布 | p99 上升但执行时间稳定说明排队不足 |
 | `fincore.matching.execution` | 实际撮合耗时 | 上升时看 DB 锁和 SQL |
 | `fincore.settlement.consumer.inflight` | 正在处理的结算消息 | 长期等于 Consumer 数表示饱和 |

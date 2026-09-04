@@ -38,10 +38,13 @@ class ConcurrencyArchitectureTest {
         String coordinator = Files.readString(Path.of(
             "src/main/java/dev/fincore/application/MatchingCommandCoordinator.java"));
 
-        assertTrue(executor.contains("ArrayBlockingQueue"));
+        assertTrue(executor.contains("PriorityCommandQueue"));
+        assertTrue(executor.contains("ordinaryCapacity"));
+        assertTrue(executor.contains("priorityCapacity"));
         assertTrue(executor.contains("AbortPolicy"));
         assertFalse(executor.contains("LinkedBlockingQueue"));
         assertTrue(coordinator.contains("command.symbol()"));
+        assertTrue(coordinator.contains("submitPriority(snapshot.symbol()"));
         assertTrue(coordinator.contains("same idempotency key"));
     }
 

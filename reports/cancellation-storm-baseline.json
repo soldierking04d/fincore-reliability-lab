@@ -1,0 +1,29 @@
+{
+  "scenario": "cancellation-storm",
+  "purpose": "证明普通新单队列满载时仍保留撤单容量，并保持交易对内权威顺序",
+  "input": {
+    "ordinaryBacklog": 256,
+    "overflowOrders": 1,
+    "cancellationCommands": 1
+  },
+  "expected": {
+    "overflowRejected": true,
+    "cancellationStatus": "CANCELED",
+    "ordinaryCompletedAtCancellation": 0,
+    "ordinaryCompleted": 256,
+    "quantityInvariant": true
+  },
+  "financialInvariants": [
+    "executedQuantity + remainingQuantity = originalQuantity",
+    "撤单与成交共享交易对顺序边界",
+    "预占资金只释放一次且仅释放未成交部分",
+    "只有权威事务提交后才返回撤单成功"
+  ],
+  "evidence": [
+    "StripedTaskExecutorTest.cancellationUsesReservedCapacityAndOvertakesOrdinaryBacklog",
+    "TradeReliabilityIntegrationTest.cancellationStormPreservesExitCapacityAndOrderInvariant",
+    "SpotFundsIntegrationTest.cancellationReleasesOnlyOnce",
+    "SpotFundsIntegrationTest.partialFillPriceImprovementAndCancellationPreservePending"
+  ],
+  "note": "该文件是确定性场景的验收基线，不代表生产吞吐承诺；实际运行返回 runId、symbol、completedAt 和 elapsedMs。"
+}

@@ -210,13 +210,14 @@ sequenceDiagram
     C->>N: 瞬时订单洪峰
     N->>A: 限额内请求
     A->>Q: symbol 稳定散列
-    Q->>Q: ArrayBlockingQueue(256)
+    Q->>Q: 普通有界容量 256
     Q->>D: 同 symbol 串行执行
     D-->>A: 已提交订单结果
     alt Lane 已满
         Q--xA: RejectedExecution
         A--xC: 429 + 原幂等键重试
     end
+    Note over A,Q: 撤单使用独立保留容量 32，但仍由同一 Lane 定序
 ```
 
 ### 5. Worker 接管、重复投递与 Epoch Fencing
@@ -288,9 +289,10 @@ flowchart LR
 
 - Nginx 固定场景限速和应用入口明确超时；
 - Java 21 虚拟线程用于短 I/O 接入，不承担撮合顺序；
-- `StripedTaskExecutor` 使用 4 条单平台线程 Lane，每条 `ArrayBlockingQueue(256)`；
+- `StripedTaskExecutor` 使用 4 条单平台线程 Lane，每条含普通有界容量 256 和撤单保留容量 32；
 - 同一 `symbol` 稳定进入同一 Lane，不同标的并行；
-- 队列满使用 `AbortPolicy` 明确拒绝并记录指标；
+- 两类队列分别有界，队满使用 `AbortPolicy` 明确拒绝并记录指标；普通新单不能挤占撤单容量；
+- 撤单优先于尚未开始的普通积压，但不抢占当前事务；连续 8 笔撤单后让 1 笔普通命令前进；
 - 多实例同时处理同一标的时，PostgreSQL 事务锁和版本检查提供最后定序；
 - 客户端超时不能推断订单失败，必须使用原 `clientOrderId` 查询或重试。
 

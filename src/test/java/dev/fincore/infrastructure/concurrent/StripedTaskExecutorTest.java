@@ -104,6 +104,48 @@ class StripedTaskExecutorTest {
         }
     }
 
+    /**
+     * 普通下单队列已经饱和时，撤单仍应使用独立保留容量进入同一 Lane，并在当前任务结束后
+     * 先于普通积压执行。这样既不破坏交易对内的单线程顺序，也不会让用户在行情波动时因
+     * 新单洪峰而失去退出风险的通道。
+     */
+    @Test
+    void cancellationUsesReservedCapacityAndOvertakesOrdinaryBacklog() throws Exception {
+        StripedTaskExecutor executor = new StripedTaskExecutor(1, 1, 1, new SimpleMeterRegistry());
+        CountDownLatch started = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        List<String> executionOrder = Collections.synchronizedList(new ArrayList<>());
+        try {
+            CompletableFuture<String> running = executor.submit("BTC-USDT", () -> {
+                started.countDown();
+                release.await(2, TimeUnit.SECONDS);
+                executionOrder.add("running-order");
+                return "running-order";
+            });
+            assertTrue(started.await(1, TimeUnit.SECONDS));
+            CompletableFuture<String> queuedOrder = executor.submit("BTC-USDT", () -> {
+                executionOrder.add("queued-order");
+                return "queued-order";
+            });
+
+            assertThrows(ConcurrencyRejectedException.class,
+                () -> executor.submit("BTC-USDT", () -> "overflow-order"));
+            CompletableFuture<String> cancellation = executor.submitPriority("BTC-USDT", () -> {
+                executionOrder.add("cancellation");
+                return "cancellation";
+            });
+
+            release.countDown();
+            assertEquals("running-order", running.get(1, TimeUnit.SECONDS));
+            assertEquals("cancellation", cancellation.get(1, TimeUnit.SECONDS));
+            assertEquals("queued-order", queuedOrder.get(1, TimeUnit.SECONDS));
+            assertEquals(List.of("running-order", "cancellation", "queued-order"), executionOrder);
+        } finally {
+            release.countDown();
+            executor.shutdown();
+        }
+    }
+
     /** 等待两个 Lane 都进入任务后再统一放行。 */
     private static boolean awaitBoth(CountDownLatch entered, CountDownLatch release)
         throws InterruptedException {
