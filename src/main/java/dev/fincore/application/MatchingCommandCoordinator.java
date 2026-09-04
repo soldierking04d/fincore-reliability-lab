@@ -51,7 +51,7 @@ public class MatchingCommandCoordinator {
     /** 按订单所属交易对串行执行撤单。 */
     public OrderView cancel(UUID orderId, String userId) {
         OrderView snapshot = matching.get(orderId);
-        return await(executor.submit(snapshot.symbol(), () -> matching.cancel(orderId, userId)));
+        return await(executor.submitPriority(snapshot.symbol(), () -> matching.cancel(orderId, userId)));
     }
 
     /** 查询订单快照，不占用撮合写 Lane。 */

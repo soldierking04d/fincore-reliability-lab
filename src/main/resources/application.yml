@@ -93,6 +93,7 @@ fincore:
     # 同一交易对固定进入同一单线程 Lane；多交易对可以并行，队列满时立即返回 429。
     matching-lanes: ${FINCORE_MATCHING_LANES:4}
     matching-queue-capacity-per-lane: ${FINCORE_MATCHING_QUEUE_CAPACITY:256}
+    matching-cancel-queue-capacity-per-lane: ${FINCORE_MATCHING_CANCEL_QUEUE_CAPACITY:32}
     matching-wait-timeout: ${FINCORE_MATCHING_WAIT_TIMEOUT:10s}
     # Kafka 消费线程显式使用平台线程，数量不超过部署实例可用平台处理器。
     settlement-consumers: ${FINCORE_SETTLEMENT_CONSUMERS:4}

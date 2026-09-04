@@ -19,6 +19,8 @@
 [在线完整演示](https://fincore-reliability-demo.soldierking04d.chatgpt.site/) ·
 [腾讯云运行实例](https://124.223.164.254/) ·
 [总架构与服务拓扑](docs/resilient-system-architecture.md) ·
+[互联网到数字资产交易](docs/internet-to-digital-asset-trading.md) ·
+[大流量撤单实现](docs/cancellation-under-load.md) ·
 [合约关键故障实验](docs/derivatives-failure-lab.md) ·
 [管理实战手册](docs/management/README.md) ·
 [AI 评测结果](https://fincore-agent-benchmark.soldierking04d.chatgpt.site) ·
@@ -35,6 +37,7 @@
 | 行情暴跌下的并发撮合 | `60 = 60` | 60 笔权威成交对应 60 个唯一序列，价格时间优先和数量守恒成立 |
 | 重复结算风暴 | `17 → 1` | 同一结算命令并发投递 17 次，最终只有 1 次资金效果 |
 | 完整客户交易生命周期 | `8 / 8 PASS` | 用户、KYC、风控、行情、账户、撮合、结算、对账全部通过 |
+| 新单积压与撤单风暴 | `256 → 0` | 普通队列满载时撤单仍被受理，并在 256 笔普通积压之前完成 |
 | 市场暴跌恢复实验 | `10 / 10 PASS` | 覆盖重试、无流动性、接管、乱序、漏数、错值、幽灵成交和修复 |
 | Coding Agent 受控评测 | `54 runs` | 8 个金融可靠性任务，公开规则、隐藏验收、财务安全否决 |
 | 技术治理自动校验 | `5 registries` | Owner、风险、指标、技术采用、审计证据由 Maven/CI 检查 |
@@ -57,7 +60,7 @@ docker compose up --build
 curl -s -X POST http://127.0.0.1:8080/lab/scenarios/market-crash-day
 ```
 
-完整验证使用 `./scripts/full-check.sh`；只有 JDK 21、暂时没有 Docker 时，可先运行 `./scripts/verify-core.sh`。更适合第一次浏览的入口是[总架构与服务拓扑](docs/resilient-system-architecture.md)、[完整交易链路](docs/full-trading-lifecycle.md)、[低延迟与 CPU/GPU 专项手册](docs/low-latency-compute-playbook.md)和[故障实验说明](docs/market-crash-day.md)。
+完整验证使用 `./scripts/full-check.sh`；只有 JDK 21、暂时没有 Docker 时，可先运行 `./scripts/verify-core.sh`。更适合第一次浏览的入口是[总架构与服务拓扑](docs/resilient-system-architecture.md)、[互联网到数字资产交易](docs/internet-to-digital-asset-trading.md)、[大流量下撤单](docs/cancellation-under-load.md)、[完整交易链路](docs/full-trading-lifecycle.md)、[低延迟与 CPU/GPU 专项手册](docs/low-latency-compute-playbook.md)和[故障实验说明](docs/market-crash-day.md)。
 
 ## 不止于工程实现
 
@@ -81,6 +84,7 @@ FinCore 同时是一份有证据边界的技术负责人能力作品集，但这
 | 生产风险 | 项目中的保护机制 | 自动证明 |
 |---|---|---|
 | 并发订单破坏价格时间优先或生成重复成交 | 交易对单写锁 + 持久化序列 + 数量守恒 | 价格/时间优先、幂等与并发测试 |
+| 新单洪峰挤占撤单通道 | 普通/撤单双有界容量 + 同交易对优先出队 + 最大撤单批次 | 256 笔积压前撤单完成、普通溢出明确拒绝 |
 | Kafka 重复投递导致重复入账 | Inbox + 业务键数据库唯一约束 | 并发重复结算风暴 |
 | 余额和账本部分提交 | 单个 PostgreSQL 事务 | Testcontainers 集成测试 |
 | 成功状态被旧线程覆盖 | CAS + 合法状态机 + 审计 | 状态竞争测试 |
@@ -106,6 +110,7 @@ FinCore 同时是一份有证据边界的技术负责人能力作品集，但这
 - 参考行情、聚合订单簿与最近成交组成的行情查询；
 - 用户、KYC、风控、交易账户、行情、盘前决定和撮合串联的受控下单入口；
 - Java 21 虚拟线程接入、有界撮合 Lane 和 Kafka/定时任务平台线程隔离；
+- 普通下单与撤单独立有界容量；撤单优先但仍共享交易对顺序，连续批次受限以避免普通流量饥饿；
 - Outbox 有界批量异步发送、批量状态回写、指数退避与未知结果回收；
 - Worker Lease 短期缓存削减控制面写热点，资金事务继续执行强制 Epoch Fencing；
 - G1 默认与 Generational ZGC 备选启动配置、GC 日志、Heap Dump 和连续 JFR；
@@ -191,6 +196,7 @@ flowchart LR
 | 场景 | 需要守住的结果 |
 |---|---|
 | 热点交易对订单洪峰 | 并发成交不重复、序列不冲突、订单数量守恒、Outbox 不丢 |
+| 新单积压与撤单风暴 | 普通队列满载时撤单仍有保留容量；撤单先于积压，成交/撤单仍同序 |
 | 成交事件乱序 | 下游投影不依赖消息到达顺序 |
 | 重复与冲突事件 | 相同载荷幂等；同一事件号更换内容立即拒绝 |
 | 漏同步与字段错值 | 全量对账分别识别 `MISSING` 与 `MISMATCH` |
@@ -216,6 +222,9 @@ curl -s -X POST \
 
 curl -s -X POST \
   http://127.0.0.1:8080/lab/scenarios/market-crash-day
+
+curl -s -X POST \
+  'http://127.0.0.1:8080/lab/scenarios/cancellation-storm?backlog=256'
 ```
 
 ## 一键启动

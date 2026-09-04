@@ -18,6 +18,8 @@ public class ConcurrencyProperties {
     private int matchingLanes = 4;
     /** 每个撮合 Lane 的最大排队任务数。 */
     private int matchingQueueCapacityPerLane = 256;
+    /** 每个撮合 Lane 专门保留给撤单命令的排队容量。 */
+    private int matchingCancelQueueCapacityPerLane = 32;
     /** HTTP 等待撮合结果的最长时间。 */
     private Duration matchingWaitTimeout = Duration.ofSeconds(10);
     /** 单实例 Kafka 结算消费者数量。 */
@@ -39,6 +41,7 @@ public class ConcurrencyProperties {
     public void validate() {
         requireRange("matchingLanes", matchingLanes, 1, 64);
         requireRange("matchingQueueCapacityPerLane", matchingQueueCapacityPerLane, 1, 100_000);
+        requireRange("matchingCancelQueueCapacityPerLane", matchingCancelQueueCapacityPerLane, 1, 10_000);
         requirePositive("matchingWaitTimeout", matchingWaitTimeout);
         requireRange("settlementConsumers", settlementConsumers, 1, 64);
         requirePositive("kafkaSubmitTimeout", kafkaSubmitTimeout);
@@ -80,6 +83,14 @@ public class ConcurrencyProperties {
 
     public void setMatchingQueueCapacityPerLane(int matchingQueueCapacityPerLane) {
         this.matchingQueueCapacityPerLane = matchingQueueCapacityPerLane;
+    }
+
+    public int getMatchingCancelQueueCapacityPerLane() {
+        return matchingCancelQueueCapacityPerLane;
+    }
+
+    public void setMatchingCancelQueueCapacityPerLane(int matchingCancelQueueCapacityPerLane) {
+        this.matchingCancelQueueCapacityPerLane = matchingCancelQueueCapacityPerLane;
     }
 
     public Duration getMatchingWaitTimeout() {
