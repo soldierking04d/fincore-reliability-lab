@@ -173,7 +173,7 @@ DELETE /api/matching/orders/{orderId}?userId={userId}
 | 测试 | 输入 | 核心断言 |
 |---|---|---|
 | `cancellationUsesReservedCapacityAndOvertakesOrdinaryBacklog` | Worker 阻塞、普通容量 1 已满、再提交撤单 | 溢出新单被拒；撤单受理；执行顺序为当前任务 → 撤单 → 普通积压 |
-| `cancellationStormPreservesExitCapacityAndOrderInvariant` | 32 笔普通积压 + 撤单 | 撤单完成时普通积压完成数为 0；数量守恒 |
+| `cancellationStormPreservesExitCapacityAndOrderInvariant` | 32 笔普通积压 + 撤单 | 在撤单任务仍占用同一 Lane 的原子观察点，普通积压完成数为 0；数量守恒 |
 | `cancellationReleasesOnlyOnce` | 同一订单撤单两次，再重放下单 | 预占只释放一次，余额不增加两次 |
 | `partialFillPriceImprovementAndCancellationPreservePending` | 2 单位买单先成交 1，再撤余单 | 只释放剩余预占；已成交资金继续 DvP |
 | `openOrderCanBeCanceledOnlyByItsOwner` | 非本人撤单、本人重复撤单 | 越权拒绝；本人撤单幂等 |
