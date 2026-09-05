@@ -10,6 +10,7 @@ import dev.fincore.domain.SettlementCommand;
 import dev.fincore.domain.SettlementOutcome;
 import dev.fincore.domain.TradeSyncCommand;
 import dev.fincore.domain.TradeView;
+import dev.fincore.infrastructure.concurrent.VirtualTaskExecutors;
 import dev.fincore.infrastructure.persistence.mapper.LabScenarioMapper;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -25,7 +26,6 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
@@ -33,7 +33,13 @@ import org.springframework.stereotype.Service;
 /**
  * 市场暴跌日复合实验 / Composite market-crash-day experiment.
  *
- * <p>只复现公开事故中的故障类型，不使用任何公司的源码、流量或内部参数。
+ * <p><strong>解决的问题：</strong>组合行情剧烈波动、撮合竞争、重复结算和投影故障，验证系统在压力
+ * 叠加而非单一故障下仍保留幂等、守恒和可恢复证据。</p>
+ *
+ * <p><strong>CPU 与容量边界：</strong>订单、卖方、结算和重复投递数量均为受控实验常量，用于稳定复现
+ * 竞争，不代表峰值容量。线程只存在于 {@code lab} 场景，不能复制到生产线程配置。</p>
+ *
+ * <p><strong>正确性边界：</strong>只复现公开事故类型，不使用任何公司的源码、流量或内部参数；
  * It reproduces public failure patterns, never private implementation details.</p>
  *
  * @author FinCore Reliability Lab
@@ -117,6 +123,38 @@ public class MarketCrashScenarioService {
             "交易对级数据库锁串行确定成交顺序",
             "60 条成交、60 个唯一序列、订单数量守恒"));
 
+        verifyReplayAndExhaustion(runId, symbol, traffic, timeline, checks);
+
+        SettlementEvidence settlement = runFailoverAndSettlement(
+            runId, symbol, traffic.trades());
+        checks.put("节点接管", "PASS：旧 Epoch 拒写，新 Worker 完成结算");
+        checks.put("结算重投", "PASS：17 次投递只有 1 次资金效果");
+        timeline.add(new Phase("T+03s", "结算 Worker 接管",
+            "旧节点在排空、Lease 过期后恢复写入",
+            "Epoch Fencing 在资金事务内拒绝旧节点",
+            "旧 Epoch 被拒；新 Epoch=" + settlement.newEpoch()));
+        timeline.add(new Phase("T+04s", "消息系统重复投递",
+            "同一结算消息并发投递 17 次",
+            "Inbox、message_id、business_key 三层幂等",
+            "6 笔结算、6 个账本交易、无重复入账"));
+
+        RecoveryEvidence recovery = runRecoveryPhase(
+            runId, symbol, traffic.trades(), timeline, checks);
+
+        long ledgerMismatches = ledgerMismatchCount(
+            settlement.payerId(), settlement.payeeId(), settlement.feeId());
+        require(ledgerMismatches == 0,
+            "资金余额与账本不一致 / balance-ledger mismatch");
+        checks.put("资金账本", "PASS：借贷平衡且三个场景账户对账一致");
+
+        return buildReport(startedAt, runId, symbol, traffic, settlement,
+            recovery, timeline, checks);
+    }
+
+    /** 验证客户端重试幂等、冲突载荷拒绝以及订单簿耗尽后的安全终态。 */
+    private void verifyReplayAndExhaustion(String runId, String symbol,
+                                           TrafficOutcome traffic, List<Phase> timeline,
+                                           Map<String, String> checks) {
         PlaceOrderCommand firstCommand = traffic.commands().get(0);
         long beforeReplay = labMapper.countTrades(symbol);
         MatchingResult replay = matching.place(firstCommand);
@@ -136,8 +174,7 @@ public class MarketCrashScenarioService {
         require(conflictRejected, "冲突重放未拒绝 / conflicting replay accepted");
         checks.put("请求重放", "PASS：相同请求幂等，篡改数量的重放拒绝");
         timeline.add(new Phase("T+01s", "客户端超时后集中重试",
-            "同一业务键重复提交，并尝试篡改数量",
-            "相同载荷返回原结果；冲突载荷立即拒绝",
+            "同一业务键重复提交，并尝试篡改数量", "相同载荷返回原结果；冲突载荷立即拒绝",
             "成交事实仍为 60 条"));
 
         MatchingResult overflow = matching.place(new PlaceOrderCommand(
@@ -148,63 +185,48 @@ public class MarketCrashScenarioService {
             "深度耗尽后未安全拒单 / empty book did not reject safely");
         checks.put("流动性耗尽", "PASS：无深度时拒单，不生成幽灵成交");
         timeline.add(new Phase("T+02s", "买盘完全耗尽",
-            "额外 10 单位市价卖单进入空订单簿",
-            "订单进入 REJECTED 终态，不伪造成交",
+            "额外 10 单位市价卖单进入空订单簿", "订单进入 REJECTED 终态，不伪造成交",
             "0 新成交，余额和持仓不受影响"));
+    }
 
-        SettlementEvidence settlement = runFailoverAndSettlement(
-            runId, symbol, traffic.trades());
-        checks.put("节点接管", "PASS：旧 Epoch 拒写，新 Worker 完成结算");
-        checks.put("结算重投", "PASS：17 次投递只有 1 次资金效果");
-        timeline.add(new Phase("T+03s", "结算 Worker 接管",
-            "旧节点在排空、Lease 过期后恢复写入",
-            "Epoch Fencing 在资金事务内拒绝旧节点",
-            "旧 Epoch 被拒；新 Epoch=" + settlement.newEpoch()));
-        timeline.add(new Phase("T+04s", "消息系统重复投递",
-            "同一结算消息并发投递 17 次",
-            "Inbox、message_id、business_key 三层幂等",
-            "6 笔结算、6 个账本交易、无重复入账"));
-
+    /** 注入三类投影故障、验证权威事实不变并记录恢复时间线。 */
+    private RecoveryEvidence runRecoveryPhase(
+        String runId, String symbol, List<TradeView> trades,
+        List<Phase> timeline, Map<String, String> checks) {
         TruthSnapshot truthBefore = truth(symbol);
-        RecoveryEvidence recovery = injectAndRecover(symbol, runId, traffic.trades());
+        RecoveryEvidence recovery = injectAndRecover(symbol, runId, trades);
         TruthSnapshot truthAfter = truth(symbol);
         require(sameTruth(truthBefore, truthAfter),
             "修复修改了权威成交 / repair changed authoritative trades");
-        checks.put("同步异常发现",
-            "PASS：同时识别 MISSING=1、MISMATCH=1、EXTRA=1");
-        checks.put("派生数据修复",
-            "PASS：重建 2 条、隔离 1 条、重复修复不二次执行");
+        checks.put("同步异常发现", "PASS：同时识别 MISSING=1、MISMATCH=1、EXTRA=1");
+        checks.put("派生数据修复", "PASS：重建 2 条、隔离 1 条、重复修复不二次执行");
         checks.put("权威事实保护", "PASS：修复前后成交事实快照一致");
         checks.put("最终收敛", "PASS：再次对账为 CLEAN");
-
         timeline.add(new Phase("T+05s", "行情与成交查询出现偏差",
-            "乱序、重复、漏同步、错值和幽灵成交同时注入",
-            "事件指纹幂等；全量外连接对账",
+            "乱序、重复、漏同步、错值和幽灵成交同时注入", "事件指纹幂等；全量外连接对账",
             "MISSING=1、MISMATCH=1、EXTRA=1"));
         timeline.add(new Phase("T+06s", "恢复任务可能重复执行",
-            "相同 repair key 连续提交两次",
-            "只重建派生投影，EXTRA 进入隔离区",
+            "相同 repair key 连续提交两次", "只重建派生投影，EXTRA 进入隔离区",
             "重建 2、隔离 1，第二次 duplicate=true"));
         timeline.add(new Phase("T+07s", "恢复后复市判定",
-            "再次比较权威成交与活动投影",
-            "只有 CLEAN 才允许闭环",
+            "再次比较权威成交与活动投影", "只有 CLEAN 才允许闭环",
             "60 条权威成交 = 60 条活动投影"));
+        return recovery;
+    }
 
-        long ledgerMismatches = ledgerMismatchCount(
-            settlement.payerId(), settlement.payeeId(), settlement.feeId());
-        require(ledgerMismatches == 0,
-            "资金余额与账本不一致 / balance-ledger mismatch");
-        checks.put("资金账本", "PASS：借贷平衡且三个场景账户对账一致");
-
+    /** 从场景事实生成最终可公开报告，指标只代表本次隔离实验。 */
+    private MarketCrashReport buildReport(
+        Instant startedAt, String runId, String symbol, TrafficOutcome traffic,
+        SettlementEvidence settlement, RecoveryEvidence recovery,
+        List<Phase> timeline, Map<String, String> checks) {
         long totalElapsedMs = Math.max(1,
             Duration.between(startedAt, Instant.now()).toMillis());
         CrashMetrics metrics = new CrashMetrics(
             MAKERS, CONCURRENT_SELLERS, traffic.trades().size(),
             labMapper.countDistinctTradeSequences(symbol),
             labMapper.countTradeOutboxEvents("%\"symbol\":\"" + symbol + "\"%"),
-            SETTLEMENTS, DUPLICATE_DELIVERIES,
-            settlement.ledgerTransactions(), recovery.repairedCount(),
-            recovery.quarantinedCount(), traffic.elapsedMs(),
+            SETTLEMENTS, DUPLICATE_DELIVERIES, settlement.ledgerTransactions(),
+            recovery.repairedCount(), recovery.quarantinedCount(), traffic.elapsedMs(),
             traffic.rate(), totalElapsedMs);
         return new MarketCrashReport(
             "市场暴跌日 / Market Crash Day", runId, symbol,
@@ -237,18 +259,22 @@ public class MarketCrashScenarioService {
                 symbol, OrderSide.SELL, OrderType.MARKET,
                 null, new BigDecimal("5")));
         }
-        ExecutorService pool = Executors.newVirtualThreadPerTaskExecutor();
+        ExecutorService pool = VirtualTaskExecutors.newPerTaskExecutor("fincore-crash-selloff-");
         CountDownLatch start = new CountDownLatch(1);
         List<Future<MatchingResult>> futures = new ArrayList<>();
         long started = System.nanoTime();
         try {
-            for (PlaceOrderCommand command : commands) {
-                futures.add(pool.submit(() -> {
-                    start.await();
-                    return matching.place(command);
-                }));
+            try {
+                for (PlaceOrderCommand command : commands) {
+                    futures.add(pool.submit(() -> {
+                        start.await();
+                        return matching.place(command);
+                    }));
+                }
+            } finally {
+                // 任务提交部分失败时同样放行已经提交的任务，防止实验关闭线程池时被挂起。
+                start.countDown();
             }
-            start.countDown();
             List<TradeView> trades = new ArrayList<>();
             for (Future<MatchingResult> future : futures) {
                 trades.addAll(future.get().trades());
@@ -313,8 +339,8 @@ public class MarketCrashScenarioService {
         try {
             settlements.settle(first,
                 new FenceToken(shardId, oldWorker, oldLease.epoch()));
-        } catch (IllegalStateException expected) {
-            staleRejected = expected.getMessage().startsWith("fence rejected");
+        } catch (FenceRejectedException expected) {
+            staleRejected = true;
         }
         require(staleRejected,
             "旧节点未被 Fencing 拒绝 / stale worker was not fenced");
@@ -360,7 +386,7 @@ public class MarketCrashScenarioService {
     /** 并发重复执行同一结算命令，并统计真实资金效果与幂等返回。 */
     private SettlementStorm runSettlementStorm(
         SettlementCommand command, FenceToken fence) {
-        ExecutorService pool = Executors.newVirtualThreadPerTaskExecutor();
+        ExecutorService pool = VirtualTaskExecutors.newPerTaskExecutor("fincore-crash-settlement-");
         try {
             List<Callable<SettlementOutcome>> tasks = new ArrayList<>();
             for (int i = 0; i < DUPLICATE_DELIVERIES; i++) {

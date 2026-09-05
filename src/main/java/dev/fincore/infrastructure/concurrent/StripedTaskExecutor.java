@@ -22,10 +22,21 @@ import java.util.concurrent.locks.ReentrantLock;
 /**
  * 按业务键分片、为撤单保留容量的有界单线程执行器。
  *
- * <p>相同键始终进入同一 Lane 并严格串行，不同键可由多个 Lane 并行处理。撮合线程显式使用平台
- * 线程，避免数据库驱动或锁协调中的 {@code synchronized} 导致虚拟线程固定载体线程。队列采用
- * Abort 策略，饱和时不会调用方运行或静默丢弃，以免破坏同一键顺序。普通命令与撤单命令
- * 使用独立有界容量；Worker 优先获取撤单，并通过最大连续批次避免普通命令永久饥饿。</p>
+ * <p><strong>解决的问题：</strong>同一交易对的新单、成交和撤单必须有确定顺序，但不同交易对需要
+ * 并行，且市场洪峰不能把无限任务留在 JVM 堆中。稳定散列把相同键固定到同一 Lane；普通命令与
+ * 撤单使用独立有界容量，Worker 优先撤单并以最大连续批次防止普通命令永久饥饿。</p>
+ *
+ * <p><strong>CPU 设计：</strong>每个 Lane 只有一个预启动平台线程，省去同交易对任务之间的线程竞争
+ * 和频繁迁移；平台线程避免数据库驱动或锁协调中的 {@code synchronized} 固定虚拟线程 carrier。
+ * Lane 数限制同实例 CPU 并行度，稳定数组寻址为 O(1)。队列使用 {@link ArrayDeque}，只在 Lane
+ * 准入时持有短临界区锁，不在锁内执行业务或数据库调用。</p>
+ *
+ * <p><strong>分配与缓存边界：</strong>每次提交仍会创建 {@link CompletableFuture} 和命令包装对象，
+ * 当前目标是有界、可观测和正确，不宣称零分配撮合。若未来需要微秒级内存订单簿，应使用预分配
+ * 环形缓冲、对象布局和绑核专项，不能在本执行器上删除 Future 就宣称低延迟完成。</p>
+ *
+ * <p><strong>正确性边界：</strong>Lane 只减少单实例竞争，跨实例顺序仍由 PostgreSQL advisory lock
+ * 保证。队列采用 Abort 策略，饱和时不使用 CallerRuns 或丢弃，避免越过 Lane 顺序或静默丢单。</p>
  *
  * @author FinCore Reliability Lab
  * @since 1.1.0
@@ -68,8 +79,10 @@ public final class StripedTaskExecutor {
         this.lanes = new ThreadPoolExecutor[laneCount];
         for (int lane = 0; lane < laneCount; lane++) {
             int laneId = lane;
+            // 每条 Lane 的双队列只由一个 Worker 消费；生产者只在极短的入队临界区竞争队列锁。
             PriorityCommandQueue queue = new PriorityCommandQueue(
                 queueCapacity, priorityQueueCapacity, MAX_PRIORITY_BURST);
+            // core=max=1 禁止池在压力下扩线程；预启动避免首笔订单承担线程创建和栈初始化抖动。
             ThreadPoolExecutor executor = new ThreadPoolExecutor(
                 1,
                 1,
@@ -81,6 +94,7 @@ public final class StripedTaskExecutor {
             );
             executor.prestartCoreThread();
             lanes[lane] = executor;
+            // Gauge 在抓取时读取队列状态，不在每次命令提交路径额外维护聚合计数器。
             Gauge.builder("fincore.matching.lane.queue.depth", executor.getQueue(), java.util.Collection::size)
                 .tag("lane", Integer.toString(laneId))
                 .description("撮合 Lane 当前排队任务数")
@@ -134,10 +148,12 @@ public final class StripedTaskExecutor {
     private <T> CompletableFuture<T> submit(String key, Callable<T> task, boolean priority) {
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(task, "task");
+        // Future 用于把 Lane 线程结果交还虚拟线程；对象数受双队列容量限制，不会无界占用堆。
         CompletableFuture<T> result = new CompletableFuture<>();
         long submittedAt = System.nanoTime();
         try {
             Runnable command = () -> {
+                // nanoTime 是单调时钟，只记录排队成本；不会在热路径格式化日期或日志字符串。
                 queueWait.record(System.nanoTime() - submittedAt, TimeUnit.NANOSECONDS);
                 Timer.Sample sample = Timer.start();
                 try {
@@ -172,7 +188,13 @@ public final class StripedTaskExecutor {
             .sum();
     }
 
-    /** 根据稳定散列选择 Lane。 */
+    /**
+     * 根据稳定散列选择 Lane。
+     *
+     * <p>异或高 16 位改善常见短字符串 hash 的低位分布；数组长度不要求为 2 的幂，因此使用
+     * {@link Math#floorMod(int, int)} 保证负 hash 也落入合法下标。这里不使用加密散列，避免在每笔
+     * 命令上引入不必要 CPU 成本；跨实例安全不依赖该散列。</p>
+     */
     int laneFor(String key) {
         int hash = key.hashCode();
         hash ^= hash >>> 16;
@@ -209,7 +231,8 @@ public final class StripedTaskExecutor {
      * 两组独立有界容量组成的阻塞队列。
      *
      * <p>该队列只决定尚未开始命令的出队次序。当前 Worker 正在执行的事务不会被撤单抢占，避免出现
-     * “前一笔成交已写一半、后一笔撤单插队”的中间状态。</p>
+     * “前一笔成交已写一半、后一笔撤单插队”的中间状态。两个 {@link ArrayDeque} 避免链表节点的
+     * 逐项分配和指针追踪；单锁保护两个队列及优先批次，使一次出队只需一个一致性临界区。</p>
      */
     private static final class PriorityCommandQueue extends AbstractQueue<Runnable>
         implements BlockingQueue<Runnable> {
@@ -244,7 +267,12 @@ public final class StripedTaskExecutor {
             this.maximumPriorityBurst = maximumPriorityBurst;
         }
 
-        /** 非阻塞入队；两类命令分别检查自己的容量。 */
+        /**
+         * 非阻塞入队；两类命令分别检查自己的容量。
+         *
+         * <p>生产请求不在这里等待容量，队满立即交给 AbortPolicy 形成明确背压，避免占住 Web
+         * 虚拟线程和对象引用等待不可预测时长。</p>
+         */
         @Override
         public boolean offer(Runnable command) {
             Objects.requireNonNull(command, "command");
@@ -352,8 +380,7 @@ public final class StripedTaskExecutor {
         public Runnable peek() {
             lock.lock();
             try {
-                if (!priority.isEmpty()
-                    && (priorityBurst < maximumPriorityBurst || ordinary.isEmpty())) {
+                if (shouldSelectPriorityUnsafe()) {
                     return priority.peekFirst();
                 }
                 return ordinary.peekFirst();
@@ -474,11 +501,24 @@ public final class StripedTaskExecutor {
         }
 
         /**
+         * 锁内判断下一条是否应选择撤单队列。
+         *
+         * <p>有撤单且尚未达到连续配额时优先撤单；普通队列为空时即使达到配额也继续处理撤单，
+         * 避免为了形式公平让 Lane 空转。</p>
+         */
+        private boolean shouldSelectPriorityUnsafe() {
+            if (priority.isEmpty()) {
+                return false;
+            }
+            return priorityBurst < maximumPriorityBurst || ordinary.isEmpty();
+        }
+
+        /**
          * 锁内按撤单优先规则出队，并在连续八笔撤单后让一个普通命令前进。
          */
         private Runnable dequeue() {
-            if (!priority.isEmpty()
-                && (priorityBurst < maximumPriorityBurst || ordinary.isEmpty())) {
+            // 优先判断只做常量次数分支，不扫描队列；撤单最多连续推进八条后让普通命令前进。
+            if (shouldSelectPriorityUnsafe()) {
                 priorityBurst++;
                 Runnable command = priority.removeFirst();
                 priorityNotFull.signal();

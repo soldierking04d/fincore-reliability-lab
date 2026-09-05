@@ -10,8 +10,15 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * 账户余额与不可变账本的全量对账服务。
  *
- * <p>服务根据“期初余额 + 贷方 - 借方”计算期望余额，并把不一致项登记为高风险问题。
- * 默认只发现和冻结差异，不自动修改资金，避免错误修复掩盖真实账务问题。</p>
+ * <p><strong>解决的问题：</strong>账户表可能因缺陷、运维误操作或部分故障偏离不可变账本，本服务按
+ * “期初余额 + 贷方 - 借方”重算期望值并登记差异。</p>
+ *
+ * <p><strong>CPU 与运行方式：</strong>聚合与差异筛选在数据库完成，JVM 只接收不一致账户并写问题单，
+ * 不加载全部账本分录。当前实验提供全量入口；生产必须按账户/日期分片、分页和限速，并监控查询
+ * 计划、临时文件与数据库 CPU，避免盘中扫描影响交易热路径。</p>
+ *
+ * <p><strong>正确性边界：</strong>默认只发现、冻结和留证，不自动修改资金或账本，避免错误修复掩盖
+ * 真实问题。问题登记与本次差异快照在同一事务内完成。</p>
  *
  * @author FinCore Reliability Lab
  * @since 2026-08-27
@@ -31,7 +38,7 @@ public class ReconciliationService {
      *
      * @return 差异数量和明细；无差异时列表为空
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public ReconciliationReport reconcileAll() {
         List<AccountDifference> differences = reconciliationMapper.findBalanceDifferences().stream()
             .map(row -> new AccountDifference(row.accountId(), row.expected(), row.actual()))

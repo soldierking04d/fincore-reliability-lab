@@ -26,6 +26,7 @@ import dev.fincore.domain.SettlementCommand;
 import dev.fincore.domain.SettlementStatus;
 import dev.fincore.domain.SpotDeliveryCommand;
 import dev.fincore.infrastructure.persistence.mapper.OutboxMapper;
+import dev.fincore.support.TestExecutors;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
@@ -34,7 +35,6 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CyclicBarrier;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
@@ -61,6 +61,12 @@ import org.testcontainers.junit.jupiter.Testcontainers;
     "spring.task.scheduling.enabled=false"
 })
 class SpotFundsIntegrationTest {
+    /** 现货场景统一使用的计价资产。 */
+    private static final String QUOTE_ASSET = "USDT";
+    /** 幂等下单竞态的调用数量。 */
+    private static final int ORDER_REPLAY_CALLS = 6;
+    /** 同一成交的并发交割投递数量。 */
+    private static final int DELIVERY_REPLAY_CALLS = 8;
     /** 每个套件使用独立数据库，不接触线上资金。 */
     @Container
     static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
@@ -174,7 +180,7 @@ class SpotFundsIntegrationTest {
         String buyer = user("USDT", "100");
         PlaceOrderCommand command = order(buyer, quote(), OrderSide.BUY, "100", "0.6");
         List<Callable<UUID>> tasks = new ArrayList<>();
-        for (int index = 0; index < 6; index++) {
+        for (int index = 0; index < ORDER_REPLAY_CALLS; index++) {
             tasks.add(() -> trading.place(command).matching().order().orderId());
         }
         assertEquals(1, race(tasks).stream().distinct().count());
@@ -237,7 +243,7 @@ class SpotFundsIntegrationTest {
         UUID trade = fixture.trades().getFirst();
         FenceToken token = fence(trade);
         List<Callable<String>> tasks = new ArrayList<>();
-        for (int index = 0; index < 8; index++) {
+        for (int index = 0; index < DELIVERY_REPLAY_CALLS; index++) {
             String message = "duplicate-" + index + "-" + trade;
             tasks.add(() -> deliveries.settle(new SpotDeliveryCommand(message, trade), token).status());
         }
@@ -400,7 +406,7 @@ class SpotFundsIntegrationTest {
     /** 四个交割账户分别重算不可变账本与资金分桶。 */
     private void assertClean(String buyer, String seller, String base) {
         for (String user : List.of(buyer, seller)) {
-            for (String asset : List.of(base, "USDT")) {
+            for (String asset : List.of(base, QUOTE_ASSET)) {
                 assertTrue(funds.reconcile(account(user, asset)), user + ":" + asset);
             }
         }
@@ -409,7 +415,7 @@ class SpotFundsIntegrationTest {
     /** 同步起跑且限时完成，避免伪并发串行测试；所有线程均回收。 */
     private static <T> List<T> race(List<Callable<T>> tasks) throws Exception {
         CyclicBarrier barrier = new CyclicBarrier(tasks.size());
-        try (var pool = Executors.newFixedThreadPool(tasks.size())) {
+        try (var pool = TestExecutors.fixedThreadPool(tasks.size(), "spot-funds-test-")) {
             List<Future<T>> futures = new ArrayList<>();
             for (Callable<T> task : tasks) {
                 futures.add(pool.submit(() -> { barrier.await(10, TimeUnit.SECONDS); return task.call(); }));

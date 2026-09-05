@@ -18,14 +18,23 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * 手续费账户分片和归集服务。
  *
- * <p>日常结算把手续费写入确定性分片账户，降低单一系统账户的热点锁竞争；归集任务再
- * 按固定 UUID 顺序锁定全部分片和财资账户，通过平衡账本一次性转入财资账户。</p>
+ * <p><strong>解决的问题：</strong>高并发成交若都写一个手续费账户，会形成行锁串行点。本服务让日常
+ * 结算把手续费写入确定性分片账户，再由低频归集任务转入财资账户。</p>
+ *
+ * <p><strong>CPU 与锁优化：</strong>路由使用 2 的幂分片和位掩码完成 O(1) 计算；锁竞争从单账户拆到
+ * 多个分片。归集不占成交热路径，并按 UUID 二进制顺序锁定账户，避免把字符串转换、随机锁序和死锁
+ * 重试变成额外 CPU 消耗。</p>
+ *
+ * <p><strong>正确性边界：</strong>手续费分片仍是正式账本账户，不是可丢失缓存。归集键唯一约束阻止
+ * 二次搬运；借贷平衡校验、分录、余额和任务状态必须在同一事务中提交。</p>
  *
  * @author FinCore Reliability Lab
  * @since 2026-08-27
  */
 @Service
 public class FeeAggregationService {
+    /** 归集目标账户的唯一允许类型。 */
+    private static final String TREASURY_ACCOUNT_TYPE = "SYSTEM_FEE_TREASURY";
     /** 手续费账户和归集任务持久化接口。 */
     private final FeeAggregationMapper feeMapper;
     /** 账户余额和不可变账本持久化接口。 */
@@ -44,7 +53,7 @@ public class FeeAggregationService {
      * @param shardCount 分片数量，必须是正的 2 的幂
      * @return 按账户所有者排序的分片账户
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public List<FeeAccount> ensureShards(String asset, int shardCount) {
         FeeShardRouter router = new FeeShardRouter(shardCount);
         for (int shard = 0; shard < shardCount; shard++) {
@@ -75,7 +84,7 @@ public class FeeAggregationService {
      * @param asset 资产代码
      * @return 财资账户
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public FeeAccount ensureTreasury(String asset) {
         UUID id = UUID.nameUUIDFromBytes(("fee-treasury:" + asset).getBytes(StandardCharsets.UTF_8));
         feeMapper.insertTreasury(id, asset);
@@ -90,7 +99,7 @@ public class FeeAggregationService {
      * @param treasuryAccountId 财资账户编号
      * @return 归集金额和参与分片数量
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public AggregationOutcome aggregate(String aggregationKey, String asset, UUID treasuryAccountId) {
         if (aggregationKey == null || aggregationKey.isBlank()) {
             throw new IllegalArgumentException("aggregationKey is required");
@@ -102,7 +111,7 @@ public class FeeAggregationService {
         }
 
         AccountRow treasury = toAccountRow(ledgerMapper.findAccount(treasuryAccountId));
-        if (!asset.equals(treasury.asset()) || !"SYSTEM_FEE_TREASURY".equals(treasury.type())) {
+        if (!asset.equals(treasury.asset()) || !TREASURY_ACCOUNT_TYPE.equals(treasury.type())) {
             throw new IllegalArgumentException("treasury account type or asset mismatch");
         }
 

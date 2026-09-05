@@ -4,6 +4,7 @@ import dev.fincore.domain.OrderSide;
 import dev.fincore.domain.OrderStatus;
 import dev.fincore.domain.OrderType;
 import dev.fincore.domain.PlaceOrderCommand;
+import dev.fincore.infrastructure.persistence.mapper.SpotFundsMapper;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -17,8 +18,14 @@ import org.springframework.stereotype.Service;
 /**
  * 用户、KYC、风控、账户、行情到撮合的完整链路公开实验。
  *
- * <p>每次运行都生成隔离用户、账户和交易对，先形成一张卖单，再让买方经过完整盘前检查成交；
- * 随后重放同一订单并增加一个 KYC 拒绝样本。只有全部数据库和业务断言通过才返回 {@code PASS}。</p>
+ * <p><strong>解决的问题：</strong>证明前台下单不是直接进入撮合，而会经过身份、权限、额度、价格
+ * 偏离、资金预占、幂等和成交交割的完整链路。</p>
+ *
+ * <p><strong>CPU 与并发边界：</strong>场景级 {@link ReentrantLock} 只阻止同一演示被并发重复启动，
+ * 不包裹生产交易链路；真实下单仍使用有界 Lane 和虚拟线程等待。实验数据量不代表生产容量。</p>
+ *
+ * <p><strong>正确性边界：</strong>每次生成隔离用户、账户和交易对；只有数据库事实、重复订单和 KYC
+ * 拒绝断言全部通过才返回 {@code PASS}，固定场景不直接绕过 Kafka 执行公开交割。</p>
  *
  * @author FinCore Reliability Lab
  * @since 1.2.0
@@ -53,7 +60,7 @@ public class TradingLifecycleScenarioService {
     /** 运行一次隔离的完整交易链路实验。 */
     public LifecycleScenarioReport run() {
         if (!runLock.tryLock()) {
-            throw new IllegalStateException("trading lifecycle scenario is already running");
+            throw new BusinessConflictException("trading lifecycle scenario is already running");
         }
         try {
             return runIsolated();
@@ -66,14 +73,42 @@ public class TradingLifecycleScenarioService {
     private LifecycleScenarioReport runIsolated() {
         Instant startedAt = Instant.now();
         String runId = UUID.randomUUID().toString().substring(0, 8);
-        String suffix = runId.toUpperCase();
-        String baseAsset = "FLOW" + suffix;
+        String baseAsset = "FLOW" + runId.toUpperCase();
         String symbol = baseAsset + "-USDT";
         String sellerId = "seller-" + runId;
         String buyerId = "buyer-" + runId;
         String pendingId = "pending-" + runId;
         Map<String, String> checks = new LinkedHashMap<>();
 
+        prepareLifecycle(sellerId, buyerId, baseAsset, symbol, checks);
+        TradeStage trade = executeTradeStage(
+            runId, sellerId, buyerId, pendingId, symbol, checks);
+        CancellationStage cancellation = executeCancellation(runId, buyerId, symbol, checks);
+        SettlementStage settlement = settleAndReconcile(
+            sellerId, buyerId, baseAsset, trade.buyer(), cancellation, checks);
+
+        LifecycleData data = new LifecycleData(
+            buyerId,
+            "ACTIVE",
+            "VERIFIED",
+            "USDT",
+            settlement.buyerQuote().balance(),
+            symbol,
+            trade.market().reference().price(),
+            new BigDecimal("2"),
+            new BigDecimal("200"),
+            trade.buyer().preTradeDecision().decision(),
+            trade.buyer().matching().order().status().name(),
+            trade.buyer().matching().trades().size(),
+            trade.rejected().preTradeDecision().reasonCode()
+        );
+        return new LifecycleScenarioReport(runId, "PASS", data, Map.copyOf(checks),
+            settlement.evidence(), startedAt, Instant.now());
+    }
+
+    /** 创建双方账户、风控和参考行情，确保后续数据完全隔离于其他演示批次。 */
+    private void prepareLifecycle(String sellerId, String buyerId, String baseAsset,
+                                  String symbol, Map<String, String> checks) {
         prepareVerifiedUser(sellerId, baseAsset, new BigDecimal("10"));
         prepareVerifiedUser(buyerId, "USDT", new BigDecimal("1000"));
         lifecycle.publishQuote(symbol, new BigDecimal("100"),
@@ -81,61 +116,69 @@ public class TradingLifecycleScenarioService {
         checks.put("用户与 KYC", "PASS：买卖双方均为 ACTIVE + VERIFIED");
         checks.put("账户与风控", "PASS：分资产交易账户、单笔/日累计限额已生效");
         checks.put("参考行情", "PASS：价格 100，来源与观察时间已记录");
+    }
 
+    /** 完成 Maker、Taker、幂等重放和 KYC 失败关闭四个盘前与撮合步骤。 */
+    private TradeStage executeTradeStage(String runId, String sellerId, String buyerId,
+                                         String pendingId, String symbol,
+                                         Map<String, String> checks) {
         var maker = orders.place(limit("sell-" + runId, sellerId, symbol,
             OrderSide.SELL, "100", "2"));
-        require("APPROVED".equals(maker.preTradeDecision().decision()),
-            "卖方盘前决定没有批准");
-        require(maker.matching().order().status() == OrderStatus.OPEN,
-            "卖方限价单没有进入订单簿");
+        require("APPROVED".equals(maker.preTradeDecision().decision()), "卖方盘前决定没有批准");
+        require(maker.matching().order().status() == OrderStatus.OPEN, "卖方限价单没有进入订单簿");
 
         PlaceOrderCommand buyCommand = limit("buy-" + runId, buyerId, symbol,
             OrderSide.BUY, "100", "2");
         var buyer = orders.place(buyCommand);
-        require("APPROVED".equals(buyer.preTradeDecision().decision()),
-            "买方盘前决定没有批准");
-        require(buyer.matching().order().status() == OrderStatus.FILLED,
-            "买方订单没有完全成交");
-        require(buyer.matching().trades().size() == 1,
-            "完整链路没有形成唯一成交");
+        require("APPROVED".equals(buyer.preTradeDecision().decision()), "买方盘前决定没有批准");
+        require(buyer.matching().order().status() == OrderStatus.FILLED, "买方订单没有完全成交");
+        require(buyer.matching().trades().size() == 1, "完整链路没有形成唯一成交");
         checks.put("盘前决定", "PASS：用户、行情、额度和余额全部通过");
         checks.put("撮合结果", "PASS：BUY 2 @ 100，形成 1 条唯一成交");
 
         var replay = orders.place(buyCommand);
-        require(replay.preTradeDecision().duplicate()
-                && replay.matching().order().duplicate(),
+        require(replay.preTradeDecision().duplicate() && replay.matching().order().duplicate(),
             "重复请求没有同时复用风控决定与订单");
         checks.put("端到端幂等", "PASS：重放复用 1 个决定和 1 张订单");
-
         lifecycle.registerCustomer(pendingId, "待审核实验用户", "CN");
         var rejected = orders.place(limit("pending-" + runId, pendingId, symbol,
             OrderSide.BUY, "100", "1"));
         require("KYC_NOT_VERIFIED".equals(rejected.preTradeDecision().reasonCode())
-                && rejected.matching() == null,
-            "KYC 拒绝没有阻止订单进入撮合");
+            && rejected.matching() == null, "KYC 拒绝没有阻止订单进入撮合");
         checks.put("失败关闭", "PASS：KYC 未通过只留下拒绝决定，不创建订单");
-
         var market = lifecycle.market(symbol, 20, 20);
-        require(market.recentTrades().size() == 1,
-            "行情快照没有返回最近成交");
+        require(market.recentTrades().size() == 1, "行情快照没有返回最近成交");
         checks.put("行情联动", "PASS：参考价、订单簿与最近成交统一返回");
+        return new TradeStage(buyer, rejected, market);
+    }
 
-        // 以下数值只来自本次固定实验生成的模拟账户，金额不是网页动画生成的。
-        var cancellable = orders.place(limit("cancel-" + runId, buyerId, symbol, OrderSide.BUY, "90", "0.5"));
-        require(cancellable.matching() != null && cancellable.matching().order().status() == OrderStatus.OPEN,
-            "撤单样本未进入订单簿");
-        var held = funds.view(buyerId, "USDT");
-        require(held.reservedBalance().compareTo(new BigDecimal("45")) == 0, "挂单没有实际预占 45 USDT");
+    /** 创建真实预占并重复撤单，证明只释放一次未成交资金。 */
+    private CancellationStage executeCancellation(String runId, String buyerId,
+                                                  String symbol, Map<String, String> checks) {
+        var cancellable = orders.place(limit(
+            "cancel-" + runId, buyerId, symbol, OrderSide.BUY, "90", "0.5"));
+        require(cancellable.matching() != null
+            && cancellable.matching().order().status() == OrderStatus.OPEN, "撤单样本未进入订单簿");
+        SpotFundsMapper.FundsRow held = funds.view(buyerId, "USDT");
+        require(held.reservedBalance().compareTo(new BigDecimal("45")) == 0,
+            "挂单没有实际预占 45 USDT");
         checks.put("委托预占", "PASS：0.5 × 90 的挂单实际预占 45 USDT，可用余额同步减少");
         UUID canceledId = cancellable.matching().order().orderId();
         matching.cancel(canceledId, buyerId);
         matching.cancel(canceledId, buyerId);
-        var released = funds.view(buyerId, "USDT");
+        SpotFundsMapper.FundsRow released = funds.view(buyerId, "USDT");
         require(released.reservedBalance().signum() == 0
             && released.available().subtract(held.available()).compareTo(new BigDecimal("45")) == 0,
             "重复撤单没有精确释放未成交预占");
         checks.put("撤单释放", "PASS：重复撤单只释放一次 45 USDT，不释放已成交在途");
+        return new CancellationStage(held, released);
+    }
 
+    /** 等待 Kafka Worker 交割，并逐一核对四个资产账户与不可变账本。 */
+    private SettlementStage settleAndReconcile(
+        String sellerId, String buyerId, String baseAsset,
+        TradingLifecycleService.TradingOrderResult buyer, CancellationStage cancellation,
+        Map<String, String> checks) {
         UUID tradeId = buyer.matching().trades().getFirst().tradeId();
         awaitDelivery(tradeId);
         var settled = deliveries.get(tradeId);
@@ -154,28 +197,28 @@ public class TradingLifecycleScenarioService {
                 && funds.reconcile(account.accountId()), "交割后资金或账本不一致");
         }
         checks.put("资金对账", "PASS：4 个模拟资产账户的总余额、预占、在途与不可变账本逐一一致");
-        SpotFundsEvidence evidence = new SpotFundsEvidence(tradeId, settled.status(), baseAsset, "USDT",
-            held.reservedBalance(), held.available(), released.available(), buyerQuote.balance(),
+        SpotFundsEvidence evidence = new SpotFundsEvidence(
+            tradeId, settled.status(), baseAsset, "USDT", cancellation.held().reservedBalance(),
+            cancellation.held().available(), cancellation.released().available(), buyerQuote.balance(),
             buyerBase.balance(), sellerBase.balance(), sellerQuote.balance(), buyerQuote.pendingDebit(),
             4, settled.settledAt());
+        return new SettlementStage(buyerQuote, evidence);
+    }
 
-        LifecycleData data = new LifecycleData(
-            buyerId,
-            "ACTIVE",
-            "VERIFIED",
-            "USDT",
-            buyerQuote.balance(),
-            symbol,
-            market.reference().price(),
-            new BigDecimal("2"),
-            new BigDecimal("200"),
-            buyer.preTradeDecision().decision(),
-            buyer.matching().order().status().name(),
-            buyer.matching().trades().size(),
-            rejected.preTradeDecision().reasonCode()
-        );
-        return new LifecycleScenarioReport(runId, "PASS", data, Map.copyOf(checks), evidence,
-            startedAt, Instant.now());
+    /** 盘前与撮合阶段输出。 */
+    private record TradeStage(TradingLifecycleService.TradingOrderResult buyer,
+                              TradingLifecycleService.TradingOrderResult rejected,
+                              TradingLifecycleService.MarketView market) {
+    }
+
+    /** 撤单前后资金快照。 */
+    private record CancellationStage(SpotFundsMapper.FundsRow held,
+                                     SpotFundsMapper.FundsRow released) {
+    }
+
+    /** 交割后的买方计价账户与公开资金证据。 */
+    private record SettlementStage(SpotFundsMapper.FundsRow buyerQuote,
+                                   SpotFundsEvidence evidence) {
     }
 
     /** 最多等 20 秒，只查询 Worker 状态；超时不重复下单、不调用直连交割。 */
@@ -192,7 +235,7 @@ public class TradingLifecycleScenarioService {
                 throw new IllegalStateException("交割等待中断；结果未知，tradeId=" + tradeId, exception);
             }
         }
-        throw new IllegalStateException("交割仍在途；不得重复发起本场景，tradeId=" + tradeId);
+        throw new BusinessConflictException("交割仍在途；不得重复发起本场景，tradeId=" + tradeId);
     }
 
     /** 创建已验证、已开户且允许交易的实验用户。 */

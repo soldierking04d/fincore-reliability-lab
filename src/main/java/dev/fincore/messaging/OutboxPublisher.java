@@ -26,11 +26,19 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 /**
- * 事务 Outbox 事件发布器。
+ * 事务 Outbox 事件的有界批量发布器。
  *
- * <p>业务事务只负责把事件写入 {@code outbox_event}。发布器使用
- * {@code FOR UPDATE SKIP LOCKED} 原子抢占待发送事件，成功后标记 PUBLISHED，失败后
- * 恢复为 PENDING 并退避重试，从而避免“业务已提交但消息丢失”的双写问题。</p>
+ * <p><strong>解决的问题：</strong>数据库提交和 Kafka 发送不是同一个原子操作。业务事务只写
+ * {@code outbox_event}，本组件再使用 {@code FOR UPDATE SKIP LOCKED} 抢占事件，避免出现
+ * “资金已提交但通知丢失”的双写缺口。</p>
+ *
+ * <p><strong>CPU、内存与 I/O 优化：</strong>每次只领取配置限定的批次，用一次批量查询摊薄 JDBC
+ * 往返；先提交全部 Kafka 异步发送，再统一等待 Broker 确认，让网络等待互相重叠。结果容器按批次
+ * 容量预分配，避免数组反复扩容；批次数量同时限制未完成 Future 数量，防止 Broker 变慢时堆积对象。</p>
+ *
+ * <p><strong>正确性边界：</strong>只有 Broker 明确确认的事件才标记 PUBLISHED，明确失败的事件释放
+ * 回 PENDING，超时且结果未知的事件保留 PROCESSING 等待恢复。该协议提供至少一次投递，不承诺恰好
+ * 一次；下游仍必须依靠 inbox、业务唯一键和 Epoch Fencing 幂等处理。</p>
  *
  * @author FinCore Reliability Lab
  * @since 2026-08-27
@@ -112,6 +120,7 @@ public class OutboxPublisher {
     public void publishBatch() {
         Timer.Sample sample = Timer.start();
         try {
+            // 领取和所有权判定由数据库 SQL 完成，多实例之间不需要 JVM 全局锁。
             List<OutboxMapper.OutboxEventRow> events = outboxMapper.claimBatch(publisherId, batchSize);
             readyBacklog.set(outboxMapper.countReadyBacklog());
             if (events.isEmpty()) {
@@ -126,6 +135,7 @@ public class OutboxPublisher {
 
     /** 异步发送整个批次，并把明确成功和明确失败分别批量回写数据库。 */
     private void publishClaimed(List<OutboxMapper.OutboxEventRow> events) {
+        // 按已受 batchSize 约束的数量预分配，避免热循环中 ArrayList 多次扩容和复制。
         List<PendingSend> sends = new ArrayList<>(events.size());
         for (OutboxMapper.OutboxEventRow event : events) {
             String topic = event.eventType().startsWith("MATCHING_") ? matchingTopic : settlementTopic;
@@ -142,6 +152,7 @@ public class OutboxPublisher {
         }
 
         try {
+            // 先提交完整批次再等待；allOf 只组合已有 Future，不额外创建一组阻塞平台线程。
             CompletableFuture.allOf(sends.stream()
                 .map(PendingSend::future)
                 .toArray(CompletableFuture[]::new))
@@ -156,6 +167,7 @@ public class OutboxPublisher {
             throw new IllegalStateException("Outbox send result aggregation failed", exception);
         }
 
+        // 成功是正常路径，按最坏情况预分配；失败列表保持小容量，避免每批固定浪费一块大数组。
         List<UUID> successes = new ArrayList<>(sends.size());
         List<UUID> failures = new ArrayList<>();
         int incomplete = 0;

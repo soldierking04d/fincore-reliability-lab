@@ -7,17 +7,19 @@ import static org.mockito.Mockito.when;
 
 import dev.fincore.domain.FenceToken;
 import dev.fincore.infrastructure.concurrent.ConcurrencyProperties;
+import dev.fincore.support.TestExecutors;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Executors;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 /** Worker Lease 缓存和数据面围栏令牌协调测试。 */
 class WorkerLeaseManagerTest {
+    /** 同一分片同时请求围栏令牌的消息数量。 */
+    private static final int CONCURRENT_MESSAGES = 64;
 
     /** 同一分片的并发消息只触发一次控制面续期，但每条消息都得到相同 Epoch。 */
     @Test
@@ -31,9 +33,9 @@ class WorkerLeaseManagerTest {
             leases, properties, new SimpleMeterRegistry());
 
         List<FenceToken> tokens = new ArrayList<>();
-        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+        try (var executor = TestExecutors.fixedThreadPool(1, "worker-lease-test-")) {
             List<java.util.concurrent.Future<FenceToken>> futures = new ArrayList<>();
-            for (int index = 0; index < 64; index++) {
+            for (int index = 0; index < CONCURRENT_MESSAGES; index++) {
                 futures.add(executor.submit(() -> manager.currentFence(3, "worker-a")));
             }
             for (java.util.concurrent.Future<FenceToken> future : futures) {
@@ -41,7 +43,7 @@ class WorkerLeaseManagerTest {
             }
         }
 
-        assertEquals(64, tokens.size());
+        assertEquals(CONCURRENT_MESSAGES, tokens.size());
         assertEquals(1, tokens.stream().distinct().count());
         assertEquals(7, tokens.getFirst().epoch());
         verify(leases, times(1)).acquireOrRenew(3, "worker-a", Duration.ofSeconds(30));

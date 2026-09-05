@@ -191,7 +191,8 @@ public final class FixOmsReconciler {
      */
     public Map<String, String> differences(List<ExecutionReport> reports) {
         Objects.requireNonNull(reports, "reports");
-        Map<String, ExecutionReport> latest = new HashMap<>();
+        // Java 19 的工厂按预期元素数计算底层容量，避免批量对账装载时发生一次无意义扩容。
+        Map<String, ExecutionReport> latest = HashMap.newHashMap(reports.size());
         for (ExecutionReport report : reports) {
             latest.put(report.clientOrderId(), report);
         }

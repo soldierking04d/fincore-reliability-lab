@@ -10,8 +10,14 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * 账户生命周期与账本摘要应用服务。
  *
- * <p>账户余额使用 {@link BigDecimal} 存储。账本摘要通过期初余额和不可变分录重新计算
- * 期望余额，用于对照账户表中的当前余额。</p>
+ * <p><strong>解决的问题：</strong>提供账户创建和“余额表—不可变账本”的独立重算视图，使展示余额
+ * 不会成为唯一事实来源。</p>
+ *
+ * <p><strong>CPU 与 I/O 说明：</strong>汇总运算下推 PostgreSQL，避免把账户全部分录载入 JVM；这是
+ * 查询/对账路径而非每笔撮合热路径。金额坚持 {@link BigDecimal}，不以浮点数换取表面计算速度。</p>
+ *
+ * <p><strong>正确性边界：</strong>本服务不直接调账；发现期望余额与当前余额不一致时只返回证据，
+ * 修复必须走冻结、调查和可追溯反向分录。</p>
  *
  * @author FinCore Reliability Lab
  * @since 2026-08-27
@@ -35,7 +41,7 @@ public class AccountService {
      * @param openingBalance 非负期初余额
      * @return 新账户快照
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public AccountView create(String ownerId, String asset, String type, BigDecimal openingBalance) {
         if (openingBalance == null || openingBalance.signum() < 0) {
             throw new IllegalArgumentException("opening balance must be non-negative");

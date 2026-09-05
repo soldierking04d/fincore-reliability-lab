@@ -59,6 +59,8 @@ import org.junit.jupiter.api.Test;
  * @since 1.1.0
  */
 class ExchangeCoverageLabTest {
+    /** 分层挂撤单信号需要命中的不同价格层数量。 */
+    private static final int LAYERING_LEVELS = 3;
 
     /** 一键实验必须汇总九个能力域，并且每项都有指标、断言和诚实边界。 */
     @Test
@@ -208,7 +210,7 @@ class ExchangeCoverageLabTest {
     void surveillanceFindsWashRapidCancelLayeringAndSlippage() {
         MarketSurveillanceEngine surveillance = new MarketSurveillanceEngine();
         Instant time = Instant.parse("2026-09-04T00:00:00Z");
-        for (int index = 0; index < 3; index++) {
+        for (int index = 0; index < LAYERING_LEVELS; index++) {
             String orderId = "order-" + index;
             BigDecimal price = n(Integer.toString(100 + index));
             surveillance.onOrder(new OrderEvent(orderId, "owner-A", Side.SELL,

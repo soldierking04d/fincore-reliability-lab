@@ -174,9 +174,9 @@ public final class OrderPolicyEngine {
             || instrument.mode() == TradingMode.CANCEL_ONLY) {
             return "TRADING_MODE_REJECTED";
         }
-        if ((instrument.mode() == TradingMode.LIMIT_ONLY
-            || instrument.mode() == TradingMode.POST_ONLY)
-            && request.kind() != Kind.LIMIT) {
+        boolean limitOrderRequired = instrument.mode() == TradingMode.LIMIT_ONLY
+            || instrument.mode() == TradingMode.POST_ONLY;
+        if (limitOrderRequired && request.kind() != Kind.LIMIT) {
             return "LIMIT_ORDER_REQUIRED";
         }
         if (instrument.mode() == TradingMode.POST_ONLY && !request.postOnly()) {
@@ -196,12 +196,14 @@ public final class OrderPolicyEngine {
                 return "MINIMUM_NOTIONAL";
             }
         }
-        if (request.timeInForce() == TimeInForce.GTD
-            && (request.expireAt() == null || !request.expireAt().isAfter(now))) {
+        boolean invalidExpireTime = request.expireAt() == null
+            || !request.expireAt().isAfter(now);
+        if (request.timeInForce() == TimeInForce.GTD && invalidExpireTime) {
             return "INVALID_EXPIRE_TIME";
         }
-        if (request.postOnly() && bestOppositePrice != null
-            && crosses(request.side(), request.price(), bestOppositePrice)) {
+        boolean wouldTakeLiquidity = request.postOnly() && bestOppositePrice != null
+            && crosses(request.side(), request.price(), bestOppositePrice);
+        if (wouldTakeLiquidity) {
             return "POST_ONLY_WOULD_TAKE";
         }
         return null;

@@ -30,6 +30,8 @@ class GovernanceRegistryTest {
 
     /** JSON 解析器。 */
     private static final ObjectMapper JSON = new ObjectMapper();
+    /** 服务目录中声明下游依赖的字段名。 */
+    private static final String DEPENDENCIES_FIELD = "dependencies";
 
     /**
      * 验证服务目录的责任、复查周期和依赖关系。
@@ -50,7 +52,7 @@ class GovernanceRegistryTest {
             requiredArray(service, "dataClasses");
             requiredArray(service, "runbooks");
             assertReviewWindow(service, "lastReviewed", "nextReview", identifier);
-            for (JsonNode dependency : service.path("dependencies")) {
+            for (JsonNode dependency : service.path(DEPENDENCIES_FIELD)) {
                 assertTrue(identifiers.contains(dependency.asText()),
                     () -> "服务依赖不存在：" + identifier + " -> " + dependency.asText());
             }

@@ -13,12 +13,12 @@ import dev.fincore.domain.OrderType;
 import dev.fincore.domain.PlaceOrderCommand;
 import dev.fincore.domain.TradeSyncCommand;
 import dev.fincore.domain.TradeView;
+import dev.fincore.support.TestExecutors;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Callable;
-import java.util.concurrent.Executors;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -43,6 +43,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
     "spring.task.scheduling.enabled=false"
 })
 class TradeReliabilityIntegrationTest {
+    /** 同一成交事件用于制造并发重复投递的任务数量。 */
+    private static final int DUPLICATE_EVENT_CALLS = 16;
     @Container
     static PostgreSQLContainer<?> postgres =
         new PostgreSQLContainer<>("postgres:16-alpine");
@@ -156,11 +158,11 @@ class TradeReliabilityIntegrationTest {
         String symbol = symbol("DUP");
         TradeView trade = createTrades(symbol, 1).get(0);
         TradeSyncCommand command = TradeSyncCommand.from(UUID.randomUUID(), trade);
-        var pool = Executors.newFixedThreadPool(8);
+        var pool = TestExecutors.fixedThreadPool(8, "trade-reliability-test-");
         try {
             List<Callable<TradeReliabilityService.SyncOutcome>> tasks =
                 new ArrayList<>();
-            for (int i = 0; i < 16; i++) {
+            for (int i = 0; i < DUPLICATE_EVENT_CALLS; i++) {
                 tasks.add(() -> reliability.apply(command));
             }
             var outcomes = pool.invokeAll(tasks);
@@ -168,8 +170,12 @@ class TradeReliabilityIntegrationTest {
             int duplicates = 0;
             for (var future : outcomes) {
                 var outcome = future.get();
-                if (outcome.projectionInserted()) inserts++;
-                if (outcome.duplicateEvent()) duplicates++;
+                if (outcome.projectionInserted()) {
+                    inserts++;
+                }
+                if (outcome.duplicateEvent()) {
+                    duplicates++;
+                }
             }
             assertEquals(1, inserts);
             assertEquals(15, duplicates);

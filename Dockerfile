@@ -1,4 +1,4 @@
-FROM maven:3.9-eclipse-temurin-21 AS build
+FROM maven:3.9.11-eclipse-temurin-21 AS build
 WORKDIR /workspace
 ARG MAVEN_SETTINGS=
 COPY config/maven/settings-tencent.xml /opt/fincore/settings-tencent.xml
@@ -15,7 +15,7 @@ RUN if [ -n "$MAVEN_SETTINGS" ]; then \
         mvn -q package -Dmaven.test.skip=true; \
     fi
 
-FROM eclipse-temurin:21-jre
+FROM eclipse-temurin:21.0.8_9-jre-noble
 WORKDIR /app
 COPY --from=build /workspace/target/fincore-reliability-lab-*.jar app.jar
 COPY config/jvm /app/config/jvm

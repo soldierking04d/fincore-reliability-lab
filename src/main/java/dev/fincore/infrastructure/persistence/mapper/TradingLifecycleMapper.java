@@ -11,18 +11,37 @@ import org.apache.ibatis.annotations.Update;
 /**
  * 用户、风控、参考行情和盘前决策的 MyBatis 持久化接口。
  *
- * <p>风控档案通过 {@code FOR UPDATE} 按用户串行校验日累计额度；参考行情只允许较新的观察时间覆盖
- * 旧快照；盘前决定使用用户和客户端订单号作为唯一业务键，保证重试不会重复消耗额度。</p>
+ * <p><strong>解决的问题：</strong>把 KYC、账户状态、日累计额度、参考价新鲜度和盘前幂等决定放到
+ * 可事务化的数据边界，防止并发下单绕过额度或用旧行情放行。</p>
+ *
+ * <p><strong>CPU 与锁优化：</strong>用户+客户端订单号的事务锁只串行化同一幂等键；风控行锁只覆盖
+ * 同一用户额度，其他用户可并行。比较、累计和条件更新下推数据库，减少 Java 侧往返和失败重算。</p>
+ *
+ * <p><strong>正确性边界：</strong>参考行情只允许更新的观察时间覆盖旧值；盘前唯一业务键保证重试不
+ * 重复消耗额度。缓存最多加速查询，不能替代这些锁、时间条件和唯一约束。</p>
  *
  * @author FinCore Reliability Lab
  * @since 1.2.0
  */
 public interface TradingLifecycleMapper {
-    /** 在读取决定前序列化同一幂等键；跨交易对偷换参数也不能发生并发重放竞态。 */
+    /**
+     * 在读取决定前序列化同一幂等键；跨交易对偷换参数也不能发生并发重放竞态。
+     *
+     * @param userId 用户编号
+     * @param clientOrderId 客户端订单幂等号
+     * @return 数据库函数返回值；调用方只依赖该语句产生的锁副作用
+     */
     @Select("SELECT pg_advisory_xact_lock(hashtextextended(#{userId} || ':' || #{clientOrderId}, 2))")
     Object lockRequest(@Param("userId") String userId, @Param("clientOrderId") String clientOrderId);
 
-    /** 创建用户，重复用户编号由数据库唯一约束拒绝。 */
+    /**
+     * 创建用户，重复用户编号由数据库唯一约束拒绝。
+     *
+     * @param userId 用户编号
+     * @param displayName displayName 对应的持久化查询或写入参数
+     * @param countryCode countryCode 对应的持久化查询或写入参数
+     * @return 受影响行数；1 表示写入或条件更新成功，0 表示幂等冲突或并发前置条件未满足
+     */
     @Insert("""
         INSERT INTO customer_profile(user_id, display_name, country_code)
         VALUES (#{userId}, #{displayName}, #{countryCode})
@@ -31,7 +50,12 @@ public interface TradingLifecycleMapper {
                        @Param("displayName") String displayName,
                        @Param("countryCode") String countryCode);
 
-    /** 查询用户当前状态。 */
+    /**
+     * 查询用户当前状态。
+     *
+     * @param userId 用户编号
+     * @return 匹配的持久化快照；不存在时返回 null
+     */
     @Select("""
         SELECT user_id AS "userId", display_name AS "displayName", country_code AS "countryCode",
                status, kyc_status AS "kycStatus", created_at AS "createdAt", updated_at AS "updatedAt"
@@ -40,7 +64,13 @@ public interface TradingLifecycleMapper {
         """)
     CustomerRow findCustomer(@Param("userId") String userId);
 
-    /** 更新 KYC 审核结果。 */
+    /**
+     * 更新 KYC 审核结果。
+     *
+     * @param userId 用户编号
+     * @param kycStatus kycStatus 对应的持久化查询或写入参数
+     * @return 受影响行数；1 表示写入或条件更新成功，0 表示幂等冲突或并发前置条件未满足
+     */
     @Update("""
         UPDATE customer_profile
         SET kyc_status=#{kycStatus}, updated_at=now()
@@ -48,7 +78,13 @@ public interface TradingLifecycleMapper {
         """)
     int updateKyc(@Param("userId") String userId, @Param("kycStatus") String kycStatus);
 
-    /** 更新用户生命周期状态。 */
+    /**
+     * 更新用户生命周期状态。
+     *
+     * @param userId 用户编号
+     * @param status 目标业务状态
+     * @return 受影响行数；1 表示写入或条件更新成功，0 表示幂等冲突或并发前置条件未满足
+     */
     @Update("""
         UPDATE customer_profile
         SET status=#{status}, updated_at=now()
@@ -56,7 +92,17 @@ public interface TradingLifecycleMapper {
         """)
     int updateCustomerStatus(@Param("userId") String userId, @Param("status") String status);
 
-    /** 新建或更新用户风控档案。 */
+    /**
+     * 新建或更新用户风控档案。
+     *
+     * @param userId 用户编号
+     * @param riskLevel riskLevel 对应的持久化查询或写入参数
+     * @param tradingEnabled tradingEnabled 对应的持久化查询或写入参数
+     * @param maxOrderNotional maxOrderNotional 对应的持久化查询或写入参数
+     * @param maxDailyNotional maxDailyNotional 对应的持久化查询或写入参数
+     * @param maxPriceDeviation maxPriceDeviation 对应的持久化查询或写入参数
+     * @return 受影响行数；1 表示写入或条件更新成功，0 表示幂等冲突或并发前置条件未满足
+     */
     @Insert("""
         INSERT INTO risk_profile(
             user_id, risk_level, trading_enabled, max_order_notional,
@@ -81,7 +127,12 @@ public interface TradingLifecycleMapper {
                           @Param("maxDailyNotional") BigDecimal maxDailyNotional,
                           @Param("maxPriceDeviation") BigDecimal maxPriceDeviation);
 
-    /** 查询风控档案。 */
+    /**
+     * 查询风控档案。
+     *
+     * @param userId 用户编号
+     * @return 匹配的持久化快照；不存在时返回 null
+     */
     @Select("""
         SELECT user_id AS "userId", risk_level AS "riskLevel",
                trading_enabled AS "tradingEnabled",
@@ -93,7 +144,12 @@ public interface TradingLifecycleMapper {
         """)
     RiskProfileRow findRiskProfile(@Param("userId") String userId);
 
-    /** 锁定风控档案，使同一用户的并发订单按确定顺序消耗日累计额度。 */
+    /**
+     * 锁定风控档案，使同一用户的并发订单按确定顺序消耗日累计额度。
+     *
+     * @param userId 用户编号
+     * @return 匹配的持久化快照；不存在时返回 null
+     */
     @Select("""
         SELECT user_id AS "userId", risk_level AS "riskLevel",
                trading_enabled AS "tradingEnabled",
@@ -106,7 +162,15 @@ public interface TradingLifecycleMapper {
         """)
     RiskProfileRow lockRiskProfile(@Param("userId") String userId);
 
-    /** 只允许相同或更新的观察时间写入参考行情。 */
+    /**
+     * 只允许相同或更新的观察时间写入参考行情。
+     *
+     * @param symbol 交易对或合约代码
+     * @param price 固定精度价格
+     * @param source 事件来源标识
+     * @param observedAt observedAt 对应的持久化查询或写入参数
+     * @return 受影响行数；1 表示写入或条件更新成功，0 表示幂等冲突或并发前置条件未满足
+     */
     @Insert("""
         INSERT INTO market_reference_price(symbol, price, source, observed_at)
         VALUES (#{symbol}, #{price}, #{source}, #{observedAt})
@@ -123,7 +187,12 @@ public interface TradingLifecycleMapper {
                           @Param("source") String source,
                           @Param("observedAt") Instant observedAt);
 
-    /** 查询交易对参考行情。 */
+    /**
+     * 查询交易对参考行情。
+     *
+     * @param symbol 交易对或合约代码
+     * @return 匹配的持久化快照；不存在时返回 null
+     */
     @Select("""
         SELECT symbol, price, source, observed_at AS "observedAt", version
         FROM market_reference_price
@@ -131,7 +200,13 @@ public interface TradingLifecycleMapper {
         """)
     MarketQuoteRow findMarketQuote(@Param("symbol") String symbol);
 
-    /** 查询用户某资产的交易账户。 */
+    /**
+     * 查询用户某资产的交易账户。
+     *
+     * @param userId 用户编号
+     * @param asset 资产代码
+     * @return 匹配的持久化快照；不存在时返回 null
+     */
     @Select("""
         SELECT account_id AS "accountId", owner_id AS "ownerId", asset,
                account_type AS "accountType", balance, version
@@ -141,7 +216,12 @@ public interface TradingLifecycleMapper {
     TradingAccountRow findTradingAccount(@Param("userId") String userId,
                                          @Param("asset") String asset);
 
-    /** 查询用户当天已经批准的订单名义金额。 */
+    /**
+     * 查询用户当天已经批准的订单名义金额。
+     *
+     * @param userId 用户编号
+     * @return 匹配的持久化快照；不存在时返回 null
+     */
     @Select("""
         SELECT COALESCE(SUM(order_notional), 0)
         FROM pre_trade_decision
@@ -151,7 +231,13 @@ public interface TradingLifecycleMapper {
         """)
     BigDecimal sumApprovedNotionalToday(@Param("userId") String userId);
 
-    /** 按幂等业务键查询既有盘前决定。 */
+    /**
+     * 按幂等业务键查询既有盘前决定。
+     *
+     * @param userId 用户编号
+     * @param clientOrderId 客户端订单幂等号
+     * @return 匹配的持久化快照；不存在时返回 null
+     */
     @Select("""
         SELECT decision_id AS "decisionId", user_id AS "userId",
                client_order_id AS "clientOrderId", symbol, side,
@@ -165,7 +251,25 @@ public interface TradingLifecycleMapper {
     PreTradeDecisionRow findDecision(@Param("userId") String userId,
                                      @Param("clientOrderId") String clientOrderId);
 
-    /** 保存一条不可覆盖的盘前决定。 */
+    /**
+     * 保存一条不可覆盖的盘前决定。
+     *
+     * @param decisionId decisionId 对应的持久化查询或写入参数
+     * @param userId 用户编号
+     * @param clientOrderId 客户端订单幂等号
+     * @param symbol 交易对或合约代码
+     * @param side side 对应的持久化查询或写入参数
+     * @param orderType orderType 对应的持久化查询或写入参数
+     * @param limitPrice limitPrice 对应的持久化查询或写入参数
+     * @param quantity 固定精度数量
+     * @param referencePrice referencePrice 对应的持久化查询或写入参数
+     * @param orderNotional orderNotional 对应的持久化查询或写入参数
+     * @param accountId 账户编号
+     * @param decision decision 对应的持久化查询或写入参数
+     * @param reasonCode reasonCode 对应的持久化查询或写入参数
+     * @param reasonDetail reasonDetail 对应的持久化查询或写入参数
+     * @return 受影响行数；1 表示写入或条件更新成功，0 表示幂等冲突或并发前置条件未满足
+     */
     @Insert("""
         INSERT INTO pre_trade_decision(
             decision_id, user_id, client_order_id, symbol, side, order_type,

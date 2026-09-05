@@ -3,6 +3,7 @@ package dev.fincore.application;
 import dev.fincore.domain.FenceToken;
 import dev.fincore.domain.SettlementCommand;
 import dev.fincore.domain.SettlementOutcome;
+import dev.fincore.infrastructure.concurrent.VirtualTaskExecutors;
 import dev.fincore.infrastructure.persistence.mapper.LabScenarioMapper;
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -13,7 +14,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
@@ -21,9 +21,14 @@ import org.springframework.stereotype.Service;
 /**
  * 金融核心链路的一键综合实验编排服务。
  *
- * <p>该服务只在 {@code lab} Profile 下启用，依次验证重复投递、反向分录补偿、费用分片聚合、
- * Worker 接管与 Epoch Fencing，以及账本对账发现人工错账。场景中的失败均直接抛出，避免输出
- * 具有误导性的“成功报告”。</p>
+ * <p><strong>解决的问题：</strong>串联验证重复投递、反向分录补偿、费用分片聚合、Worker 接管、
+ * Epoch Fencing 和账本错账发现，输出可复查的实验结果。</p>
+ *
+ * <p><strong>CPU 与容量边界：</strong>并发任务只用于触发确定性的竞争窗口；该编排器不在生产请求
+ * 路径，也不把一次实验的 QPS 当作容量承诺。业务 CPU 优化由被调用服务和运行指标单独证明。</p>
+ *
+ * <p><strong>正确性边界：</strong>只在 {@code lab} Profile 下启用；场景失败均直接抛出，禁止输出
+ * 具有误导性的成功报告，故障注入不得暴露到生产 Profile。</p>
  *
  * @author FinCore Reliability Lab
  * @since 1.0.0
@@ -31,6 +36,10 @@ import org.springframework.stereotype.Service;
 @Profile("lab")
 @Service
 public class LabScenarioService {
+    /** 综合实验固定创建的基础结算数量。 */
+    private static final int BASE_SETTLEMENT_COUNT = 4;
+    /** 资金操作正确完成后的统一状态名。 */
+    private static final String SUCCESS_STATUS = "SUCCESS";
     /** 账户服务。 */
     private final AccountService accounts;
     /** 结算服务。 */
@@ -85,7 +94,7 @@ public class LabScenarioService {
         List<FeeAggregationService.FeeAccount> shards = fees.ensureShards("USDT", 16);
         var treasury = fees.ensureTreasury("USDT");
 
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < BASE_SETTLEMENT_COUNT; i++) {
             SettlementCommand command = new SettlementCommand("lab-msg-" + runId + "-" + i,
                 "lab-order-" + runId + "-" + i, payer.accountId(), payee.accountId(),
                 shards.get(i).accountId(), "USDT", new BigDecimal("10"), BigDecimal.ONE);
@@ -94,7 +103,7 @@ public class LabScenarioService {
                 runConcurrentDuplicateStorm(command, 21);
             } else {
                 SettlementOutcome first = settlements.settle(command);
-                if (!"SUCCESS".equals(first.status().name())) {
+                if (!SUCCESS_STATUS.equals(first.status().name())) {
                     throw new IllegalStateException("base settlement failed");
                 }
             }
@@ -103,14 +112,14 @@ public class LabScenarioService {
 
         var compensation = compensations.compensate("lab-order-" + runId + "-0", "automated lab reversal");
         var repeatedCompensation = compensations.compensate("lab-order-" + runId + "-0", "duplicate request");
-        if (!"SUCCESS".equals(compensation.status()) || !repeatedCompensation.duplicate()) {
+        if (!SUCCESS_STATUS.equals(compensation.status()) || !repeatedCompensation.duplicate()) {
             throw new IllegalStateException("compensation idempotency failed");
         }
         checks.put("idempotent reverse journal", "PASS");
 
         var aggregation = fees.aggregate("lab-aggregation-" + runId, "USDT", treasury.accountId());
         var repeatedAggregation = fees.aggregate("lab-aggregation-" + runId, "USDT", treasury.accountId());
-        if (!"SUCCESS".equals(aggregation.status()) || !repeatedAggregation.duplicate()) {
+        if (!SUCCESS_STATUS.equals(aggregation.status()) || !repeatedAggregation.duplicate()) {
             throw new IllegalStateException("fee aggregation idempotency failed");
         }
         checks.put("fee shard aggregation", "PASS: " + aggregation.totalAmount().toPlainString() + " USDT");
@@ -131,14 +140,14 @@ public class LabScenarioService {
         boolean staleRejected = false;
         try {
             settlements.settle(fencedCommand, new FenceToken(shardId, workerA, leaseA.epoch()));
-        } catch (IllegalStateException expected) {
-            staleRejected = expected.getMessage().startsWith("fence rejected");
+        } catch (FenceRejectedException expected) {
+            staleRejected = true;
         }
         if (!staleRejected) {
             throw new IllegalStateException("stale worker was not rejected");
         }
         SettlementOutcome fenced = settlements.settle(fencedCommand, new FenceToken(shardId, workerB, leaseB.epoch()));
-        if (!"SUCCESS".equals(fenced.status().name())) {
+        if (!SUCCESS_STATUS.equals(fenced.status().name())) {
             throw new IllegalStateException("new owner failed to settle");
         }
         checks.put("scale-down stale epoch rejection", "PASS");
@@ -164,7 +173,7 @@ public class LabScenarioService {
      * @param deliveries 并发投递次数
      */
     private void runConcurrentDuplicateStorm(SettlementCommand command, int deliveries) {
-        ExecutorService pool = Executors.newVirtualThreadPerTaskExecutor();
+        ExecutorService pool = VirtualTaskExecutors.newPerTaskExecutor("fincore-takeover-lab-");
         try {
             List<Callable<SettlementOutcome>> tasks = new java.util.ArrayList<>();
             for (int i = 0; i < deliveries; i++) {

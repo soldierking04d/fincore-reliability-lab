@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ruleset name="AlibabaJavaConcurrentForJava21"
+         xmlns="http://pmd.sourceforge.net/ruleset/2.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 http://pmd.sourceforge.net/ruleset_2_0_0.xsd">
+    <description>
+        P3C 2.1.1 并发规则的 Java 21 兼容入口。保留原版全部九条规则、实现类与优先级，只移除
+        PMD 6 已废弃的数据流图开关；该开关会在 Java 21 注解接口上触发内部迭代失败。
+    </description>
+
+    <rule name="ThreadPoolCreationRule" language="java"
+          message="java.concurrent.ThreadPoolCreationRule.rule.msg"
+          class="com.alibaba.p3c.pmd.lang.java.rule.concurrent.ThreadPoolCreationRule">
+        <priority>1</priority>
+    </rule>
+    <rule name="AvoidUseTimerRule" language="java"
+          message="java.concurrent.AvoidUseTimerRule.rule.msg"
+          class="com.alibaba.p3c.pmd.lang.java.rule.concurrent.AvoidUseTimerRule">
+        <priority>1</priority>
+    </rule>
+    <rule name="AvoidManuallyCreateThreadRule" language="java"
+          message="java.concurrent.AvoidManuallyCreateThreadRule.rule.msg"
+          class="com.alibaba.p3c.pmd.lang.java.rule.concurrent.AvoidManuallyCreateThreadRule">
+        <priority>2</priority>
+    </rule>
+    <rule name="ThreadShouldSetNameRule" language="java"
+          message="java.concurrent.ThreadShouldSetNameRule.rule.msg"
+          class="com.alibaba.p3c.pmd.lang.java.rule.concurrent.ThreadShouldSetNameRule">
+        <priority>2</priority>
+    </rule>
+    <rule name="AvoidCallStaticSimpleDateFormatRule" language="java"
+          message="java.concurrent.AvoidCallStaticSimpleDateFormatRule.rule.msg"
+          class="com.alibaba.p3c.pmd.lang.java.rule.concurrent.AvoidCallStaticSimpleDateFormatRule">
+        <priority>2</priority>
+    </rule>
+    <rule name="ThreadLocalShouldRemoveRule" language="java"
+          message="java.concurrent.ThreadLocalShouldRemoveRule.rule.msg"
+          class="com.alibaba.p3c.pmd.lang.java.rule.concurrent.ThreadLocalShouldRemoveRule">
+        <priority>2</priority>
+    </rule>
+    <rule name="AvoidConcurrentCompetitionRandomRule" language="java"
+          message="java.concurrent.AvoidConcurrentCompetitionRandomRule.rule.msg"
+          class="com.alibaba.p3c.pmd.lang.java.rule.concurrent.AvoidConcurrentCompetitionRandomRule">
+        <priority>3</priority>
+    </rule>
+    <rule name="CountDownShouldInFinallyRule" language="java"
+          message="java.concurrent.CountDownShouldInFinallyRule.rule.msg"
+          class="com.alibaba.p3c.pmd.lang.java.rule.concurrent.CountDownShouldInFinallyRule">
+        <priority>3</priority>
+    </rule>
+    <rule name="LockShouldWithTryFinallyRule" language="java"
+          message="java.concurrent.LockShouldWithTryFinallyRule.rule.msg"
+          class="com.alibaba.p3c.pmd.lang.java.rule.concurrent.LockShouldWithTryFinallyRule">
+        <priority>1</priority>
+    </rule>
+</ruleset>

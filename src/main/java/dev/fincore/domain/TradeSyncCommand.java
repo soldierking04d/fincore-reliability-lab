@@ -50,7 +50,7 @@ public record TradeSyncCommand(
             throw new IllegalArgumentException("交易对不能为空 / symbol is required");
         }
         symbol = symbol.trim().toUpperCase(Locale.ROOT);
-        if (!symbol.matches("[A-Z0-9]{2,20}-[A-Z0-9]{2,20}")) {
+        if (!TradingIdentifiers.isSymbol(symbol)) {
             throw new IllegalArgumentException("交易对必须使用 BASE-QUOTE 格式 / invalid symbol");
         }
         if (price.signum() <= 0 || quantity.signum() <= 0 || quoteAmount.signum() <= 0) {

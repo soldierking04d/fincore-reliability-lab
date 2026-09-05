@@ -7,6 +7,7 @@ import dev.fincore.domain.OrderType;
 import dev.fincore.domain.PlaceOrderCommand;
 import dev.fincore.domain.TradeSyncCommand;
 import dev.fincore.domain.TradeView;
+import dev.fincore.infrastructure.concurrent.VirtualTaskExecutors;
 import dev.fincore.infrastructure.persistence.mapper.LabScenarioMapper;
 import dev.fincore.infrastructure.concurrent.StripedTaskExecutor;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -21,7 +22,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -31,8 +31,14 @@ import org.springframework.stereotype.Service;
 /**
  * 高级可靠性实验编排服务。
  *
- * <p>该服务仅在 {@code lab} Profile 启用，用真实数据库事务组合热点撮合与成交同步恢复场景。它负责
- * 造数和断言，不参与生产业务链路。</p>
+ * <p><strong>解决的问题：</strong>用可重复场景验证热点撮合、重复/乱序/漏数/错值消息以及投影恢复，
+ * 把架构说明变成数据库事实和断言。</p>
+ *
+ * <p><strong>CPU 与容量边界：</strong>场景线程数、任务数和等待时间都由代码固定，用来制造受控竞争，
+ * 不是生产线程池配置或容量成绩；运行产生的 CPU、吞吐和延迟只能说明当前实验环境。</p>
+ *
+ * <p><strong>正确性边界：</strong>仅在 {@code lab} Profile 启用，负责造数和断言，不参与生产链路；
+ * 失败直接抛出，不能生成误导性的 PASS 报告。</p>
  *
  * @author FinCore Reliability Lab
  * @since 1.0.0
@@ -40,6 +46,18 @@ import org.springframework.stereotype.Service;
 @Profile("lab")
 @Service
 public class AdvancedLabScenarioService {
+    /** 并发撮合实验允许的最小 Maker 数量。 */
+    private static final int MIN_MAKER_COUNT = 20;
+    /** 并发撮合实验允许的最大 Maker 数量。 */
+    private static final int MAX_MAKER_COUNT = 200;
+    /** 同步恢复场景固定生成的权威成交数量。 */
+    private static final int SYNC_TRADE_COUNT = 3;
+    /** 对账完全收敛后的状态。 */
+    private static final String CLEAN_STATUS = "CLEAN";
+    /** 撤单风暴实验允许的最小普通积压。 */
+    private static final int MIN_ORDINARY_BACKLOG = 8;
+    /** 撤单风暴实验允许的最大普通积压。 */
+    private static final int MAX_ORDINARY_BACKLOG = 512;
     /** 撮合服务。 */
     private final MatchingService matching;
     /** 成交同步、对账与修复服务。 */
@@ -70,7 +88,7 @@ public class AdvancedLabScenarioService {
      * @return 含吞吐量和守恒断言的实验报告
      */
     public BurstReport runMatchingBurst(int makerCount, int takerCount) {
-        if (makerCount < 20 || makerCount > 200 || takerCount < 1
+        if (makerCount < MIN_MAKER_COUNT || makerCount > MAX_MAKER_COUNT || takerCount < 1
             || takerCount > 32 || makerCount % takerCount != 0) {
             throw new IllegalArgumentException(
                 "Maker 数量需为 20—200、Taker 数量需为 1—32，且前者能被后者整除");
@@ -86,24 +104,28 @@ public class AdvancedLabScenarioService {
         }
 
         int quantityPerTaker = makerCount / takerCount;
-        ExecutorService pool = Executors.newVirtualThreadPerTaskExecutor();
+        ExecutorService pool = VirtualTaskExecutors.newPerTaskExecutor("fincore-burst-");
         CountDownLatch start = new CountDownLatch(1);
         List<Future<MatchingResult>> futures = new ArrayList<>();
         long started = System.nanoTime();
         try {
             // 所有 Taker 等待同一个闩锁，尽量在同一时间进入撮合服务。
-            for (int i = 0; i < takerCount; i++) {
-                int index = i;
-                futures.add(pool.submit(() -> {
-                    start.await();
-                    return matching.place(new PlaceOrderCommand(
-                        "burst-taker-" + runId + "-" + index,
-                        "burst-buyer-" + runId + "-" + index,
-                        symbol, OrderSide.BUY, OrderType.LIMIT,
-                        new BigDecimal("100"), new BigDecimal(quantityPerTaker)));
-                }));
+            try {
+                for (int i = 0; i < takerCount; i++) {
+                    int index = i;
+                    futures.add(pool.submit(() -> {
+                        start.await();
+                        return matching.place(new PlaceOrderCommand(
+                            "burst-taker-" + runId + "-" + index,
+                            "burst-buyer-" + runId + "-" + index,
+                            symbol, OrderSide.BUY, OrderType.LIMIT,
+                            new BigDecimal("100"), new BigDecimal(quantityPerTaker)));
+                    }));
+                }
+            } finally {
+                // 即使任务提交中途失败，也必须释放已经入池的任务，避免实验线程永久等待。
+                start.countDown();
             }
-            start.countDown();
             int returnedTrades = 0;
             for (Future<MatchingResult> future : futures) {
                 returnedTrades += future.get().trades().size();
@@ -129,7 +151,7 @@ public class AdvancedLabScenarioService {
     public SyncRecoveryReport runTradeSyncRecovery() {
         String runId = Long.toString(System.currentTimeMillis());
         String symbol = "SYNC" + runId.substring(Math.max(0, runId.length() - 9)) + "-USDT";
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < SYNC_TRADE_COUNT; i++) {
             matching.place(new PlaceOrderCommand(
                 "sync-maker-" + runId + "-" + i,
                 "sync-seller-" + runId + "-" + i,
@@ -141,7 +163,7 @@ public class AdvancedLabScenarioService {
             symbol, OrderSide.BUY, OrderType.LIMIT,
             new BigDecimal("102"), new BigDecimal("3")));
         List<TradeView> trades = taker.trades();
-        if (trades.size() != 3) {
+        if (trades.size() != SYNC_TRADE_COUNT) {
             throw new IllegalStateException("基础成交数量错误 / unexpected trade count");
         }
 
@@ -167,7 +189,7 @@ public class AdvancedLabScenarioService {
             throw new IllegalStateException("漏同步修复幂等失败 / repair idempotency failed");
         }
         var firstClean = reliability.reconcile(symbol);
-        if (!"CLEAN".equals(firstClean.status())) {
+        if (!CLEAN_STATUS.equals(firstClean.status())) {
             throw new IllegalStateException("漏同步修复后仍有差异 / repair did not converge");
         }
 
@@ -193,7 +215,7 @@ public class AdvancedLabScenarioService {
             throw new IllegalStateException("错值修复或隔离失败 / repair or quarantine failed");
         }
         var finalRun = reliability.reconcile(symbol);
-        if (!"CLEAN".equals(finalRun.status())) {
+        if (!CLEAN_STATUS.equals(finalRun.status())) {
             throw new IllegalStateException("最终对账未收敛 / final reconciliation is not clean");
         }
 
@@ -220,7 +242,8 @@ public class AdvancedLabScenarioService {
      * @return 撤单准入、执行顺序与数量守恒报告
      */
     public CancellationStormReport runCancellationStorm(int ordinaryBacklog) {
-        if (ordinaryBacklog < 8 || ordinaryBacklog > 512) {
+        if (ordinaryBacklog < MIN_ORDINARY_BACKLOG
+            || ordinaryBacklog > MAX_ORDINARY_BACKLOG) {
             throw new IllegalArgumentException("普通积压量需为 8—512");
         }
         String runId = Long.toString(System.currentTimeMillis());
@@ -254,15 +277,18 @@ public class AdvancedLabScenarioService {
             } catch (dev.fincore.infrastructure.concurrent.ConcurrencyRejectedException expected) {
                 overflowRejected = true;
             }
-            CompletableFuture<CancellationObservation> cancellation = lane.submitPriority(
-                symbol, () -> {
+            CompletableFuture<CancellationObservation> cancellation;
+            try {
+                cancellation = lane.submitPriority(symbol, () -> {
                     var canceled = matching.cancel(placed.order().orderId(), userId);
                     // 必须在撤单任务仍占用同一 Lane 时取样。若等 future 返回后再读取，Worker 可能
                     // 已经开始下一条普通命令，从而把“调度顺序”误判成失败。
                     return new CancellationObservation(canceled, completedOrdinary.get());
                 });
-
-            releaseWorker.countDown();
+            } finally {
+                // 提交撤单失败也要释放阻塞任务，确保实验清理路径不会遗留 Lane 线程。
+                releaseWorker.countDown();
+            }
             require(blocker.get(2, TimeUnit.SECONDS), "阻塞任务未正常结束 / blocker did not finish");
             var cancellationObservation = cancellation.get(5, TimeUnit.SECONDS);
             var canceled = cancellationObservation.order();
@@ -270,26 +296,8 @@ public class AdvancedLabScenarioService {
             CompletableFuture.allOf(backlog.toArray(CompletableFuture[]::new))
                 .get(5, TimeUnit.SECONDS);
 
-            boolean quantityInvariant = canceled.executedQuantity()
-                .add(canceled.remainingQuantity())
-                .compareTo(canceled.originalQuantity()) == 0;
-            require(overflowRejected, "普通队列饱和后仍受理新单 / overflow order was accepted");
-            require(canceled.status() == OrderStatus.CANCELED,
-                "撤单未形成权威终态 / cancellation not finalized");
-            require(completedAtCancellation == 0,
-                "撤单没有越过普通积压 / cancellation did not overtake backlog");
-            require(quantityInvariant, "订单数量不守恒 / order quantity invariant failed");
-
-            Map<String, String> checks = new LinkedHashMap<>();
-            checks.put("普通队列背压", "PASS：满载后新单返回 429 语义，不转移到无界队列");
-            checks.put("撤单保留容量", "PASS：普通队列已满仍能受理撤单");
-            checks.put("同交易对顺序", "PASS：不抢占进行中事务，随后优先于 " + ordinaryBacklog + " 笔积压");
-            checks.put("前端成功语义", "PASS：数据库返回 CANCELED 终态后才报告成功");
-            checks.put("订单数量守恒", "PASS：executed + remaining = original");
-            long elapsedMs = Math.max(1, TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt));
-            return new CancellationStormReport(runId, symbol, Instant.now(), ordinaryBacklog,
-                overflowRejected, canceled.status(), completedAtCancellation,
-                completedOrdinary.get(), quantityInvariant, elapsedMs, checks);
+            return cancellationReport(runId, symbol, ordinaryBacklog, overflowRejected,
+                canceled, completedAtCancellation, completedOrdinary.get(), startedAt);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("撤单风暴实验被中断 / cancellation storm interrupted", exception);
@@ -300,6 +308,33 @@ public class AdvancedLabScenarioService {
             lane.shutdown();
             registry.close();
         }
+    }
+
+    /** 汇总撤单风暴的不变量断言和对外证据，避免并发编排方法同时承担报告拼装。 */
+    private CancellationStormReport cancellationReport(
+        String runId, String symbol, int ordinaryBacklog, boolean overflowRejected,
+        dev.fincore.domain.OrderView canceled, int completedAtCancellation,
+        int completedOrdinary, long startedAt) {
+        boolean quantityInvariant = canceled.executedQuantity()
+            .add(canceled.remainingQuantity())
+            .compareTo(canceled.originalQuantity()) == 0;
+        require(overflowRejected, "普通队列饱和后仍受理新单 / overflow order was accepted");
+        require(canceled.status() == OrderStatus.CANCELED,
+            "撤单未形成权威终态 / cancellation not finalized");
+        require(completedAtCancellation == 0,
+            "撤单没有越过普通积压 / cancellation did not overtake backlog");
+        require(quantityInvariant, "订单数量不守恒 / order quantity invariant failed");
+
+        Map<String, String> checks = new LinkedHashMap<>();
+        checks.put("普通队列背压", "PASS：满载后新单返回 429 语义，不转移到无界队列");
+        checks.put("撤单保留容量", "PASS：普通队列已满仍能受理撤单");
+        checks.put("同交易对顺序", "PASS：不抢占进行中事务，随后优先于 " + ordinaryBacklog + " 笔积压");
+        checks.put("前端成功语义", "PASS：数据库返回 CANCELED 终态后才报告成功");
+        checks.put("订单数量守恒", "PASS：executed + remaining = original");
+        long elapsedMs = Math.max(1, TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt));
+        return new CancellationStormReport(runId, symbol, Instant.now(), ordinaryBacklog,
+            overflowRejected, canceled.status(), completedAtCancellation,
+            completedOrdinary, quantityInvariant, elapsedMs, checks);
     }
 
     /**

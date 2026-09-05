@@ -10,15 +10,22 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Worker 分片 Lease、排空和 Epoch Fencing 服务。
  *
- * <p>Lease 负责表达“当前谁是所有者”，Epoch 负责阻止旧所有者恢复后的迟到写入。
- * 接管时 Epoch 单调递增；资金事务必须调用 {@link #requireValidFenceForUpdate(FenceToken)}
- * 在数据面再次校验当前所有权。</p>
+ * <p><strong>解决的问题：</strong>Lease 表达“当前谁是所有者”，Epoch 阻止网络分区、长 GC 或暂停
+ * 后的旧 Worker 恢复并迟到写入；排空状态用于发布和维护前停止接受新事务。</p>
+ *
+ * <p><strong>CPU 与锁说明：</strong>每次只锁一个 shard 的租约行，控制面可按分片并行；上层短期
+ * 缓存降低正常续期写频率。这里不使用忙轮询或进程内定时自旋，过期和接管由事务按需判断。</p>
+ *
+ * <p><strong>正确性边界：</strong>接管时 Epoch 必须单调递增；资金事务必须调用
+ * {@link #requireValidFenceForUpdate(FenceToken)} 在数据面再次锁定并校验，入口缓存不能替代授权。</p>
  *
  * @author FinCore Reliability Lab
  * @since 2026-08-27
  */
 @Service
 public class ShardLeaseService {
+    /** 可续期且可接受数据面写入的 Lease 状态。 */
+    private static final String LEASE_RUNNING = "RUNNING";
     /** 分片 Lease 和数据面围栏持久化接口。 */
     private final ShardLeaseMapper leaseMapper;
 
@@ -35,7 +42,7 @@ public class ShardLeaseService {
      * @param ttl Lease 有效期
      * @return 当前 Lease 快照
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public Lease claim(int shardId, String ownerId, Duration ttl) {
         return acquireOrRenew(shardId, ownerId, ttl);
     }
@@ -51,7 +58,7 @@ public class ShardLeaseService {
      * @param ttl Lease 有效期
      * @return 更新后的 Lease
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public Lease acquireOrRenew(int shardId, String ownerId, Duration ttl) {
         if (ttl.isNegative() || ttl.isZero()) {
             throw new IllegalArgumentException("ttl must be positive");
@@ -60,13 +67,13 @@ public class ShardLeaseService {
         Instant until = Instant.now().plus(ttl);
         if (row == null) {
             leaseMapper.insert(shardId, ownerId, until);
-            return new Lease(shardId, ownerId, 1, "RUNNING", until);
+            return new Lease(shardId, ownerId, 1, LEASE_RUNNING, until);
         }
         Lease current = toLease(row);
         boolean live = current.leaseUntil().isAfter(Instant.now());
-        if (live && current.ownerId().equals(ownerId) && "RUNNING".equals(current.state())) {
+        if (live && current.ownerId().equals(ownerId) && LEASE_RUNNING.equals(current.state())) {
             leaseMapper.extendOwned(shardId, ownerId, current.epoch(), until);
-            return new Lease(shardId, ownerId, current.epoch(), "RUNNING", until);
+            return new Lease(shardId, ownerId, current.epoch(), LEASE_RUNNING, until);
         }
         if (live) {
             throw new IllegalStateException("shard unavailable; owner=" + current.ownerId() + ", state=" + current.state());
@@ -74,7 +81,7 @@ public class ShardLeaseService {
         // 只有旧 Lease 已过期时才允许接管，并通过递增 Epoch 使旧令牌永久失效。
         long nextEpoch = current.epoch() + 1;
         leaseMapper.takeOver(shardId, ownerId, nextEpoch, until);
-        return new Lease(shardId, ownerId, nextEpoch, "RUNNING", until);
+        return new Lease(shardId, ownerId, nextEpoch, LEASE_RUNNING, until);
     }
 
     /**
@@ -118,17 +125,17 @@ public class ShardLeaseService {
      * 在业务写事务内部强制校验围栏令牌。
      *
      * @param token Worker 提交的分片、所有者和 Epoch
-     * @throws IllegalStateException Lease 缺失、过期、排空或已经被新 Epoch 接管时抛出
+     * @throws FenceRejectedException Lease 缺失、过期、排空或已经被新 Epoch 接管时抛出
      */
     public void requireValidFenceForUpdate(FenceToken token) {
         ShardLeaseMapper.LeaseRow row = leaseMapper.lockForFenceValidation(token.shardId());
         if (row == null) {
-            throw new IllegalStateException("fence rejected: shard lease missing");
+            throw new FenceRejectedException("fence rejected: shard lease missing");
         }
         Lease lease = toLease(row);
         if (!lease.ownerId().equals(token.ownerId()) || lease.epoch() != token.epoch() ||
             !"RUNNING".equals(lease.state()) || !lease.leaseUntil().isAfter(Instant.now())) {
-            throw new IllegalStateException("fence rejected: stale or draining worker");
+            throw new FenceRejectedException("fence rejected: stale or draining worker");
         }
     }
 

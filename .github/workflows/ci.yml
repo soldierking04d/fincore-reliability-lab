@@ -19,6 +19,8 @@ jobs:
           cache: maven
       - name: Verify core model
         run: ./scripts/verify-core.sh
+      - name: Verify Java convention baseline
+        run: ./scripts/verify-code-conventions.sh
       - name: Validate public evaluation kit
         run: ./scripts/eval/validate-eval-kit.sh
       - name: Check release scripts
@@ -30,10 +32,23 @@ jobs:
             exit 1
           fi
       - name: Maven tests
-        run: mvn --batch-mode -Dfincore.test.require-database=true clean verify
+        # Wrapper 固定 Maven；脚本同时拒绝 P3C 返回 0 但控制台出现内部处理错误的假通过。
+        run: ./scripts/run-maven-verify.sh -Dfincore.test.require-database=true clean verify
       - name: Reject skipped or missing integration tests
         if: always()
         run: java scripts/VerifyTestReports.java
+      - name: Retain Java convention evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fincore-java-convention-evidence
+          path: |
+            target/pmd.xml
+            target/site/pmd.html
+            target/spotbugsXml.xml
+            target/site/jacoco/
+            target/maven-verify.log
+          if-no-files-found: warn
       - name: Retain test evidence
         if: always()
         uses: actions/upload-artifact@v4

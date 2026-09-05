@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ruleset name="AlibabaJavaExceptionsForJava21"
+         xmlns="http://pmd.sourceforge.net/ruleset/2.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 http://pmd.sourceforge.net/ruleset_2_0_0.xsd">
+    <description>
+        P3C 2.1.1 异常规则的 Java 21 兼容入口。规则本身保持不变，只移除旧 PMD 6 数据流图开关；
+        该开关会对 MyBatis 注解接口产生内部迭代错误，而事务规则只读取注解语法树，不依赖数据流结果。
+    </description>
+
+    <rule name="MethodReturnWrapperTypeRule"
+          language="java"
+          message="java.exception.MethodReturnWrapperTypeRule.rule.msg"
+          class="com.alibaba.p3c.pmd.lang.java.rule.exception.MethodReturnWrapperTypeRule">
+        <priority>3</priority>
+    </rule>
+    <rule name="AvoidReturnInFinallyRule"
+          language="java"
+          message="java.exception.AvoidReturnInFinallyRule.rule.msg"
+          class="com.alibaba.p3c.pmd.lang.java.rule.exception.AvoidReturnInFinallyRule">
+        <priority>2</priority>
+    </rule>
+    <rule name="TransactionMustHaveRollbackRule"
+          language="java"
+          message="java.exception.TransactionMustHaveRollbackRule.rule.msg"
+          class="com.alibaba.p3c.pmd.lang.java.rule.exception.TransactionMustHaveRollbackRule">
+        <priority>3</priority>
+    </rule>
+</ruleset>

@@ -6,11 +6,23 @@
 ## 1. 注释要求
 
 - 每个对外类、枚举、Record 和接口必须有 Javadoc，并写明职责、边界、@author 与 @since。
+- 模块入口、核心应用服务、执行器、消息适配器和热路径 Mapper 的类型注释必须回答四个问题：
+  “解决什么问题”“请求怎样流转”“CPU/内存/锁/I/O 为什么这样设计”“正确性边界在哪里”。
 - 对外方法必须说明业务意图、全部参数、返回值以及调用方需要处理的异常或终态。
 - 每个枚举常量必须逐项说明，不能只解释枚举类型。
 - 事务、并发锁、幂等键、状态机、Outbox、Fencing、SQL 更新条件和故障注入必须解释“为什么这样做”。
+- 涉及 CPU 优化时必须写出可验证机制，例如线程数量上限、时间复杂度、分配来源、批次大小、
+  上下文切换、锁竞争或 JDBC 往返；禁止仅写“高性能”“低延迟”“已优化”等无法证伪的结论。
+- 若选择没有做某项优化，也要说明原因和触发条件。例如小集合线性去重是为了避免 HashSet 分配，
+  BigDecimal 是金融精度成本，GPU/绑核/堆外内存只有在真实画像证明瓶颈后才进入专项设计。
+- DTO、枚举和不可变值对象若没有独立 CPU 策略，不强行添加性能话术；由类型注释说明不变量，
+  由对应 {@code package-info.java} 记录模块的执行资源与性能边界。
 - 注释放在被解释代码的上方并随代码维护；禁止用注释简单复述变量名或保留已经失效的实现说明。
 - 中文是默认说明语言；类名、方法名、协议名及 PostgreSQL、Kafka、Outbox、Epoch 等专有名词保留英文。
+
+本轮注释的逐文件落点和真实性边界见 [代码注释与 CPU 优化索引](code-comment-coverage.md)；完整
+P3C 扫描口径、626 条初始问题、Java 21 兼容策略和最终结果见
+[阿里 Java 规范全量审计与整改记录](alibaba-java-guideline-audit.md)。
 
 ## 2. 格式与命名
 
@@ -36,14 +48,14 @@
 提交前至少执行以下命令：
 
     ./scripts/verify-code-conventions.sh
-    mvn test
+    ./scripts/run-maven-verify.sh clean verify
 
 第一条命令检查通配符导入、Tab、单行控制语句以及生产类型的 Javadoc、@author、@since 和包说明；
-第二条命令执行单元测试与可用环境下的 Testcontainers 集成测试。
+第二条命令执行 P3C-PMD 全部 10 组官方自动规则、项目架构测试、核心运行类文档契约、单元测试与
+可用环境下的 Testcontainers 集成测试。CI 会强制数据库测试不得跳过。
 
 参考资料：
 
 - [Alibaba P3C](https://github.com/alibaba/p3c)
 - [P3C-PMD](https://github.com/alibaba/p3c/tree/master/p3c-pmd)
 - [Alibaba Java Formatter](https://github.com/alibaba/p3c/blob/master/p3c-formatter/eclipse-codestyle.xml)
-

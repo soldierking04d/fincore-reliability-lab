@@ -27,9 +27,19 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * 资金结算核心服务。
  *
- * <p>服务在单个 PostgreSQL 事务内完成 Inbox 幂等、Fencing 校验、账户行锁、
- * 借贷分录、余额更新、CAS 状态转换和 Outbox 写入。任何一步失败都会整体回滚，
- * 不允许出现“账本成功但余额失败”或“资金成功但事件丢失”的部分提交。</p>
+ * <p><strong>解决的问题：</strong>把可能重复、乱序、由不同 Worker 处理的结算命令收敛成唯一资金
+ * 效果，并保证余额、账本、状态和后续事件一致。</p>
+ *
+ * <p><strong>执行链路：</strong>单个 PostgreSQL 事务依次完成 Inbox 占位、Fencing 校验、业务幂等、
+ * 状态迁移、账户加锁、平衡校验、账本分录、余额更新和 Outbox 写入。</p>
+ *
+ * <p><strong>CPU 与锁：</strong>参与账户先去重并按 UUID 的两个 64 位分量排序，避免字符串创建和
+ * 相反锁序；每笔结算只处理固定数量账户和分录，不使用 parallelStream 或公共线程池。数据库 I/O
+ * 和锁等待是主要成本，盲目增加线程只会放大连接等待和死锁概率。BigDecimal 是金融精度要求，
+ * 不用浮点数换取算术速度。</p>
+ *
+ * <p><strong>正确性边界：</strong>任何一步失败整体回滚，不允许“账本成功但余额失败”或“资金成功但
+ * 事件丢失”。SUCCESS 不可覆盖，冲正必须通过独立补偿单和反向分录表达。</p>
  *
  * @author FinCore Reliability Lab
  * @since 2026-08-27
@@ -76,7 +86,7 @@ public class SettlementService {
      * @param command 结算命令
      * @return 结算结果
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public SettlementOutcome settle(SettlementCommand command) {
         return settle(command, null);
     }
@@ -88,7 +98,7 @@ public class SettlementService {
      * @param fenceToken 数据面围栏令牌；受信任内部调用允许为空
      * @return 成功、失败或幂等重放结果
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public SettlementOutcome settle(SettlementCommand command, FenceToken fenceToken) {
         String payload = toJson(command);
         // Inbox 是消息级幂等第一道防线；插入失败表示该 messageId 已处理或正在处理。
@@ -127,7 +137,7 @@ public class SettlementService {
             return new SettlementOutcome(command.businessKey(), SettlementStatus.FAILED, false, "insufficient balance");
         }
 
-        // 先构造完整分录并验证借贷平衡，再写账本和修改余额。
+        // 分录数量最多三条，先在内存做常量规模平衡校验；不能为省一次遍历而边写库边验证。
         List<LedgerPosting> postings = new ArrayList<>();
         postings.add(new LedgerPosting(command.payerAccountId(), LedgerDirection.DEBIT, totalDebit));
         postings.add(new LedgerPosting(command.payeeAccountId(), LedgerDirection.CREDIT, command.amount()));

@@ -16,6 +16,8 @@ import java.util.Objects;
  * @since 1.1.0
  */
 public final class FeeEngine {
+    /** BigDecimal 支持的手续费金额最大业务小数位数。 */
+    private static final int MAX_FEE_SCALE = 18;
     /** 流动性角色。 */
     public enum LiquidityRole {
         /** 挂单提供流动性。 */
@@ -36,7 +38,7 @@ public final class FeeEngine {
      * @param tiers VIP费率阶梯
      */
     public FeeEngine(int scale, List<FeeTier> tiers) {
-        if (scale < 0 || scale > 18) {
+        if (scale < 0 || scale > MAX_FEE_SCALE) {
             throw new IllegalArgumentException("手续费精度范围为0—18位");
         }
         Objects.requireNonNull(tiers, "tiers");

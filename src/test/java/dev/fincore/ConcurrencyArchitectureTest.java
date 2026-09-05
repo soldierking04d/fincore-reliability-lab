@@ -79,6 +79,7 @@ class ConcurrencyArchitectureTest {
         assertTrue(g1.contains("StartFlightRecording"));
         assertTrue(g1.contains("-Xlog:gc"));
         assertTrue(g1.contains("ExitOnOutOfMemoryError"));
-        assertTrue(dockerfile.contains("eclipse-temurin:21-jre"));
+        assertTrue(dockerfile.contains("eclipse-temurin:21.0.8_9-jre-noble"),
+            "运行时镜像必须固定到已审计的 JDK 补丁版本，禁止漂移标签");
     }
 }

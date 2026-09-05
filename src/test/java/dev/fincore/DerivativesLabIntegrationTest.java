@@ -12,13 +12,13 @@ import static org.mockito.Mockito.reset;
 import dev.fincore.application.DerivativesLabService;
 import dev.fincore.domain.OrderSide;
 import dev.fincore.infrastructure.persistence.mapper.OutboxMapper;
+import dev.fincore.support.TestExecutors;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
@@ -43,6 +43,12 @@ import org.testcontainers.containers.PostgreSQLContainer;
     "spring.kafka.listener.auto-startup=false", "spring.task.scheduling.enabled=false"
 })
 class DerivativesLabIntegrationTest {
+    /** CI 要求数据库集成测试不得跳过的系统属性。 */
+    private static final String REQUIRE_DATABASE_PROPERTY = "fincore.test.require-database";
+    /** 标记价新鲜度边界外使用的测试偏移秒数。 */
+    private static final long STALE_MARK_OFFSET_SECONDS = 60L;
+    /** 并发测试等待所有任务就绪的最长秒数。 */
+    private static final long RACE_READY_TIMEOUT_SECONDS = 10L;
     /** 只有未指定独立测试库时才启动临时容器。 */
     private static PostgreSQLContainer<?> postgres;
     @Autowired DerivativesLabService lab;
@@ -53,7 +59,7 @@ class DerivativesLabIntegrationTest {
     static boolean databaseAvailable() {
         boolean available = System.getProperty("fincore.test.jdbc-url") != null
             || DockerClientFactory.instance().isDockerAvailable();
-        if (!available && Boolean.getBoolean("fincore.test.require-database")) {
+        if (!available && Boolean.getBoolean(REQUIRE_DATABASE_PROPERTY)) {
             throw new IllegalStateException("合约集成验收要求 PostgreSQL，禁止跳过后宣称通过");
         }
         return available;
@@ -92,8 +98,8 @@ class DerivativesLabIntegrationTest {
         var results = race(
             () -> lab.reserve(account, "btc-order", "BTC-USDT", n("6000")),
             () -> lab.reserve(account, "eth-order", "ETH-USDT", n("6000")));
-        assertEquals(1, results.stream().filter(r -> r.status().equals("RESERVED")).count());
-        assertEquals(1, results.stream().filter(r -> r.status().equals("INSUFFICIENT_MARGIN")).count());
+        assertEquals(1, results.stream().filter(r -> "RESERVED".equals(r.status())).count());
+        assertEquals(1, results.stream().filter(r -> "INSUFFICIENT_MARGIN".equals(r.status())).count());
         amount("6000", value(account, "reserved"));
         String winner = jdbc.queryForObject("""
             SELECT business_key FROM lab_derivative_operation
@@ -189,7 +195,7 @@ class DerivativesLabIntegrationTest {
 
     /** 两张平仓单并发到达时总计只能平掉现有仓位，并按真实成交量计算盈亏。 */
     @Test
-    void competingReduceOnlyFillsCannotOpenAReversePosition() throws Exception {
+    void concurrentReduceOnlyPreventsReversal() throws Exception {
         UUID account = longPosition("10000"), pool = account("1000000");
         var results = race(
             () -> lab.reduceOnly(account, pool, "fill-1", "BTC-USDT", OrderSide.SELL, n("0.8"), n("61000")),
@@ -250,7 +256,9 @@ class DerivativesLabIntegrationTest {
     void staleOrFutureMarkFailsClosed() {
         UUID account = longPosition("5000");
         long epoch = lab.takeover(account, UUID.randomUUID());
-        for (Instant time : List.of(Instant.now().minusSeconds(60), Instant.now().plusSeconds(60))) {
+        for (Instant time : List.of(
+            Instant.now().minusSeconds(STALE_MARK_OFFSET_SECONDS),
+            Instant.now().plusSeconds(STALE_MARK_OFFSET_SECONDS))) {
             var snapshot = lab.assess(account, "BTC-USDT", n("54000"), time);
             assertEquals("STALE_MARK", lab.liquidate(UUID.randomUUID(), snapshot, epoch).status());
         }
@@ -325,16 +333,20 @@ class DerivativesLabIntegrationTest {
     private List<DerivativesLabService.Result> race(Callable<DerivativesLabService.Result> first,
                                                     Callable<DerivativesLabService.Result> second) throws Exception {
         CountDownLatch ready = new CountDownLatch(2), start = new CountDownLatch(1);
-        try (var executor = Executors.newFixedThreadPool(2)) {
+        try (var executor = TestExecutors.fixedThreadPool(2, "derivatives-race-test-")) {
             var futures = List.of(first, second).stream().map(task -> executor.submit(() -> {
                 ready.countDown();
-                if (!start.await(10, TimeUnit.SECONDS)) {
+                if (!start.await(RACE_READY_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
                     throw new IllegalStateException("并发测试起跑超时");
                 }
                 return task.call();
             })).toList();
-            assertTrue(ready.await(10, TimeUnit.SECONDS));
-            start.countDown();
+            try {
+                assertTrue(ready.await(RACE_READY_TIMEOUT_SECONDS, TimeUnit.SECONDS));
+            } finally {
+                // 断言失败也要释放已经就绪的任务，避免测试线程泄漏。
+                start.countDown();
+            }
             return List.of(futures.get(0).get(20, TimeUnit.SECONDS), futures.get(1).get(20, TimeUnit.SECONDS));
         }
     }

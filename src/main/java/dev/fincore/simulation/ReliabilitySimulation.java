@@ -7,6 +7,7 @@ import dev.fincore.domain.LedgerPosting;
 import dev.fincore.domain.SettlementCommand;
 import dev.fincore.domain.SettlementOutcome;
 import dev.fincore.domain.SettlementStatus;
+import dev.fincore.infrastructure.concurrent.VirtualTaskExecutors;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -17,7 +18,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 /**
@@ -31,6 +31,12 @@ import java.util.concurrent.Future;
  * @since 1.0.0
  */
 public final class ReliabilitySimulation {
+    /** 重复投递风暴的总调用数。 */
+    private static final int DELIVERY_ATTEMPTS = 100;
+    /** 除第一次有效处理外，其余调用都必须识别为重复。 */
+    private static final int EXPECTED_DUPLICATES = DELIVERY_ATTEMPTS - 1;
+    /** 在结算、补偿和费用分片场景中复用的业务订单号。 */
+    private static final String SAMPLE_ORDER_ID = "order-100";
     /** 工具类不允许实例化。 */
     private ReliabilitySimulation() {
     }
@@ -46,12 +52,12 @@ public final class ReliabilitySimulation {
         UUID payer = engine.account("100");
         UUID payee = engine.account("0");
         UUID fee = engine.account("0");
-        SettlementCommand command = new SettlementCommand("msg-100", "order-100", payer, payee, fee,
+        SettlementCommand command = new SettlementCommand("msg-100", SAMPLE_ORDER_ID, payer, payee, fee,
             "USDT", new BigDecimal("10"), new BigDecimal("1"));
 
-        ExecutorService pool = Executors.newVirtualThreadPerTaskExecutor();
+        ExecutorService pool = VirtualTaskExecutors.newPerTaskExecutor("fincore-simulation-");
         List<Callable<SettlementOutcome>> tasks = new ArrayList<>();
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < DELIVERY_ATTEMPTS; i++) {
             tasks.add(() -> engine.settle(command));
         }
         List<Future<SettlementOutcome>> futures = pool.invokeAll(tasks);
@@ -66,15 +72,16 @@ public final class ReliabilitySimulation {
         assertAmount(engine.balance(payer), "89", "payer balance after duplicate storm");
         assertAmount(engine.balance(payee), "10", "payee balance after duplicate storm");
         assertAmount(engine.balance(fee), "1", "fee balance after duplicate storm");
-        if (duplicates != 99) {
-            throw new AssertionError("expected 99 duplicates, got " + duplicates);
+        if (duplicates != EXPECTED_DUPLICATES) {
+            throw new AssertionError("expected " + EXPECTED_DUPLICATES
+                + " duplicates, got " + duplicates);
         }
         if (engine.journalCount() != 1) {
             throw new AssertionError("duplicate journal detected");
         }
 
-        boolean firstCompensation = engine.compensate("order-100");
-        boolean duplicateCompensation = !engine.compensate("order-100");
+        boolean firstCompensation = engine.compensate(SAMPLE_ORDER_ID);
+        boolean duplicateCompensation = !engine.compensate(SAMPLE_ORDER_ID);
         if (!firstCompensation || !duplicateCompensation) {
             throw new AssertionError("compensation idempotency failed");
         }
@@ -89,13 +96,14 @@ public final class ReliabilitySimulation {
         }
 
         FeeShardRouter router = new FeeShardRouter(16);
-        boolean deterministicFeeShard = router.shardFor("order-100") == router.shardFor("order-100");
+        if (router.shardFor(SAMPLE_ORDER_ID) != router.shardFor(SAMPLE_ORDER_ID)) {
+            throw new AssertionError("fee sharding is not deterministic");
+        }
         FenceRegistry fences = new FenceRegistry();
         Fence first = fences.claim(7, "worker-a");
         fences.drain(first);
         Fence second = fences.takeover(7, "worker-b");
-        boolean staleWorkerRejected = !fences.valid(first) && fences.valid(second) && second.epoch() > first.epoch();
-        if (!staleWorkerRejected) {
+        if (fences.valid(first) || !fences.valid(second) || second.epoch() <= first.epoch()) {
             throw new AssertionError("stale fencing token was accepted");
         }
 
@@ -105,8 +113,8 @@ public final class ReliabilitySimulation {
         checks.put("terminal settlement status", "PASS");
         checks.put("idempotent reverse journal", "PASS");
         checks.put("ledger reconciliation detects corruption", "PASS");
-        checks.put("deterministic fee sharding", deterministicFeeShard ? "PASS" : "FAIL");
-        checks.put("stale epoch fencing", staleWorkerRejected ? "PASS" : "FAIL");
+        checks.put("deterministic fee sharding", "PASS");
+        checks.put("stale epoch fencing", "PASS");
         return new Report(Instant.now(), checks, duplicates, engine.journalCount(), differences);
     }
 

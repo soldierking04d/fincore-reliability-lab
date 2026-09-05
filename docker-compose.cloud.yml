@@ -3,6 +3,8 @@ services:
     mem_limit: 600m
     cpus: 0.75
     shm_size: 128m
+    environment:
+      POSTGRES_PASSWORD: ${FINCORE_POSTGRES_PASSWORD:?请在服务器 .env 中设置 FINCORE_POSTGRES_PASSWORD}
     command:
       - postgres
       - -c
@@ -33,6 +35,9 @@ services:
     cpus: 2.0
     pids_limit: 256
     environment:
+      SPRING_PROFILES_ACTIVE: lab,public-demo
+      SPRING_DATASOURCE_PASSWORD: ${FINCORE_POSTGRES_PASSWORD:?请在服务器 .env 中设置 FINCORE_POSTGRES_PASSWORD}
+      FINCORE_ADMIN_TOKEN: ${FINCORE_ADMIN_TOKEN:?请在服务器 .env 中设置至少32字符的 FINCORE_ADMIN_TOKEN}
       FINCORE_MATCHING_LANES: 2
       FINCORE_MATCHING_QUEUE_CAPACITY: 128
       FINCORE_SETTLEMENT_CONSUMERS: 2
@@ -60,7 +65,7 @@ services:
       PROMETHEUS_URL: http://prometheus:9090/prometheus
 
   nginx:
-    image: nginx:1.27-alpine
+    image: nginx:1.27.5-alpine
     restart: unless-stopped
     mem_limit: 96m
     cpus: 0.20
@@ -78,7 +83,7 @@ services:
         condition: service_started
 
   caddy:
-    image: caddy:2-alpine
+    image: caddy:2.10.2-alpine
     restart: unless-stopped
     mem_limit: 96m
     cpus: 0.20

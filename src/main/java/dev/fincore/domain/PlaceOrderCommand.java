@@ -41,7 +41,7 @@ public record PlaceOrderCommand(
             throw new IllegalArgumentException("symbol is required");
         }
         symbol = symbol.trim().toUpperCase(Locale.ROOT);
-        if (!symbol.matches("[A-Z0-9]{2,20}-[A-Z0-9]{2,20}")) {
+        if (!TradingIdentifiers.isSymbol(symbol)) {
             throw new IllegalArgumentException("symbol must use BASE-QUOTE format");
         }
         if (side == null || type == null) {
