@@ -1,13 +1,23 @@
-# 默认生产基线：中小堆、高吞吐且要求可控停顿时使用 G1。
+# 默认生产基线：中小堆、高吞吐且要求可控停顿时使用 G1；参数必须结合 GC 日志和 JFR 复测。
+# 读取容器 cgroup CPU/内存上限，避免 JVM 按宿主机资源误配线程和堆。
 -XX:+UseContainerSupport
+# 明确选择 G1，适合当前对象分配模式；不是所有机器都应照抄为同一个收集器。
 -XX:+UseG1GC
+# 只预留 25% 初始堆，最高 65%；其余内存留给 Metaspace、线程栈、直接内存、页缓存和系统进程。
 -XX:InitialRAMPercentage=25.0
 -XX:MaxRAMPercentage=65.0
+# 200ms 是 G1 的调优目标而非 SLA 保证；必须用 p99/p999 停顿和业务延迟验收。
 -XX:MaxGCPauseMillis=200
+# 引用处理并行化可缩短 remark 等阶段，但会短时占用更多 CPU，低核机器需要实测。
 -XX:+ParallelRefProcEnabled
+# 对重复 JSON/状态文本做字符串去重，以 GC 扫描 CPU 换堆占用；JFR 若显示收益低应关闭。
 -XX:+UseStringDeduplication
+# OOM 后退出交给编排系统重启，禁止进程在未知内存状态下继续接受金融请求。
 -XX:+ExitOnOutOfMemoryError
+# 堆转储只用于事后定位，目录必须有容量、权限和脱敏治理。
 -XX:+HeapDumpOnOutOfMemoryError
 -XX:HeapDumpPath=/var/log/fincore/heapdump.hprof
+# GC/safepoint 日志轮转有界，既保留停顿证据，也避免诊断文件写满磁盘。
 -Xlog:gc*,safepoint:file=/var/log/fincore/gc.log:time,uptime,level,tags:filecount=5,filesize=20M
+# 持续 JFR 最多保留 6 小时/256MiB；用于定位 CPU 热点、锁竞争、分配率和虚拟线程 pinned 事件。
 -XX:StartFlightRecording=filename=/var/log/fincore/fincore.jfr,dumponexit=true,maxage=6h,maxsize=256M,settings=profile

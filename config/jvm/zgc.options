@@ -1,11 +1,19 @@
-# 低停顿备选：大堆且已用真实流量证明 G1 停顿不达标时再启用。
+# 低停顿备选：大堆且真实流量已证明 G1 停顿不达标时再启用；不能只因“更先进”直接切换。
+# 按 cgroup 资源计算堆与 GC 线程，容器限额应与压测环境一致。
 -XX:+UseContainerSupport
+# ZGC 用更多并发 GC 工作换取更短停顿；CPU 已饱和的 4 核演示机不一定比 G1 更快。
 -XX:+UseZGC
+# Java 21 分代 ZGC 降低跨代扫描成本，但仍需用分配率、CPU 和尾延迟对比 G1。
 -XX:+ZGenerational
+# 初始/最大堆比例与 G1 基线一致，便于 A/B；35% 以上非堆余量不能挪作业务堆。
 -XX:InitialRAMPercentage=25.0
 -XX:MaxRAMPercentage=65.0
+# OOM 后退出，避免未知内存状态继续处理账务；由外部健康检查和编排器恢复实例。
 -XX:+ExitOnOutOfMemoryError
+# 堆转储和诊断目录需要独立磁盘容量、权限及敏感数据治理。
 -XX:+HeapDumpOnOutOfMemoryError
 -XX:HeapDumpPath=/var/log/fincore/heapdump.hprof
+# 有界轮转记录 GC 与 safepoint，用于证明低停顿收益而不是凭配置名称判断。
 -Xlog:gc*,safepoint:file=/var/log/fincore/gc.log:time,uptime,level,tags:filecount=5,filesize=20M
+# JFR 同时观察 ZGC 并发周期占用的 CPU、分配热点、锁竞争和虚拟线程 pinned 事件。
 -XX:StartFlightRecording=filename=/var/log/fincore/fincore.jfr,dumponexit=true,maxage=6h,maxsize=256M,settings=profile

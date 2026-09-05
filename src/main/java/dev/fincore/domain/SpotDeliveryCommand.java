@@ -12,10 +12,13 @@ import java.util.UUID;
  * @since 1.3.0
  */
 public record SpotDeliveryCommand(String messageId, UUID tradeId) {
+    /** 消息幂等键允许的最大字符数。 */
+    private static final int MAX_MESSAGE_ID_LENGTH = 100;
     /** 拒绝缺失或过长的消息键。 */
     public SpotDeliveryCommand {
         Objects.requireNonNull(tradeId, "tradeId");
-        if (messageId == null || messageId.isBlank() || messageId.length() > 100) {
+        if (messageId == null || messageId.isBlank()
+            || messageId.length() > MAX_MESSAGE_ID_LENGTH) {
             throw new IllegalArgumentException("invalid delivery messageId");
         }
     }

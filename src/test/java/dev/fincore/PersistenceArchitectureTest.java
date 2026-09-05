@@ -60,7 +60,7 @@ class PersistenceArchitectureTest {
     @Test
     void mappersUsePreparedBindingsAndCoverCoreDomains() throws IOException {
         List<Path> mappers = javaSources(MAPPER_SOURCE).stream()
-            .filter(path -> !path.getFileName().toString().equals("package-info.java"))
+            .filter(path -> !"package-info.java".equals(path.getFileName().toString()))
             .toList();
         String mapperSource = joinJavaSources(MAPPER_SOURCE);
 

@@ -5,7 +5,7 @@
 本机缺少 Docker 时，一部分测试会跳过。完整验收必须在 Docker 可用环境执行：
 
 ```bash
-mvn -B -Dfincore.test.require-database=true clean verify
+./scripts/run-maven-verify.sh -Dfincore.test.require-database=true clean verify
 java scripts/VerifyTestReports.java
 ```
 

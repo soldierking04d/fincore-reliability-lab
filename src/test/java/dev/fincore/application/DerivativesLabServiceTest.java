@@ -53,6 +53,11 @@ class DerivativesLabServiceTest {
     private static final UUID ACCOUNT = UUID.fromString("80000000-0000-0000-0000-000000000001");
     private static final UUID POOL = UUID.fromString("10000000-0000-0000-0000-000000000001");
     private static final Instant NOW = Instant.parse("2026-09-03T00:00:00Z");
+    /** 超出五秒有效窗口的标记价偏移。 */
+    private static final long STALE_MARK_OFFSET_SECONDS = 6L;
+    /** 禁止原地更新或删除的合约事实表后缀。 */
+    private static final List<String> IMMUTABLE_TABLE_SUFFIXES =
+        List.of("operation", "ledger", "funding", "inbox");
     @Mock DerivativesLabMapper mapper;
     @Mock OutboxMapper outbox;
     private DerivativesLabService lab;
@@ -120,7 +125,7 @@ class DerivativesLabServiceTest {
         doAnswer(invocation -> {
             UUID id = invocation.getArgument(0);
             acquired.add(id);
-            return id.equals(ACCOUNT) ? account("10000", "0", 3, 2)
+            return ACCOUNT.equals(id) ? account("10000", "0", 3, 2)
                 : new AccountRow(POOL, n("1000000"), n("1000000"), n("0"), 0, 0, "ACTIVE");
         }).when(mapper).lockAccount(any());
         lab.topUp(ACCOUNT, POOL, "topup", n("100"));
@@ -167,7 +172,8 @@ class DerivativesLabServiceTest {
 
     @Test
     void staleAndFutureMarksFailClosed() {
-        for (Instant time : List.of(NOW.minusSeconds(6), NOW.plusSeconds(1))) {
+        for (Instant time : List.of(
+            NOW.minusSeconds(STALE_MARK_OFFSET_SECONDS), NOW.plusSeconds(1))) {
             assertEquals("STALE_MARK", lab.liquidate(UUID.randomUUID(), snapshot(3, "54000", time), 2).status());
         }
         verify(mapper, never()).enterLiquidation(any(), anyLong(), anyLong());
@@ -224,7 +230,7 @@ class DerivativesLabServiceTest {
         String sql = Files.readString(Path.of("src/main/resources/db/migration/V7__derivatives_lab.sql"));
         assertTrue(sql.contains("UNIQUE(account_id, kind, business_key)"));
         assertTrue(sql.contains("PRIMARY KEY(account_id, symbol, cycle_at)"));
-        for (String table : List.of("operation", "ledger", "funding", "inbox")) {
+        for (String table : IMMUTABLE_TABLE_SUFFIXES) {
             assertTrue(sql.contains("BEFORE UPDATE OR DELETE ON lab_derivative_" + table));
         }
     }

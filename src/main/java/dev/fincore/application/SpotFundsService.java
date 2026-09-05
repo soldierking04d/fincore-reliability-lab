@@ -27,14 +27,26 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * 撮合事务内的委托预占、成交转在途和撤单释放。
  *
- * <p>先由撮合持有交易对锁、确定本次所有成交，再按 UUID 全序一次锁住所有付款账户。
- * 预占不足或任何后续 SQL 失败时，盘前决定、订单、成交、分桶审计及 Outbox 整体回滚。
- * 这使多交易对共享余额仍然安全，并避免在已持有一个随机账户锁后继续寻找 Maker 账户。</p>
+ * <p><strong>解决的问题：</strong>现货订单在撮合前必须冻结付款资产，部分成交后把实际金额转为在途，
+ * 撤单只释放未成交部分；重复请求不能重复冻结或释放。</p>
+ *
+ * <p><strong>执行与锁：</strong>先由撮合持有交易对锁并确定本次全部成交，再收集 Taker/Maker 的付款
+ * 账户，按 UUID 全序一次加锁。这样多交易对共享余额仍安全，也避免持有随机账户锁后继续寻找
+ * Maker 形成锁顺序环。</p>
+ *
+ * <p><strong>CPU 与分配：</strong>账户集合只包含本次成交涉及的付款方，不扫描全部账户；原地排序并
+ * 去重避免额外 Set。金额使用 BigDecimal，精度校验在写库前完成。当前数据库资金模型优先正确性，
+ * 不把余额复制到 JVM 缓存，也不宣称零分配热路径。</p>
+ *
+ * <p><strong>事务边界：</strong>预占不足或任一 SQL 失败时，盘前决定、订单、成交、资金分桶、审计和
+ * Outbox 整体回滚；pending 资金只能由交割 Worker 消耗，撤单不得释放已成交在途金额。</p>
  * @author FinCore Reliability Lab
  * @since 1.3.0
  */
 @Service
 public class SpotFundsService {
+    /** NUMERIC(38,18) 能无损保存的最大整数位数。 */
+    private static final int MAX_NOTIONAL_INTEGER_DIGITS = 20;
     /** 金额零值。 */
     private static final BigDecimal ZERO = BigDecimal.ZERO;
     /** 资金持久化。 */
@@ -65,14 +77,14 @@ public class SpotFundsService {
             exact(command.price());
             exact(command.quantity());
             BigDecimal amount = command.price().multiply(command.quantity());
-            if (amount.precision() - amount.scale() > 20) {
+            if (amount.precision() - amount.scale() > MAX_NOTIONAL_INTEGER_DIGITS) {
                 throw new IllegalArgumentException("spot order notional exceeds storage precision");
             }
         }
     }
 
     /** 已持有交易对锁时建立资金市场；不迁移或重解释历史未冻结订单。 */
-    @Transactional(propagation = Propagation.MANDATORY)
+    @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
     public void requireFundedMarket(String symbol) {
         if (funds.fundedMarket(symbol) == 0) {
             if (funds.existingOrders(symbol) != 0) {
@@ -93,7 +105,7 @@ public class SpotFundsService {
      * 捕获本次新订单和所有成交，必须加入已有撮合事务；重放不重复冻结或写事件。
      * 收款账户只自动建立零余额账户，付款账户必须在盘前已经存在。
      */
-    @Transactional(propagation = Propagation.MANDATORY)
+    @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
     public void capture(MatchingResult result) {
         OrderView taker = result.order();
         if (taker.duplicate()) {
@@ -109,12 +121,14 @@ public class SpotFundsService {
         UUID payer = Objects.requireNonNull(funds.accountId(taker.userId(), payAsset), "payer").accountId();
         UUID receiver = funds.accountId(taker.userId(), receiveAsset).accountId();
 
+        // 只收集本次成交付款方；Maker 数决定临时列表上限，不读取无关账户或完整用户资产。
         List<UUID> payers = new ArrayList<>();
         payers.add(payer);
         for (TradeView trade : result.trades()) {
             payers.add(Objects.requireNonNull(funds.reservation(trade.makerOrderId()),
                 "maker must have funds reserved").payerAccountId());
         }
+        // 原地排序去重避免额外 HashSet，并让全部资金路径保持同一数据库加锁顺序。
         UuidOrder.sortAndRemoveDuplicates(payers);
         for (UUID id : payers) {
             if (funds.lockFunds(id).financialHold()) {
@@ -165,7 +179,7 @@ public class SpotFundsService {
      * 撤单只释放 held，不释放 pending；必须与订单撤销同事务。
      * 单账户撤单不会持有其他账户锁，因此与多账户有序交割无反向锁序。
      */
-    @Transactional(propagation = Propagation.MANDATORY)
+    @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
     public void releaseCanceled(UUID orderId) {
         var row = funds.reservation(orderId);
         if (row == null) {
@@ -194,7 +208,7 @@ public class SpotFundsService {
     }
 
     /** 对账发现差异时冻结待审核，不直接修改余额或历史。 */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public boolean reconcile(UUID accountId) {
         var row = funds.lockFunds(accountId);
         var expected = funds.recompute(accountId);

@@ -1,6 +1,7 @@
 package dev.fincore.application;
 
 import dev.fincore.domain.TradeSyncCommand;
+import dev.fincore.domain.TradingIdentifiers;
 import dev.fincore.infrastructure.persistence.mapper.TradeReliabilityMapper;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -21,15 +22,26 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * 成交派生投影的同步、对账与自动修复服务。
  *
- * <p>{@code trade_execution} 是不可修改的权威成交事实，{@code trade_projection} 只是可重建的查询投影。
- * 同步入口使用事件 Inbox 与载荷指纹抵御重复和冲突重放；对账使用全外连接识别漏数、错值和幽灵成交；
- * 修复只重建或隔离投影，绝不回写权威成交、订单或资金账本。</p>
+ * <p><strong>解决的问题：</strong>成交同步可能重复、乱序、漏数、错值或产生幽灵投影，本服务让查询
+ * 投影持续收敛到不可修改的 {@code trade_execution} 权威事实。</p>
+ *
+ * <p><strong>执行链路：</strong>同步入口使用 Inbox 和载荷指纹抵御重复/冲突重放；对账使用一致事实
+ * 窗口与全外连接识别 MISSING、MISMATCH、EXTRA；修复只重建或隔离投影。</p>
+ *
+ * <p><strong>CPU 与 I/O：</strong>单条同步只计算一次 SHA-256 并执行常量次数据库操作；哈希成本用于
+ * 阻止同事件号偷换载荷。全量差异比较交给数据库集合运算，不在 JVM 构造两份全集；对账按交易对
+ * 串行并应在生产中分页、限速，避免与撮合争抢数据库 CPU 和连接。</p>
+ *
+ * <p><strong>正确性边界：</strong>修复只操作派生投影，绝不回写权威成交、订单、余额或历史账本；
+ * 幽灵数据先隔离留证，不为得到 CLEAN 结果而删除事实。</p>
  *
  * @author FinCore Reliability Lab
  * @since 1.0.0
  */
 @Service
 public class TradeReliabilityService {
+    /** 对账批次存在可修复差异时的唯一准入状态。 */
+    private static final String DIFFERENCE_FOUND_STATUS = "DIFFERENCE_FOUND";
     /** 成交同步、对账与投影修复持久化接口。 */
     private final TradeReliabilityMapper tradeMapper;
     /** 已处理同步事件计数器。 */
@@ -61,8 +73,9 @@ public class TradeReliabilityService {
      * @param command 带唯一事件号的成交同步命令
      * @return 同步结果以及是否为重复事件
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public SyncOutcome apply(TradeSyncCommand command) {
+        // 指纹只计算一次并复用；其 CPU 成本换来跨重试的完整载荷一致性证明。
         String payloadHash = fingerprint(command);
         // 先占用事件号；数据库唯一约束是跨进程幂等的最终防线。
         int insertedEvent = tradeMapper.insertInbox(
@@ -99,7 +112,7 @@ public class TradeReliabilityService {
      * @param rawSymbol 待对账交易对
      * @return 对账批次及全部差异
      */
-    @Transactional(isolation = Isolation.REPEATABLE_READ)
+    @Transactional(isolation = Isolation.REPEATABLE_READ, rollbackFor = Exception.class)
     public ReconciliationReport reconcile(String rawSymbol) {
         String symbol = normalizeSymbol(rawSymbol);
         lock("trade-reconcile:" + symbol);
@@ -108,6 +121,7 @@ public class TradeReliabilityService {
 
         long sourceCount = tradeMapper.countSource(symbol);
         long projectionCount = tradeMapper.countActiveProjection(symbol);
+        // 全外连接与比较在数据库侧完成，JVM 只接收差异，不加载两份完整成交集合。
         List<TradeReliabilityMapper.DetectedDifferenceRow> found =
             tradeMapper.findDifferences(symbol);
 
@@ -140,7 +154,7 @@ public class TradeReliabilityService {
      * @param idempotencyKey 调用方提供的修复幂等键
      * @return 修复、隔离数量和重复执行标记
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public RepairOutcome repair(UUID runId, String idempotencyKey) {
         if (idempotencyKey == null || idempotencyKey.isBlank()
             || idempotencyKey.length() > 120) {
@@ -149,7 +163,7 @@ public class TradeReliabilityService {
         }
         lock("trade-repair:" + runId);
         TradeReliabilityMapper.RepairableRunRow run = tradeMapper.lockRun(runId);
-        if (run == null || !"DIFFERENCE_FOUND".equals(run.status())) {
+        if (run == null || !DIFFERENCE_FOUND_STATUS.equals(run.status())) {
             throw new IllegalStateException(
                 "只有存在差异的对账批次允许修复 / run has no repairable differences");
         }
@@ -268,7 +282,7 @@ public class TradeReliabilityService {
     private static String normalizeSymbol(String rawSymbol) {
         Objects.requireNonNull(rawSymbol, "symbol");
         String symbol = rawSymbol.trim().toUpperCase(Locale.ROOT);
-        if (!symbol.matches("[A-Z0-9]{2,20}-[A-Z0-9]{2,20}")) {
+        if (!TradingIdentifiers.isSymbol(symbol)) {
             throw new IllegalArgumentException(
                 "交易对必须使用 BASE-QUOTE 格式 / invalid symbol");
         }

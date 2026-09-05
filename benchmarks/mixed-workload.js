@@ -126,8 +126,12 @@ function createAccount(ownerId, accountType, openingBalance) {
 
 /** 生成带业务标签的 JSON 请求参数。 */
 function jsonParams(operation) {
+  const headers = { "Content-Type": "application/json" };
+  if (__ENV.FINCORE_ADMIN_TOKEN) {
+    headers["X-FinCore-Admin-Token"] = __ENV.FINCORE_ADMIN_TOKEN;
+  }
   return {
-    headers: { "Content-Type": "application/json" },
+    headers,
     tags: { operation },
   };
 }

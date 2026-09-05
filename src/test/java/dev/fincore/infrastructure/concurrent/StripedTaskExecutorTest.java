@@ -18,10 +18,12 @@ import org.junit.jupiter.api.Test;
 
 /** 按业务键分片的有界撮合执行器并发契约测试。 */
 class StripedTaskExecutorTest {
+    /** 用于证明同键串行顺序的任务数量。 */
+    private static final int SERIAL_TASK_COUNT = 20;
 
     /** 相同业务键必须严格串行，并固定使用平台线程。 */
     @Test
-    void sameKeyIsSerializedOnAPlatformThread() throws Exception {
+    void sameKeyRunsSerially() throws Exception {
         StripedTaskExecutor executor = new StripedTaskExecutor(2, 32, new SimpleMeterRegistry());
         try {
             AtomicInteger active = new AtomicInteger();
@@ -30,7 +32,7 @@ class StripedTaskExecutorTest {
             List<Integer> order = Collections.synchronizedList(new ArrayList<>());
             List<CompletableFuture<Integer>> futures = new ArrayList<>();
 
-            for (int index = 0; index < 20; index++) {
+            for (int index = 0; index < SERIAL_TASK_COUNT; index++) {
                 int sequence = index;
                 futures.add(executor.submit("BTC-USDT", () -> {
                     int current = active.incrementAndGet();
@@ -44,7 +46,7 @@ class StripedTaskExecutorTest {
             CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new)).get(3, TimeUnit.SECONDS);
 
             assertEquals(1, maximumActive.get());
-            assertEquals(java.util.stream.IntStream.range(0, 20).boxed().toList(), order);
+            assertEquals(java.util.stream.IntStream.range(0, SERIAL_TASK_COUNT).boxed().toList(), order);
             assertFalse(virtualThreadObserved.get(), "撮合 Lane 必须使用平台线程");
         } finally {
             executor.shutdown();
@@ -68,8 +70,11 @@ class StripedTaskExecutorTest {
             CompletableFuture<Boolean> first = executor.submit(firstKey, () -> awaitBoth(entered, release));
             CompletableFuture<Boolean> second = executor.submit(secondKey, () -> awaitBoth(entered, release));
 
-            assertTrue(entered.await(1, TimeUnit.SECONDS), "不同 Lane 应同时开始执行");
-            release.countDown();
+            try {
+                assertTrue(entered.await(1, TimeUnit.SECONDS), "不同 Lane 应同时开始执行");
+            } finally {
+                release.countDown();
+            }
             assertTrue(first.get(1, TimeUnit.SECONDS));
             assertTrue(second.get(1, TimeUnit.SECONDS));
         } finally {
@@ -93,9 +98,11 @@ class StripedTaskExecutorTest {
 
             assertThrows(ConcurrencyRejectedException.class,
                 () -> executor.submit("ETH-USDT", () -> 3));
-            assertEquals(1, executor.queuedTaskCount());
-
-            release.countDown();
+            try {
+                assertEquals(1, executor.queuedTaskCount());
+            } finally {
+                release.countDown();
+            }
             assertTrue(running.get(1, TimeUnit.SECONDS));
             assertEquals(2, queued.get(1, TimeUnit.SECONDS));
         } finally {
@@ -135,7 +142,11 @@ class StripedTaskExecutorTest {
                 return "cancellation";
             });
 
-            release.countDown();
+            try {
+                assertEquals(2, executor.queuedTaskCount());
+            } finally {
+                release.countDown();
+            }
             assertEquals("running-order", running.get(1, TimeUnit.SECONDS));
             assertEquals("cancellation", cancellation.get(1, TimeUnit.SECONDS));
             assertEquals("queued-order", queuedOrder.get(1, TimeUnit.SECONDS));

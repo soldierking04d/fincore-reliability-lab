@@ -24,6 +24,10 @@ import javax.crypto.spec.SecretKeySpec;
  * @since 1.1.0
  */
 public final class TradingApiSecurity {
+    /** 单个 API Key 首次分配的 Nonce 容量，避免小窗口场景创建后立即扩容。 */
+    private static final int INITIAL_NONCE_CAPACITY = 16;
+    /** 实验 HMAC 密钥允许的最小字节数。 */
+    private static final int MIN_SECRET_BYTES = 16;
     /** 已登记的API凭据。 */
     private final Map<String, Credential> credentials = new HashMap<>();
     /** 时间窗口内已经接受的请求随机数。 */
@@ -102,7 +106,7 @@ public final class TradingApiSecurity {
         Objects.requireNonNull(secret, "secret");
         Objects.requireNonNull(scopes, "scopes");
         Objects.requireNonNull(allowedIps, "allowedIps");
-        if (apiKey.isBlank() || secret.length < 16) {
+        if (apiKey.isBlank() || secret.length < MIN_SECRET_BYTES) {
             throw new IllegalArgumentException("API Key或密钥不符合实验最低要求");
         }
         credentials.put(apiKey, new Credential(secret.clone(), Set.copyOf(scopes),
@@ -139,7 +143,7 @@ public final class TradingApiSecurity {
             return Decision.INVALID_SIGNATURE;
         }
         Map<String, Instant> keyNonces = nonces.computeIfAbsent(request.apiKey(),
-            ignored -> new HashMap<>());
+            ignored -> HashMap.newHashMap(INITIAL_NONCE_CAPACITY));
         keyNonces.entrySet().removeIf(entry -> entry.getValue().plus(receiveWindow).isBefore(now));
         if (keyNonces.containsKey(request.nonce())) {
             return Decision.REPLAYED_NONCE;

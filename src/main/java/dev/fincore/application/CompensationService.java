@@ -21,14 +21,22 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * 成功结算的反向账本补偿服务。
  *
- * <p>补偿不会更新或删除原始成功流水，而是创建独立补偿单、反向账本事务和 Outbox
- * 事件。原业务键存在唯一约束，因此重复补偿请求只会返回第一次处理结果。</p>
+ * <p><strong>解决的问题：</strong>已成功结算不能改写历史，只能通过独立补偿单和反向分录撤销经济
+ * 效果，并保留原事实、原因和新业务键。</p>
+ *
+ * <p><strong>CPU 与锁优化：</strong>账户按共享 UUID 比较器排序后锁定，减少死锁检测和事务重试；
+ * 分录批量写入，Outbox 与补偿状态复用同一事务，不派生额外线程。</p>
+ *
+ * <p><strong>正确性边界：</strong>补偿不会更新或删除原始成功流水。原业务键唯一约束保证重复请求
+ * 返回第一次结果；余额不足等失败不能伪装成功，补偿分录、余额、状态和事件必须原子提交。</p>
  *
  * @author FinCore Reliability Lab
  * @since 2026-08-27
  */
 @Service
 public class CompensationService {
+    /** 只有已成功结算的事实允许通过反向分录补偿。 */
+    private static final String SETTLEMENT_SUCCESS = "SUCCESS";
     /** 补偿单持久化接口。 */
     private final CompensationMapper compensationMapper;
     /** 账户余额和不可变账本持久化接口。 */
@@ -54,7 +62,7 @@ public class CompensationService {
      * @param reason 补偿原因，写入审计记录
      * @return 补偿结果；重复请求返回已有结果并标记 duplicate
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public CompensationOutcome compensate(String originalBusinessKey, String reason) {
         // 补偿键与原始业务键一一对应，数据库唯一约束是最终幂等防线。
         String compensationKey = "COMP:" + originalBusinessKey;
@@ -72,8 +80,8 @@ public class CompensationService {
             originalRow.businessKey(), originalRow.payer(), originalRow.payee(),
             originalRow.feeAccount(), originalRow.asset(), originalRow.amount(),
             originalRow.fee(), originalRow.status());
-        if (!"SUCCESS".equals(original.status())) {
-            throw new IllegalStateException("only successful settlement can be reversed");
+        if (!SETTLEMENT_SUCCESS.equals(original.status())) {
+            throw new BusinessConflictException("only successful settlement can be reversed");
         }
 
         // 所有参与账户按 UUID 固定顺序加锁，降低并发补偿时的死锁概率。

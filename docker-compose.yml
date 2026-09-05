@@ -1,11 +1,11 @@
 services:
   postgres:
-    image: postgres:16-alpine
+    image: postgres:16.10-alpine
     restart: unless-stopped
     environment:
       POSTGRES_DB: fincore
       POSTGRES_USER: fincore
-      POSTGRES_PASSWORD: fincore
+      POSTGRES_PASSWORD: ${FINCORE_POSTGRES_PASSWORD:-fincore-local-only}
     ports:
       - "${FINCORE_BIND_ADDRESS:-127.0.0.1}:5432:5432"
     healthcheck:
@@ -17,7 +17,7 @@ services:
       - fincore-postgres:/var/lib/postgresql/data
 
   kafka:
-    image: apache/kafka:latest
+    image: apache/kafka:4.1.0
     restart: unless-stopped
     environment:
       KAFKA_NODE_ID: 1
@@ -32,7 +32,7 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_NUM_PARTITIONS: 8
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
     ports:
       - "${FINCORE_BIND_ADDRESS:-127.0.0.1}:9092:9092"
     healthcheck:
@@ -41,6 +41,21 @@ services:
       timeout: 5s
       retries: 20
 
+  kafka-init:
+    image: apache/kafka:4.1.0
+    depends_on:
+      kafka:
+        condition: service_healthy
+    command:
+      - bash
+      - -ec
+      - >-
+        for topic in settlement.commands.v1 settlement.events.v1 matching.events.v1 spot.delivery.commands.v1; do
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092
+          --create --if-not-exists --partitions 8 --replication-factor 1 --topic "$$topic";
+        done
+    restart: "no"
+
   app:
     build: .
     restart: unless-stopped
@@ -48,7 +63,7 @@ services:
       SPRING_PROFILES_ACTIVE: lab
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/fincore
       SPRING_DATASOURCE_USERNAME: fincore
-      SPRING_DATASOURCE_PASSWORD: fincore
+      SPRING_DATASOURCE_PASSWORD: ${FINCORE_POSTGRES_PASSWORD:-fincore-local-only}
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       FINCORE_JVM_PROFILE: ${FINCORE_JVM_PROFILE:-g1}
       FINCORE_MATCHING_LANES: ${FINCORE_MATCHING_LANES:-4}
@@ -61,14 +76,16 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
     volumes:
       - ./reports/runtime:/var/log/fincore
 
   app-test:
-    image: maven:3.9-eclipse-temurin-21
+    image: maven:3.9.11-eclipse-temurin-21
     profiles: ["test"]
     working_dir: /workspace
-    command: ["sh", "-ec", "mvn -B -Dfincore.test.require-database=true clean verify && java scripts/VerifyTestReports.java"]
+    command: ["sh", "-ec", "./scripts/run-maven-verify.sh -Dfincore.test.require-database=true clean verify && java scripts/VerifyTestReports.java"]
     volumes:
       - .:/workspace
       - fincore-maven:/root/.m2
@@ -104,7 +121,7 @@ services:
       - prometheus
 
   lab-runner:
-    image: curlimages/curl:latest
+    image: curlimages/curl:8.16.0
     user: "${FINCORE_UID:-1000}:${FINCORE_GID:-1000}"
     depends_on:
       - app
@@ -130,6 +147,7 @@ services:
         condition: service_started
     environment:
       BASE_URL: http://app:8080
+      FINCORE_ADMIN_TOKEN: ${FINCORE_ADMIN_TOKEN:-}
       SETTLEMENT_RATE: ${FINCORE_SETTLEMENT_RATE:-150}
       MATCHING_RATE: ${FINCORE_MATCHING_RATE:-100}
       READ_RATE: ${FINCORE_READ_RATE:-100}

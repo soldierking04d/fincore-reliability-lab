@@ -12,7 +12,7 @@
 ![Release](https://img.shields.io/github/v/release/soldierking04d/fincore-reliability-lab)
 
 > A **runnable open-source reliability lab** for real financial failure modes.
-> It uses Java 21, Spring Boot, MyBatis, PostgreSQL, and Kafka to reproduce and verify matching, settlement, idempotency, fencing, reconciliation, high-concurrency, and AI coding-agent safety problems.
+> It uses Java 21, Spring Boot, MyBatis, PostgreSQL, and Kafka to reproduce and verify matching, settlement, idempotency, fencing, reconciliation, bounded-concurrency, and AI coding-agent safety problems.
 
 ![FinCore Reliability Lab across business, finance, engineering, leadership, AI, and digital assets](docs/showcase/github-social-preview.jpg)
 
@@ -20,23 +20,35 @@
 [Public runtime](https://124.223.164.254/) ·
 [System architecture](docs/resilient-system-architecture.md) ·
 [Leadership playbooks](docs/management/README.md) ·
+[Quality and public-demo hardening](docs/quality-security-hardening-2026-09-05.md) ·
 [AI benchmark](https://fincore-agent-benchmark.soldierking04d.chatgpt.site) ·
 [Five-minute walkthrough](docs/showcase/demo-walkthrough.md)
 
 If this project helps you understand or verify financial-system reliability, please consider clicking **Star** in the upper-right corner. It helps more developers discover these reproducible failure experiments.
 
+## Evidence labels first
+
+The repository separates three kinds of claims so that a design goal is never presented as a production result:
+
+- **VERIFIED** — directly supported by current source code, automated tests, or deterministic experiments;
+- **OBSERVED** — measured on a named version, machine, and workload, and not transferable as a production SLA;
+- **DESIGN** — an architecture or evolution path that has not yet produced runtime evidence here.
+
+QPS, p99/p999, CPU, GC, and capacity figures are not claimed as achieved results without an environment and a linked report.
+
 ## Decide in 30 seconds
 
 This is not a diagram-only sample. It is a set of experiments that can run, inject failures, expose operational signals, and verify recovery. The headline results come directly from scenario code and automated checks:
 
-| Scenario | Verified result | Meaning |
-|---|---:|---|
-| Concurrent matching during a market crash | `60 = 60` | 60 authoritative trades, 60 unique sequences, preserved priority and quantity |
-| Duplicate settlement storm | `17 → 1` | 17 concurrent deliveries create exactly one financial effect |
-| Full customer trading lifecycle | `8 / 8 PASS` | Customer, KYC, risk, market, account, matching, settlement, and reconciliation |
-| Market-crash recovery | `10 / 10 PASS` | Retries, no liquidity, takeover, disorder, missing/corrupt/ghost data, and repair |
-| Controlled coding-agent evaluation | `54 runs` | Eight financial-reliability tasks with hidden acceptance and safety vetoes |
-| Automated technology governance | `5 registries` | Ownership, risk, metrics, adoption, and audit evidence checked by Maven/CI |
+| Scenario | Result | Evidence | Meaning |
+|---|---:|---|---|
+| Concurrent correctness during a market crash | `60 = 60` | VERIFIED | 60 authoritative trades, 60 unique sequences, preserved priority and quantity |
+| Duplicate settlement storm | `17 → 1` | VERIFIED | 17 concurrent deliveries create exactly one financial effect |
+| Full customer trading lifecycle | `8 / 8 PASS` | VERIFIED | Customer, KYC, risk, market, account, matching, settlement, and reconciliation |
+| Market-crash recovery | `10 / 10 PASS` | VERIFIED | Retries, no liquidity, takeover, disorder, missing/corrupt/ghost data, and repair |
+| Controlled coding-agent evaluation | `54 runs` | OBSERVED | Eight financial-reliability tasks with hidden acceptance and safety vetoes |
+| Automated technology governance | `5 registries` | VERIFIED | Ownership, risk, metrics, adoption, and audit evidence checked by Maven/CI |
+| Engineering quality gate | `152 / 152 PASS` | VERIFIED | Full Docker verification with no skips; 85.17% line and 60.52% branch coverage, with zero blocking P3C or SpotBugs findings |
 
 The [live portfolio](https://fincore-reliability-demo.soldierking04d.chatgpt.site/) exposes system metrics, price movement, order volume, QPS, architecture diagrams, service topology, and core sequence diagrams. Every experiment can also be reproduced locally.
 
@@ -210,7 +222,7 @@ Individual layers:
 ```bash
 ./scripts/verify-core.sh
 ./scripts/eval/validate-eval-kit.sh
-mvn test
+./mvnw test
 ```
 
 The Maven suite uses a real PostgreSQL Testcontainer and applies Flyway migrations. The pure-JDK simulation remains available when Maven or Docker is unavailable.

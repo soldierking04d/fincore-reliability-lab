@@ -1,10 +1,16 @@
 package dev.fincore.web;
 
 import dev.fincore.domain.SettlementCommand;
+import dev.fincore.infrastructure.concurrent.ConcurrencyProperties;
 import dev.fincore.infrastructure.persistence.mapper.LabScenarioMapper;
+import dev.fincore.messaging.MessageSubmissionException;
 import java.math.BigDecimal;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -24,23 +30,29 @@ import org.springframework.web.bind.annotation.RestController;
  * @author FinCore Reliability Lab
  * @since 2026-08-27
  */
-@Profile("lab")
+@Profile("lab & !public-demo")
 @RestController
 @RequestMapping("/lab/faults")
 public class LabFaultController {
+    /** 单次接口允许注入的最大重复消息数，防止实验端点无界放大。 */
+    private static final int MAX_DUPLICATE_COPIES = 1_000;
     /** 用于注入受控数据库故障的 MyBatis Mapper。 */
     private final LabScenarioMapper labMapper;
     /** 用于制造重复投递的 Kafka 客户端。 */
     private final KafkaTemplate<String, Object> kafka;
     /** 结算命令 Topic。 */
     private final String topic;
+    /** 等待全部故障注入消息获得 Broker 确认的最长时间。 */
+    private final long submitTimeoutNanos;
 
     /** 创建实验故障注入控制器。 */
     public LabFaultController(LabScenarioMapper labMapper, KafkaTemplate<String, Object> kafka,
-                              @Value("${fincore.kafka.settlement-topic}") String topic) {
+                              @Value("${fincore.kafka.settlement-topic}") String topic,
+                              ConcurrencyProperties properties) {
         this.labMapper = labMapper;
         this.kafka = kafka;
         this.topic = topic;
+        this.submitTimeoutNanos = properties.getKafkaSubmitTimeout().toNanos();
     }
 
     /**
@@ -48,18 +60,32 @@ public class LabFaultController {
      *
      * @param command 结算命令
      * @param copies 重复发布次数，限制为 1 至 1000
-     * @return 实际发布次数和消息编号
+     * @return Broker 已确认的发布次数和消息编号
      */
     @PostMapping("/duplicate-message")
     public Map<String, Object> duplicate(@RequestBody SettlementCommand command,
                                          @RequestParam(defaultValue = "10") int copies) {
-        if (copies < 1 || copies > 1000) {
+        if (copies < 1 || copies > MAX_DUPLICATE_COPIES) {
             throw new IllegalArgumentException("copies must be between 1 and 1000");
         }
-        for (int i = 0; i < copies; i++) {
-            kafka.send(topic, command.businessKey(), command);
+        CompletableFuture<?>[] acknowledgements = new CompletableFuture<?>[copies];
+        try {
+            for (int i = 0; i < copies; i++) {
+                acknowledgements[i] = kafka.send(topic, command.businessKey(), command);
+            }
+            CompletableFuture.allOf(acknowledgements).get(submitTimeoutNanos, TimeUnit.NANOSECONDS);
+        } catch (TimeoutException | ExecutionException exception) {
+            throw new MessageSubmissionException(
+                "duplicate injection acknowledgement failed or is unknown; reuse the same messageId",
+                exception
+            );
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new MessageSubmissionException("duplicate injection acknowledgement wait interrupted", exception);
+        } catch (RuntimeException exception) {
+            throw new MessageSubmissionException("duplicate injection failed before acknowledgement", exception);
         }
-        return Map.of("publishedCopies", copies, "messageId", command.messageId());
+        return Map.of("acknowledgedCopies", copies, "messageId", command.messageId());
     }
 
     /**

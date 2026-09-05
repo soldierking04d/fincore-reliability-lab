@@ -24,11 +24,16 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * USDT 线性合约的四类可靠性实验，不接真实资金、不提供公开资金操作 HTTP 接口。
  *
- * <p>统一按账户锁串行修改保证金、仓位和钱包；多账户按 UUID 排序锁定。业务键而非
- * 消息编号决定财务幂等，余额、不可变决定、双腿账本、Inbox、Outbox 同事务提交。
- * 未知提交结果必须使用原业务键重试，数据库异常向上抛出，不能改用新键掩盖错误。</p>
- * <p>预算占用为独立实验；强平只实现风险重验和状态准入，不实现强平成交、保险基金、
- * ADL、阶梯保证金或组合保证金。每账户仅一个净仓位，结算池仅是模拟对手方。</p>
+ * <p><strong>解决的问题：</strong>验证保证金预算、只减仓、标记价陈旧、强平重验、未知提交结果和
+ * Worker Epoch 等合约核心失败场景，而不是把现货撮合简单改名为合约。</p>
+ *
+ * <p><strong>CPU 与锁说明：</strong>统一按账户行锁串行修改保证金、仓位和钱包；多账户按 UUID 二进制
+ * 顺序锁定，减少死锁重试。计算使用固定精度 BigDecimal，优先保证财务可复算；本实验没有宣称使用
+ * GPU，风险规则规模不足时 GPU 的传输和调度成本反而更高。</p>
+ *
+ * <p><strong>正确性边界：</strong>业务键而非消息号决定财务幂等，余额、不可变决定、双腿账本、Inbox、
+ * Outbox 同事务提交。预算占用是独立实验；强平只实现风险重验和状态准入，不实现强平成交、保险
+ * 基金、ADL、阶梯保证金或组合保证金。每账户仅一个净仓位，结算池仅是模拟对手方。</p>
  *
  * @author FinCore Reliability Lab
  * @since 1.3.0
@@ -44,6 +49,10 @@ public class DerivativesLabService {
     private static final Duration MARK_MAX_AGE = Duration.ofSeconds(5);
     /** 与 NUMERIC(28,8) 一致的金额上界。 */
     private static final BigDecimal LIMIT = BigDecimal.TEN.pow(20);
+    /** 允许接受新资金操作的账户状态。 */
+    private static final String ACCOUNT_ACTIVE = "ACTIVE";
+    /** 风险重验通过并成功进入强平隔离的终态。 */
+    private static final String LIQUIDATING = "LIQUIDATING";
     /** 不可变金融事实及锁定状态的持久化接口。 */
     private final DerivativesLabMapper mapper;
     /** 复用现有事务 Outbox，使用 DERIVATIVE_LAB 事件类型标明隔离实验。 */
@@ -59,7 +68,7 @@ public class DerivativesLabService {
     }
 
     /** 创建实验期初余额；重复编号失败，不覆盖旧账户，也不伪装成真实充值。 */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void openAccount(UUID account, BigDecimal wallet) {
         wallet = decimal(wallet);
         require(wallet.signum() >= 0, "期初余额不能为负数");
@@ -67,7 +76,7 @@ public class DerivativesLabService {
     }
 
     /** 仅在新账户上准备仓位夹具，不作为开仓接口使用。 */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void seedPosition(UUID account, String symbol, BigDecimal quantity, BigDecimal entryPrice) {
         AccountRow row = lock(account);
         require(row.version() == 0 && mapper.position(account) == null, "只能给新账户准备一次仓位");
@@ -81,7 +90,7 @@ public class DerivativesLabService {
      * 原子占用指定预算。同账户跨交易对仍串行；金额由可信实验给定，不代替生产 IM 计算。
      * 拒绝也是终态决定，稍后余额增加不能让原拒绝单变成成功。
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public Result reserve(UUID account, String orderKey, String symbol, BigDecimal amount) {
         amount = positive(amount);
         String request = payload(text(symbol, 50), amount);
@@ -91,9 +100,9 @@ public class DerivativesLabService {
         if (replay != null) {
             return replay;
         }
-        String status = !row.state().equals("ACTIVE") ? "ACCOUNT_FROZEN"
+        String status = !ACCOUNT_ACTIVE.equals(row.state()) ? "ACCOUNT_FROZEN"
             : row.wallet().subtract(row.reserved()).compareTo(amount) < 0 ? "INSUFFICIENT_MARGIN" : "RESERVED";
-        BigDecimal effect = status.equals("RESERVED") ? amount : BigDecimal.ZERO;
+        BigDecimal effect = "RESERVED".equals(status) ? amount : BigDecimal.ZERO;
         if (effect.signum() != 0) {
             changed(mapper.changeAccount(account, BigDecimal.ZERO, effect));
         }
@@ -101,7 +110,7 @@ public class DerivativesLabService {
     }
 
     /** 原订单预算释放一次，保留原占用决定；尚不存在的订单不能释放。 */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public Result release(UUID account, String orderKey) {
         orderKey = text(orderKey, 100);
         lock(account);
@@ -124,7 +133,7 @@ public class DerivativesLabService {
      * 相同周期重放不重读当前仓位；费率或标记价发生冲突必须报错，不能覆盖原快照。
      * 本方法不实现跨分片事件水位和历史仓位查询，不能拿现在的仓位补算真实历史周期。
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void captureFunding(UUID account, String symbol, Instant cycle,
                                 BigDecimal mark, BigDecimal rate) {
         symbol = text(symbol, 50);
@@ -148,7 +157,7 @@ public class DerivativesLabService {
      * 不以剩余开仓预算拒绝已发生的费用：可以暴露负权益，随后由风险重验处理。
      * 结算池不属于实际保险基金；没有实现交易所范围内所有多空账户的净额结算。
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public Result applyFunding(UUID account, UUID pool, String symbol, Instant cycle, UUID message) {
         symbol = text(symbol, 50);
         cycle = cycle(cycle);
@@ -177,7 +186,7 @@ public class DerivativesLabService {
      * 使用实际执行量计算线性已实现盈亏，双方资金与仓位同事务提交。价格来自可信实验成交，
      * 不包含撮合、挂单排队、滑点、手续费和双向持仓模式。
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public Result reduceOnly(UUID account, UUID pool, String executionKey, String symbol,
                               OrderSide side, BigDecimal quantity, BigDecimal executionPrice) {
         quantity = positive(quantity);
@@ -193,7 +202,7 @@ public class DerivativesLabService {
         }
         AccountRow row = lock(account);
         PositionRow position = position(account, symbol);
-        String rejected = !row.state().equals("ACTIVE") ? "ACCOUNT_FROZEN"
+        String rejected = !ACCOUNT_ACTIVE.equals(row.state()) ? "ACCOUNT_FROZEN"
             : position.quantity().signum() == 0 ? "NO_POSITION"
             : (position.quantity().signum() > 0) != (side == OrderSide.SELL) ? "WRONG_SIDE" : null;
         if (rejected != null) {
@@ -210,7 +219,7 @@ public class DerivativesLabService {
     }
 
     /** 模拟从独立结算池补充保证金，双腿记账并使旧风险快照失效。 */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public Result topUp(UUID account, UUID pool, String key, BigDecimal amount) {
         amount = positive(amount);
         key = text(key, 100);
@@ -221,7 +230,8 @@ public class DerivativesLabService {
             return replay;
         }
         AccountRow payer = lock(pool);
-        require(payer.state().equals("ACTIVE") && payer.wallet().subtract(payer.reserved()).compareTo(amount) >= 0,
+        require(ACCOUNT_ACTIVE.equals(payer.state())
+            && payer.wallet().subtract(payer.reserved()).compareTo(amount) >= 0,
             "模拟资金来源余额不足或已冻结");
         OperationRow operation = operation(account, "TOP_UP", key, request, "SETTLED", amount);
         changed(mapper.insertOperation(operation));
@@ -233,7 +243,7 @@ public class DerivativesLabService {
      * 手动注入接管事件；幂等的接管编号保证响应丢失重试不多升一次 Epoch。
      * 这是 fencing 实验，不替代生产 Worker 选主、租约过期和身份认证。
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public long takeover(UUID account, UUID command) {
         AccountRow row = lock(account);
         String key = Objects.requireNonNull(command).toString();
@@ -249,7 +259,7 @@ public class DerivativesLabService {
     }
 
     /** 拍摄版本化风险输入，不相信调用者给出的风险布尔值；执行时重新计算。 */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public RiskSnapshot assess(UUID account, String symbol, BigDecimal mark, Instant observedAt) {
         AccountRow row = lock(account);
         position(account, text(symbol, 50));
@@ -262,7 +272,7 @@ public class DerivativesLabService {
      * 先补保证金/先平仓则旧快照失效；先进入强平则普通新单与平仓不能越过冻结状态。
      * 强平状态不会在本实验中自动退出，也不自动执行损失分摊。
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public Result liquidate(UUID command, RiskSnapshot snapshot, long workerEpoch) {
         Objects.requireNonNull(snapshot);
         require(workerEpoch > 0, "必须先取得有效 Epoch");
@@ -277,7 +287,7 @@ public class DerivativesLabService {
             return replay;
         }
         String status = liquidationStatus(row, snapshot, workerEpoch);
-        if (status.equals("LIQUIDATING")) {
+        if (LIQUIDATING.equals(status)) {
             changed(mapper.enterLiquidation(row.accountId(), row.version(), workerEpoch));
         }
         return decision(row.accountId(), "LIQUIDATE", key, request, status, BigDecimal.ZERO);
@@ -295,7 +305,7 @@ public class DerivativesLabService {
         if (age.isNegative() || age.compareTo(MARK_MAX_AGE) > 0) {
             return "STALE_MARK";
         }
-        if (!row.state().equals("ACTIVE")) {
+        if (!ACCOUNT_ACTIVE.equals(row.state())) {
             return "ACCOUNT_FROZEN";
         }
         PositionRow position = position(row.accountId(), snapshot.symbol());
@@ -303,7 +313,7 @@ public class DerivativesLabService {
             .multiply(position.quantity()));
         BigDecimal maintenance = position.quantity().abs().multiply(snapshot.mark()).multiply(MAINTENANCE_RATE);
         return position.quantity().signum() != 0 && equity.compareTo(maintenance) <= 0
-            ? "LIQUIDATING" : "NOT_REQUIRED";
+            ? LIQUIDATING : "NOT_REQUIRED";
     }
 
     /** 固定顺序锁住两个不同账户；禁止交易一方同时充当自己的结算池。 */

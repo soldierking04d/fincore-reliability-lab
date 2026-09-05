@@ -30,6 +30,8 @@ report_matches "生产代码禁止直接使用 Spring JDBC" \
     'JdbcTemplate|NamedParameterJdbcTemplate' src/main/java
 report_matches "MyBatis Mapper 禁止字符串直替参数" \
     '\$\{' src/main/java/dev/fincore/infrastructure/persistence/mapper
+report_matches "金融事务必须显式声明 rollbackFor" \
+    '@Transactional\b(?!\s*\([^)]*\brollbackFor\s*=)' --pcre2 src/main/java
 
 while IFS= read -r source_file; do
     if ! rg -q '/\*\*' "$source_file"; then
@@ -66,4 +68,4 @@ if [[ "$status" -ne 0 ]]; then
     exit "$status"
 fi
 
-echo "[PASS] Java 代码规范基础检查通过"
+echo "[PASS] Java 代码规范与金融事务基础检查通过"

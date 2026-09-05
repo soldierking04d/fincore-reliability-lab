@@ -11,6 +11,7 @@ import dev.fincore.domain.OrderType;
 import dev.fincore.domain.OrderView;
 import dev.fincore.domain.PlaceOrderCommand;
 import dev.fincore.domain.TradeView;
+import dev.fincore.domain.TradingIdentifiers;
 import dev.fincore.infrastructure.persistence.mapper.MatchingMapper;
 import dev.fincore.infrastructure.persistence.mapper.OutboxMapper;
 import io.micrometer.core.instrument.Counter;
@@ -28,9 +29,20 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * 订单撮合应用服务。
  *
- * <p>同一交易对在事务内通过 PostgreSQL advisory lock 串行撮合，再按照“价格优先、时间优先”选择
- * Maker。订单、成交、审计记录和 Outbox 事件在同一数据库事务中提交，避免业务状态已经生效但事件丢失。
- * {@code clientOrderId} 仅用于幂等重放，重复请求仍会校验原始参数，防止同一个幂等键承载两笔不同订单。</p>
+ * <p><strong>解决的问题：</strong>在多实例、并发下单和请求重试下保持价格优先、时间优先，生成唯一
+ * 订单与成交，并让订单、审计和事件原子提交。</p>
+ *
+ * <p><strong>执行链路：</strong>先取得交易对事务锁，再核验 {@code clientOrderId}，分配持久序号，
+ * 通过索引和 {@code FOR UPDATE} 每次选出一个最优 Maker，计算成交量并以 CAS 更新双方状态，最后
+ * 同事务写成交、审计和 Outbox。</p>
+ *
+ * <p><strong>CPU 与数据访问：</strong>本类不在 Java 堆维护第二份权威订单簿，也不对全部订单排序；
+ * 最优价筛选交给数据库复合索引，应用每轮只保留当前 Maker 和本次成交。symbol 已在上游按 Lane
+ * 串行，减少同实例锁竞争和 CPU 上下文切换。金额使用 BigDecimal 是正确性成本，不能换成浮点数。
+ * 当前数据库订单簿面向可靠性实验，不宣称达到内存撮合的微秒级延迟。</p>
+ *
+ * <p><strong>正确性边界：</strong>本地 Lane 之外仍使用 PostgreSQL advisory lock 保证跨实例顺序。
+ * {@code clientOrderId} 命中后继续核对原始参数；任一写入失败整体回滚，不返回部分成功。</p>
  *
  * @author FinCore Reliability Lab
  * @since 1.0.0
@@ -83,7 +95,7 @@ public class MatchingService {
      * @param command 已完成格式校验的下单命令
      * @return 最终订单快照以及本次请求产生的成交列表
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public MatchingResult place(PlaceOrderCommand command) {
         lockSymbol(command.symbol());
         spotFunds.requireUnfundedMarket(command.symbol());
@@ -91,7 +103,7 @@ public class MatchingService {
     }
 
     /** 只供已完成盘前决定的内部入口调用；资金与撮合必须同事务。 */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public MatchingResult placeFunded(PlaceOrderCommand command) {
         lockSymbol(command.symbol());
         spotFunds.requireFundedMarket(command.symbol());
@@ -118,89 +130,113 @@ public class MatchingService {
             return new MatchingResult(duplicate, tradesForTaker(duplicate.orderId()));
         }
 
+        // 序号由数据库按 symbol 单调分配；不能用 JVM 时间或本地 AtomicLong 代替跨实例顺序。
         UUID orderId = UUID.randomUUID();
         long orderSequence = nextSequence(command.symbol());
         matchingMapper.insertOrder(orderId, command, orderSequence);
         audit(orderId, null, OrderStatus.OPEN, "order accepted");
         accepted.increment();
 
-        BigDecimal remaining = command.quantity();
-        OrderStatus takerStatus = OrderStatus.OPEN;
-        List<TradeView> executions = new java.util.ArrayList<>();
+        MatchProgress progress = executeMatches(command, orderId);
+        closeMarketRemainder(command, orderId, progress);
+        return new MatchingResult(get(orderId), progress.executions());
+    }
 
-        while (remaining.signum() > 0) {
-            // FOR UPDATE 锁住当前最优 Maker；价格相同时按持久化序号保证先到先成交。
-            Optional<OrderView> candidate = bestMaker(command.symbol(), command.side().opposite());
-            if (candidate.isEmpty()) {
-                break;
-            }
-            OrderView maker = candidate.get();
-            if (!MatchingPolicy.crosses(command.side(), command.type(), command.price(), maker.price())) {
-                break;
-            }
-
-            if (maker.userId().equals(command.userId())) {
-                // 实验采用 CANCEL_TAKER 自成交保护，避免同一账户人为制造成交量。
-                takerStatus = terminalize(orderId, takerStatus, OrderStatus.CANCELED,
-                    "self-trade prevention: CANCEL_TAKER");
-                rejected.increment();
-                outbox(orderId.toString(), "MATCHING_ORDER_CANCELED", Map.of(
-                    "eventType", "MATCHING_ORDER_CANCELED",
-                    "orderId", orderId,
-                    "symbol", command.symbol(),
-                    "reason", "SELF_TRADE_PREVENTION"));
-                break;
-            }
-
-            BigDecimal fillQuantity = remaining.min(maker.remainingQuantity());
-            BigDecimal quoteAmount = MatchingPolicy.quoteAmount(maker.price(), fillQuantity);
-            long tradeSequence = nextSequence(command.symbol());
-            UUID tradeId = UUID.randomUUID();
-
-            matchingMapper.insertTrade(tradeId, command.symbol(), maker.orderId(), orderId,
-                maker.price(), fillQuantity, quoteAmount, tradeSequence);
-
-            // Maker 更新带 version 条件，防止并发写入时发生静默覆盖。
-            BigDecimal makerRemaining = maker.remainingQuantity().subtract(fillQuantity);
-            OrderStatus makerStatus = makerRemaining.signum() == 0
-                ? OrderStatus.FILLED : OrderStatus.PARTIALLY_FILLED;
-            updateFilledOrder(maker.orderId(), maker.version(), fillQuantity, makerStatus);
-            audit(maker.orderId(), maker.status(), makerStatus, "matched as maker");
-
-            remaining = remaining.subtract(fillQuantity);
-            OrderStatus nextTakerStatus = remaining.signum() == 0
-                ? OrderStatus.FILLED : OrderStatus.PARTIALLY_FILLED;
-            updateTaker(orderId, fillQuantity, nextTakerStatus);
-            audit(orderId, takerStatus, nextTakerStatus, "matched as taker");
-            takerStatus = nextTakerStatus;
-
-            TradeView execution = new TradeView(
-                tradeId, command.symbol(), maker.orderId(), orderId,
-                maker.price(), fillQuantity, quoteAmount, tradeSequence);
-            executions.add(execution);
-            trades.increment();
-            // 成交与事件同事务落库，发布失败由 Outbox 后台任务重试。
-            outbox(tradeId.toString(), "MATCHING_TRADE_EXECUTED", Map.of(
-                "eventType", "MATCHING_TRADE_EXECUTED",
-                "tradeId", tradeId,
-                "symbol", command.symbol(),
-                "makerOrderId", maker.orderId(),
-                "takerOrderId", orderId,
-                "price", maker.price(),
-                "quantity", fillQuantity,
-                "quoteAmount", quoteAmount,
-                "sequence", tradeSequence));
+    /** 每轮只锁一个最优 Maker，避免把整本订单加载到堆或扩大行锁范围。 */
+    private MatchProgress executeMatches(PlaceOrderCommand command, UUID orderId) {
+        MatchProgress progress = new MatchProgress(
+            command.quantity(), OrderStatus.OPEN, new java.util.ArrayList<>(), false);
+        while (progress.remaining().signum() > 0 && !progress.stopped()) {
+            progress = executeNextMatch(command, orderId, progress);
         }
+        return progress;
+    }
 
-        if (command.type() == OrderType.MARKET && remaining.signum() > 0 && takerStatus.isOpen()) {
-            // 市价单不能挂入订单簿；无成交则拒绝，部分成交后的剩余量则撤销。
-            OrderStatus terminal = executions.isEmpty() ? OrderStatus.REJECTED : OrderStatus.CANCELED;
-            String detail = executions.isEmpty() ? "no liquidity" : "unfilled market remainder canceled";
-            takerStatus = terminalize(orderId, takerStatus, terminal, detail);
+    /**
+     * 锁定并处理一笔最优 Maker；所有写入仍处于调用方开启的同一个数据库事务。
+     */
+    private MatchProgress executeNextMatch(PlaceOrderCommand command, UUID orderId,
+                                           MatchProgress progress) {
+        // 复合索引完成价格/时间排序，FOR UPDATE 使选择与后续 CAS 基于同一事务快照。
+        Optional<OrderView> candidate = bestMaker(command.symbol(), command.side().opposite());
+        if (candidate.isEmpty()) {
+            return progress.stop();
+        }
+        OrderView maker = candidate.get();
+        if (!MatchingPolicy.crosses(command.side(), command.type(), command.price(), maker.price())) {
+            return progress.stop();
+        }
+        if (maker.userId().equals(command.userId())) {
+            // 实验采用 CANCEL_TAKER 自成交保护，避免同一账户人为制造成交量。
+            OrderStatus canceled = terminalize(orderId, progress.takerStatus(),
+                OrderStatus.CANCELED, "self-trade prevention: CANCEL_TAKER");
             rejected.increment();
+            outbox(orderId.toString(), "MATCHING_ORDER_CANCELED", Map.of(
+                "eventType", "MATCHING_ORDER_CANCELED", "orderId", orderId,
+                "symbol", command.symbol(), "reason", "SELF_TRADE_PREVENTION"));
+            return new MatchProgress(progress.remaining(), canceled, progress.executions(), true);
         }
 
-        return new MatchingResult(get(orderId), executions);
+        BigDecimal fillQuantity = progress.remaining().min(maker.remainingQuantity());
+        BigDecimal quoteAmount = MatchingPolicy.quoteAmount(maker.price(), fillQuantity);
+        long tradeSequence = nextSequence(command.symbol());
+        UUID tradeId = UUID.randomUUID();
+        matchingMapper.insertTrade(tradeId, command.symbol(), maker.orderId(), orderId,
+            maker.price(), fillQuantity, quoteAmount, tradeSequence);
+
+        BigDecimal makerRemaining = maker.remainingQuantity().subtract(fillQuantity);
+        OrderStatus makerStatus = makerRemaining.signum() == 0
+            ? OrderStatus.FILLED : OrderStatus.PARTIALLY_FILLED;
+        updateFilledOrder(maker.orderId(), maker.version(), fillQuantity, makerStatus);
+        audit(maker.orderId(), maker.status(), makerStatus, "matched as maker");
+
+        BigDecimal takerRemaining = progress.remaining().subtract(fillQuantity);
+        OrderStatus takerStatus = takerRemaining.signum() == 0
+            ? OrderStatus.FILLED : OrderStatus.PARTIALLY_FILLED;
+        updateTaker(orderId, fillQuantity, takerStatus);
+        audit(orderId, progress.takerStatus(), takerStatus, "matched as taker");
+        recordExecution(command, orderId, maker, fillQuantity, quoteAmount, tradeSequence,
+            tradeId, progress.executions());
+        return new MatchProgress(takerRemaining, takerStatus, progress.executions(), false);
+    }
+
+    /** 保存对外成交视图和同事务 Outbox 事件。 */
+    private void recordExecution(PlaceOrderCommand command, UUID orderId, OrderView maker,
+                                 BigDecimal fillQuantity, BigDecimal quoteAmount,
+                                 long tradeSequence, UUID tradeId, List<TradeView> executions) {
+        TradeView execution = new TradeView(tradeId, command.symbol(), maker.orderId(), orderId,
+            maker.price(), fillQuantity, quoteAmount, tradeSequence);
+        executions.add(execution);
+        trades.increment();
+        outbox(tradeId.toString(), "MATCHING_TRADE_EXECUTED", Map.of(
+            "eventType", "MATCHING_TRADE_EXECUTED", "tradeId", tradeId,
+            "symbol", command.symbol(), "makerOrderId", maker.orderId(),
+            "takerOrderId", orderId, "price", maker.price(), "quantity", fillQuantity,
+            "quoteAmount", quoteAmount, "sequence", tradeSequence));
+    }
+
+    /** 市价单不能挂单；把无成交和部分成交后的余量转换成明确终态。 */
+    private void closeMarketRemainder(PlaceOrderCommand command, UUID orderId,
+                                      MatchProgress progress) {
+        if (command.type() != OrderType.MARKET || progress.remaining().signum() <= 0
+            || !progress.takerStatus().isOpen()) {
+            return;
+        }
+        OrderStatus terminal = progress.executions().isEmpty()
+            ? OrderStatus.REJECTED : OrderStatus.CANCELED;
+        String detail = progress.executions().isEmpty()
+            ? "no liquidity" : "unfilled market remainder canceled";
+        terminalize(orderId, progress.takerStatus(), terminal, detail);
+        rejected.increment();
+    }
+
+    /** 一轮撮合后的剩余量、Taker 状态、已产生成交和停止标记。 */
+    private record MatchProgress(BigDecimal remaining, OrderStatus takerStatus,
+                                 List<TradeView> executions, boolean stopped) {
+        /** 保留当前撮合事实并停止继续读取订单簿。 */
+        private MatchProgress stop() {
+            return new MatchProgress(remaining, takerStatus, executions, true);
+        }
     }
 
     /**
@@ -210,7 +246,7 @@ public class MatchingService {
      * @param userId 发起撤单的用户编号
      * @return 撤单后的订单快照；重复撤销已撤订单时直接返回当前快照
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public OrderView cancel(UUID orderId, String userId) {
         OrderView snapshot = get(orderId);
         lockSymbol(snapshot.symbol());
@@ -222,7 +258,8 @@ public class MatchingService {
             return current;
         }
         if (!current.status().isOpen()) {
-            throw new IllegalStateException("terminal order cannot be canceled: " + current.status());
+            throw new BusinessConflictException(
+                "terminal order cannot be canceled: " + current.status());
         }
         terminalize(orderId, current.status(), OrderStatus.CANCELED, "canceled by user");
         spotFunds.releaseCanceled(orderId);
@@ -253,6 +290,7 @@ public class MatchingService {
      */
     public OrderBookView book(String rawSymbol, int requestedDepth) {
         String symbol = normalizeSymbol(rawSymbol);
+        // 限制最大档位，避免一次只读请求聚合超大结果集并挤占数据库 CPU、网络和堆。
         int depth = Math.max(1, Math.min(requestedDepth, 100));
         List<OrderBookView.BookLevel> bids = levels(symbol, OrderSide.BUY, depth);
         List<OrderBookView.BookLevel> asks = levels(symbol, OrderSide.SELL, depth);
@@ -268,6 +306,7 @@ public class MatchingService {
      */
     public List<TradeView> recentTrades(String rawSymbol, int requestedLimit) {
         String symbol = normalizeSymbol(rawSymbol);
+        // 最近成交接口同样限长，防止客户端把交易查询接口当成无限导出接口。
         int limit = Math.max(1, Math.min(requestedLimit, 200));
         return matchingMapper.findRecentTrades(symbol, limit);
     }
@@ -422,7 +461,7 @@ public class MatchingService {
         if (value == null) {
             throw new IllegalStateException("sequence allocation failed");
         }
-        return value;
+        return value.longValue();
     }
 
     /**
@@ -479,7 +518,7 @@ public class MatchingService {
     private static String normalizeSymbol(String rawSymbol) {
         Objects.requireNonNull(rawSymbol, "symbol");
         String symbol = rawSymbol.trim().toUpperCase(Locale.ROOT);
-        if (!symbol.matches("[A-Z0-9]{2,20}-[A-Z0-9]{2,20}")) {
+        if (!TradingIdentifiers.isSymbol(symbol)) {
             throw new IllegalArgumentException("symbol must use BASE-QUOTE format");
         }
         return symbol;

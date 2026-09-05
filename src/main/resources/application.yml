@@ -2,8 +2,10 @@ server:
   port: 8080
   shutdown: graceful
   tomcat:
+    # 连接数与等待队列是入口背压预算，不等于工作线程数；过大只会放大 socket、内存和超时扫描成本。
     max-connections: ${FINCORE_HTTP_MAX_CONNECTIONS:4096}
     accept-count: ${FINCORE_HTTP_ACCEPT_COUNT:256}
+    # 尽快淘汰无法建立完整请求的慢连接，避免行情剧烈波动时无效连接占满入口。
     connection-timeout: 2s
     keep-alive-timeout: 15s
     max-keep-alive-requests: 1000
@@ -24,13 +26,16 @@ spring:
     password: ${SPRING_DATASOURCE_PASSWORD:fincore}
     hikari:
       pool-name: fincore-db-pool
+      # 数据库连接是最稀缺的共享资源；固定小池限制并发 SQL，防止虚拟线程把压力无界传给 PostgreSQL。
       maximum-pool-size: ${FINCORE_DB_POOL_SIZE:12}
       minimum-idle: ${FINCORE_DB_POOL_SIZE:12}
+      # 快速失败优于让请求长期占用虚拟线程、内存和上游重试预算。
       connection-timeout: 1500
       validation-timeout: 1000
       max-lifetime: 1800000
       keepalive-time: 120000
       data-source-properties:
+        # 配合 MyBatis 多值 INSERT，让 JDBC 将批量语句改写为一次网络往返。
         reWriteBatchedInserts: true
         tcpKeepAlive: true
         ApplicationName: fincore-reliability-lab
@@ -42,17 +47,20 @@ spring:
       auto-offset-reset: earliest
       properties:
         spring.json.trusted.packages: dev.fincore.*
+        # 单次 poll 有界，限制一次分配的消息对象和单线程处理时长，避免超过 rebalance 窗口。
         max.poll.records: ${FINCORE_KAFKA_MAX_POLL_RECORDS:50}
         max.poll.interval.ms: 300000
         session.timeout.ms: 45000
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
     producer:
+      # all + 幂等生产者确认事件已被 ISR 接受；吞吐优化不能降低该可靠性级别。
       acks: all
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
       properties:
         enable.idempotence: true
+        # LZ4 用少量 CPU 换取更少网络字节；5ms linger 与 64KiB 批次用于摊薄协议和系统调用开销。
         compression.type: lz4
         linger.ms: 5
         batch.size: 65536
@@ -60,6 +68,7 @@ spring:
         max.in.flight.requests.per.connection: 5
         max.block.ms: 1000
     listener:
+      # 每条记录成功返回后再确认；业务异常必须抛出，不能记录后吞掉导致 offset 越过失败消息。
       ack-mode: record
   flyway:
     enabled: true
@@ -71,6 +80,7 @@ mybatis:
     map-underscore-to-camel-case: true
     # 金融事务每次查询都读取当前数据库状态，不跨语句复用一级缓存快照。
     local-cache-scope: statement
+    # 阻止异常 SQL 无限占用连接池；超时会回滚当前事务，不能转换成业务成功。
     default-statement-timeout: 30
 management:
   endpoints:
@@ -92,6 +102,7 @@ fincore:
   concurrency:
     # 同一交易对固定进入同一单线程 Lane；多交易对可以并行，队列满时立即返回 429。
     matching-lanes: ${FINCORE_MATCHING_LANES:4}
+    # 普通下单与撤单队列都必须有界；独立撤单容量避免普通订单洪峰完全饿死释放资金的撤单。
     matching-queue-capacity-per-lane: ${FINCORE_MATCHING_QUEUE_CAPACITY:256}
     matching-cancel-queue-capacity-per-lane: ${FINCORE_MATCHING_CANCEL_QUEUE_CAPACITY:32}
     matching-wait-timeout: ${FINCORE_MATCHING_WAIT_TIMEOUT:10s}
@@ -99,10 +110,12 @@ fincore:
     settlement-consumers: ${FINCORE_SETTLEMENT_CONSUMERS:4}
     kafka-submit-timeout: ${FINCORE_KAFKA_SUBMIT_TIMEOUT:3s}
     worker-lease-ttl: ${FINCORE_WORKER_LEASE_TTL:30s}
+    # 在过期前才续期，减少 shard_lease 行锁、WAL 与数据库 CPU；资金事务仍会逐笔验证 Epoch。
     worker-lease-renew-ahead: ${FINCORE_WORKER_LEASE_RENEW_AHEAD:10s}
     # Outbox 一次抢占并异步发送的上限，成功/失败结果分别批量回写。
     outbox-batch-size: ${FINCORE_OUTBOX_BATCH_SIZE:200}
     outbox-await-timeout: ${FINCORE_OUTBOX_AWAIT_TIMEOUT:15s}
+    # 只给巡检、恢复和 Outbox 调度使用；不能把 CPU 密集业务放入该小型共享池。
     scheduler-threads: ${FINCORE_SCHEDULER_THREADS:2}
   outbox-delay-ms: ${FINCORE_OUTBOX_DELAY_MS:100}
   outbox-recovery-delay-ms: ${FINCORE_OUTBOX_RECOVERY_DELAY_MS:30000}

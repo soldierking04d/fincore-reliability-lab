@@ -24,8 +24,14 @@ import org.springframework.stereotype.Service;
 /**
  * 交易所高频面试能力补全的一键实验编排服务。
  *
- * <p>该服务只在 {@code lab} Profile 下运行，组合九个互相隔离的纯领域模型，并在返回报告前执行
- * 业务断言。它不连接真实交易所、公链或机构FIX网关，不会改变现有资金账本。</p>
+ * <p><strong>解决的问题：</strong>用九组确定性模型覆盖行情、订单语义、FIX/OMS、监察、安全、费用、
+ * 撮合恢复、合约和链上状态，避免只有概念文档没有可运行证据。</p>
+ *
+ * <p><strong>CPU 与容量边界：</strong>模型在单次请求内用小集合顺序运行，目标是语义验证而非性能
+ * 压测；它不证明低延迟、生产 QPS、GPU 或专用硬件能力。</p>
+ *
+ * <p><strong>正确性边界：</strong>只在 {@code lab} Profile 下运行，不连接真实交易所、公链或机构
+ * FIX 网关，不改变现有资金账本；全部断言通过才返回报告。</p>
  *
  * @author FinCore Reliability Lab
  * @since 1.1.0
@@ -33,6 +39,8 @@ import org.springframework.stereotype.Service;
 @Profile("lab")
 @Service
 public class ExchangeCoverageScenarioService {
+    /** 分层挂单实验需要覆盖的不同价格层数量。 */
+    private static final int SURVEILLANCE_LAYER_COUNT = 3;
 
     /**
      * 执行行情、订单、机构接入、市场监察、安全、费用、恢复、合约和链上状态九组实验。
@@ -150,7 +158,7 @@ public class ExchangeCoverageScenarioService {
     private DomainReport surveillance() {
         MarketSurveillanceEngine engine = new MarketSurveillanceEngine();
         Instant time = Instant.parse("2026-09-04T00:00:00Z");
-        for (int index = 0; index < 3; index++) {
+        for (int index = 0; index < SURVEILLANCE_LAYER_COUNT; index++) {
             String id = "layer-" + index;
             BigDecimal price = n(Integer.toString(100 + index));
             engine.onOrder(new MarketSurveillanceEngine.OrderEvent(id, "owner-A",
@@ -161,7 +169,7 @@ public class ExchangeCoverageScenarioService {
                 MarketSurveillanceEngine.OrderAction.CANCEL, time.plusMillis(100)),
                 n("5"), Duration.ofSeconds(1));
         }
-        engine.closeWindow(3, n("0.8"));
+        engine.closeWindow(SURVEILLANCE_LAYER_COUNT, n("0.8"));
         engine.onTrade(new MarketSurveillanceEngine.TradeEvent("wash-1", "owner-A", "owner-A",
             n("101"), n("1"), time));
         engine.checkExecution(MarketSurveillanceEngine.Side.BUY, n("100"), n("102"),

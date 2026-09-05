@@ -11,11 +11,11 @@ import dev.fincore.domain.OrderSide;
 import dev.fincore.domain.OrderStatus;
 import dev.fincore.domain.OrderType;
 import dev.fincore.domain.PlaceOrderCommand;
+import dev.fincore.support.TestExecutors;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
@@ -120,23 +120,30 @@ class MatchingIntegrationTest {
     @Test
     void duplicateClientOrderIsSerializedAcrossThreads() throws Exception {
         int workers = 8;
-        var pool = Executors.newFixedThreadPool(workers);
+        var pool = TestExecutors.fixedThreadPool(workers, "matching-idempotency-test-");
         var start = new CountDownLatch(1);
         try {
             List<Future<MatchingResult>> futures = new ArrayList<>();
-            for (int i = 0; i < workers; i++) {
-                futures.add(pool.submit(() -> {
-                    start.await();
-                    return matching.place(limit("race-1", "race-user", "XRP-USDT",
-                        OrderSide.BUY, "1", "100"));
-                }));
+            try {
+                for (int i = 0; i < workers; i++) {
+                    futures.add(pool.submit(() -> {
+                        start.await();
+                        return matching.place(limit("race-1", "race-user", "XRP-USDT",
+                            OrderSide.BUY, "1", "100"));
+                    }));
+                }
+            } finally {
+                // 任务提交中途失败时也释放已提交任务，避免并发测试挂死。
+                start.countDown();
             }
-            start.countDown();
             int original = 0;
             int duplicate = 0;
             for (Future<MatchingResult> future : futures) {
-                if (future.get(20, TimeUnit.SECONDS).order().duplicate()) duplicate++;
-                else original++;
+                if (future.get(20, TimeUnit.SECONDS).order().duplicate()) {
+                    duplicate++;
+                } else {
+                    original++;
+                }
             }
             assertEquals(1, original);
             assertEquals(workers - 1, duplicate);

@@ -14,6 +14,7 @@ import dev.fincore.domain.OrderSide;
 import dev.fincore.domain.OrderType;
 import dev.fincore.domain.PlaceOrderCommand;
 import dev.fincore.domain.SpotDeliveryCommand;
+import dev.fincore.support.TestExecutors;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
@@ -22,7 +23,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.concurrent.Executors;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.CountDownLatch;
 import org.apache.kafka.clients.admin.Admin;
@@ -72,6 +73,19 @@ import static org.awaitility.Awaitility.await;
 })
 @Import(SpotDeliveryKafkaIntegrationTest.Topics.class)
 class SpotDeliveryKafkaIntegrationTest {
+    /** 隔离负载样本创建的独立交易市场数量。 */
+    private static final int LOAD_MARKET_COUNT = 64;
+    /** 现货样本统一使用的计价资产。 */
+    private static final String QUOTE_ASSET = "USDT";
+    /** 只枚举 public schema 数据表的固定诊断查询。 */
+    private static final String PUBLIC_TABLES_QUERY =
+        "SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename";
+    /** 负载证据允许采集的系统指标白名单。 */
+    private static final List<String> OBSERVED_METRICS = List.of(
+        "fincore.matching.queue.depth.total", "hikaricp.connections.active",
+        "hikaricp.connections.pending", "process.cpu.usage");
+    /** 测试动态查询允许使用的资金列白名单。 */
+    private static final Set<String> BALANCE_COLUMNS = Set.of("balance", "pending_debit");
     /** 独立 PostgreSQL，不能指向现网。 */
     @Container
     static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
@@ -170,7 +184,7 @@ class SpotDeliveryKafkaIntegrationTest {
         requestFactory.setReadTimeout(Duration.ofSeconds(15));
         http.getRestTemplate().setRequestFactory(requestFactory);
         List<LoadFixture> fixtures = new ArrayList<>();
-        for (int index = 0; index < 64; index++) {
+        for (int index = 0; index < LOAD_MARKET_COUNT; index++) {
             fixtures.add(fixture());
         }
         // 准备账户不计入业务吞吐；行情在起跑前刷新，不能拿过期快照制造虚假性能失败。
@@ -180,8 +194,8 @@ class SpotDeliveryKafkaIntegrationTest {
         long gcBefore = gcMillis();
         long started = System.nanoTime();
         List<Map<String, Object>> samples = new java.util.concurrent.CopyOnWriteArrayList<>();
-        try (var sampler = Executors.newSingleThreadScheduledExecutor();
-             var workers = Executors.newFixedThreadPool(16)) {
+        try (var sampler = TestExecutors.singleThreadScheduler("delivery-sampler-test-");
+             var workers = TestExecutors.fixedThreadPool(16, "delivery-worker-test-")) {
             sampler.scheduleAtFixedRate(() -> samples.add(sample()), 0, 100, TimeUnit.MILLISECONDS);
             var futures = fixtures.stream().map(f -> workers.submit(() -> {
                 trading.publishQuote(f.symbol(), new BigDecimal("100"), "LAB", Instant.now());
@@ -189,12 +203,16 @@ class SpotDeliveryKafkaIntegrationTest {
                 JsonNode response = postOrder(order(f.buyer(), f.symbol(), OrderSide.BUY), requestNanos);
                 trades.add(UUID.fromString(response.path("matching").path("trades").get(0).path("tradeId").asText()));
             })).toList();
-            for (var future : futures) future.get(60, TimeUnit.SECONDS);
+            for (var future : futures) {
+                future.get(60, TimeUnit.SECONDS);
+            }
             long acceptedNanos = System.nanoTime() - started;
             await().atMost(Duration.ofSeconds(60)).until(() -> trades.size() == 64 && trades.stream()
                 .allMatch(trade -> "SETTLED".equals(deliveries.get(trade).status())));
             long completedNanos = System.nanoTime() - started;
-            for (LoadFixture f : fixtures) assertFunds(f);
+            for (LoadFixture fixture : fixtures) {
+                assertFunds(fixture);
+            }
             await().atMost(Duration.ofSeconds(30)).until(() -> jdbc.queryForObject(
                 "SELECT count(*) FROM outbox_event WHERE status <> 'PUBLISHED'", Integer.class) == 0);
             requestNanos.sort(Long::compareTo);
@@ -335,7 +353,7 @@ class SpotDeliveryKafkaIntegrationTest {
         amount("8", "balance", f.seller(), f.base());
         amount("200", "balance", f.seller(), "USDT");
         for (String user : List.of(f.buyer(), f.seller())) {
-            for (String asset : List.of(f.base(), "USDT")) {
+            for (String asset : List.of(f.base(), QUOTE_ASSET)) {
                 UUID account = jdbc.queryForObject("SELECT account_id FROM account WHERE owner_id=? AND asset=?", UUID.class, user, asset);
                 assertTrue(funds.reconcile(account), user + ":" + asset);
             }
@@ -345,8 +363,10 @@ class SpotDeliveryKafkaIntegrationTest {
     /** 只核对数据表，不把运行时连接信息、口令或序列的分配缓存写进公开报告。 */
     private Map<String, Object> databaseDigest(JdbcTemplate database) {
         Map<String, Object> result = new java.util.TreeMap<>();
-        for (String table : database.queryForList("SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename", String.class)) {
-            if (!table.matches("[a-z_][a-z0-9_]*")) throw new IllegalStateException("unexpected table name");
+        for (String table : database.queryForList(PUBLIC_TABLES_QUERY, String.class)) {
+            if (!table.matches("[a-z_][a-z0-9_]*")) {
+                throw new IllegalStateException("unexpected table name");
+            }
             result.put(table, database.queryForMap("SELECT count(*) AS rows, md5(coalesce(string_agg(row_to_json(t)::text, E'\\n' ORDER BY row_to_json(t)::text), '')) AS digest FROM " + table + " t"));
         }
         return result;
@@ -364,7 +384,7 @@ class SpotDeliveryKafkaIntegrationTest {
     private Map<String, Object> sample() {
         Map<String, Object> sample = new LinkedHashMap<>();
         sample.put("at", Instant.now().toString());
-        for (String name : List.of("fincore.matching.queue.depth.total", "hikaricp.connections.active", "hikaricp.connections.pending", "process.cpu.usage")) {
+        for (String name : OBSERVED_METRICS) {
             var gauge = metrics.find(name).gauge();
             double value = gauge == null ? Double.NaN : gauge.value();
             sample.put(name, Double.isFinite(value) ? value : null);
@@ -410,7 +430,7 @@ class SpotDeliveryKafkaIntegrationTest {
 
     /** 列名来自测试固定白名单，业务输入只用参数绑定。 */
     private void amount(String expected, String column, String user, String asset) {
-        if (!java.util.Set.of("balance", "pending_debit").contains(column)) {
+        if (!BALANCE_COLUMNS.contains(column)) {
             throw new IllegalArgumentException("test column not allowed");
         }
         assertEquals(0, new BigDecimal(expected).compareTo(jdbc.queryForObject(

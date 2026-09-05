@@ -1,0 +1,21 @@
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  endpoint:
+    health:
+      # 公网只返回 UP/DOWN，不泄露数据库、磁盘和其他内部依赖的详细状态。
+      show-details: never
+      probes:
+        enabled: true
+      group:
+        readiness:
+          include: readinessState,db
+        liveness:
+          include: livenessState
+
+fincore:
+  public-demo:
+    # public-demo 启动时由过滤器强制要求至少 32 字符；令牌只从环境变量读取。
+    admin-token: ${FINCORE_ADMIN_TOKEN:}

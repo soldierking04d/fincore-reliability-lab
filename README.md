@@ -12,7 +12,7 @@
 ![Release](https://img.shields.io/github/v/release/soldierking04d/fincore-reliability-lab)
 
 > 一个面向真实金融故障的**可运行开源可靠性实验室**。
-> 用 Java 21、Spring Boot、MyBatis、PostgreSQL 和 Kafka 复现并验证撮合、结算、幂等、Fencing、对账修复、高并发与 AI Coding Agent 安全问题。
+> 用 Java 21、Spring Boot、MyBatis、PostgreSQL 和 Kafka 复现并验证撮合、结算、幂等、Fencing、对账修复、有界并发与 AI Coding Agent 安全问题。
 
 ![FinCore Reliability Lab：业务、金融、工程、管理、AI 与数字资产](docs/showcase/github-social-preview.jpg)
 
@@ -24,25 +24,38 @@
 [交易所九域补全实验](docs/exchange-core-capability-lab.md) ·
 [合约关键故障实验](docs/derivatives-failure-lab.md) ·
 [管理实战手册](docs/management/README.md) ·
+[阿里 Java 规范审计](docs/alibaba-java-guideline-audit.md) ·
+[质量与公网加固记录](docs/quality-security-hardening-2026-09-05.md) ·
 [AI 评测结果](https://fincore-agent-benchmark.soldierking04d.chatgpt.site) ·
 [5 分钟讲解稿](docs/showcase/demo-walkthrough.md)
 
 如果这个项目能帮助你理解或验证金融系统可靠性，欢迎点击仓库右上角 **Star**。你的关注会帮助更多开发者发现这些可复现的故障实验。
 
+## 先看证据等级
+
+为避免把设计目标写成生产成绩，项目统一使用三种证据标签：
+
+- **VERIFIED**：由当前源码、自动测试或确定性实验直接证明；
+- **OBSERVED**：在标明版本、机器和负载条件的运行环境中实测，不能外推为生产 SLA；
+- **DESIGN**：架构方案或演进路线，尚未获得本项目运行证据。
+
+README 中没有环境与报告链接支撑的 QPS、p99/p999、CPU、GC 和容量数字，均不得表述为已实现成绩。
+
 ## 30 秒判断它是否值得关注
 
 它不是只有架构图和说明文字的样例，而是一组可以运行、制造故障、观察指标并验证恢复结果的实验。最重要的结果直接来自场景代码和自动检查：
 
-| 场景 | 可验证结果 | 说明 |
-|---|---:|---|
-| 行情暴跌下的并发撮合 | `60 = 60` | 60 笔权威成交对应 60 个唯一序列，价格时间优先和数量守恒成立 |
-| 重复结算风暴 | `17 → 1` | 同一结算命令并发投递 17 次，最终只有 1 次资金效果 |
-| 完整客户交易生命周期 | `8 / 8 PASS` | 用户、KYC、风控、行情、账户、撮合、结算、对账全部通过 |
-| 新单积压与撤单风暴 | `256 → 0` | 普通队列满载时撤单仍被受理，并在 256 笔普通积压之前完成 |
-| 市场暴跌恢复实验 | `10 / 10 PASS` | 覆盖重试、无流动性、接管、乱序、漏数、错值、幽灵成交和修复 |
-| Coding Agent 受控评测 | `54 runs` | 8 个金融可靠性任务，公开规则、隐藏验收、财务安全否决 |
-| 技术治理自动校验 | `5 registries` | Owner、风险、指标、技术采用、审计证据由 Maven/CI 检查 |
-| 交易所外围核心能力 | `9 / 9 PASS` | 行情、订单语义、FIX/OMS、市场监察、安全、费用、撮合恢复、合约与链上状态可一键复算 |
+| 场景 | 结果 | 证据 | 说明 |
+|---|---:|---|---|
+| 行情暴跌下的并发正确性 | `60 = 60` | VERIFIED | 60 笔权威成交对应 60 个唯一序列，价格时间优先和数量守恒成立 |
+| 重复结算风暴 | `17 → 1` | VERIFIED | 同一结算命令并发投递 17 次，最终只有 1 次资金效果 |
+| 完整客户交易生命周期 | `8 / 8 PASS` | VERIFIED | 用户、KYC、风控、行情、账户、撮合、结算、对账全部通过 |
+| 新单积压与撤单风暴 | `256 → 0` | VERIFIED | 普通队列满载时撤单仍被受理，并在 256 笔普通积压之前完成 |
+| 市场暴跌恢复实验 | `10 / 10 PASS` | VERIFIED | 覆盖重试、无流动性、接管、乱序、漏数、错值、幽灵成交和修复 |
+| Coding Agent 受控评测 | `54 runs` | OBSERVED | 8 个金融可靠性任务，公开规则、隐藏验收、财务安全否决 |
+| 技术治理自动校验 | `5 registries` | VERIFIED | Owner、风险、指标、技术采用、审计证据由 Maven/CI 检查 |
+| 交易所外围核心能力 | `9 / 9 PASS` | VERIFIED | 行情、订单语义、FIX/OMS、市场监察、安全、费用、撮合恢复、合约与链上状态可一键复算 |
+| 工程质量门禁 | `152 / 152 PASS` | VERIFIED | 完整 Docker 验收无跳过；行覆盖 85.17%、分支覆盖 60.52%，P3C 与 SpotBugs 零阻断项 |
 
 你可以在[在线完整演示](https://fincore-reliability-demo.soldierking04d.chatgpt.site/)里直接查看系统监控、价格波动、订单量、QPS、架构图、服务拓扑和核心时序图，也可以在本地复现全部实验。
 
@@ -432,7 +445,7 @@ curl -s 'http://localhost:8080/api/shards/7/fence?ownerId=worker-a&epoch=1'
 有 Maven 和 Docker 时：
 
 ```bash
-mvn test
+./mvnw test
 ```
 
 没有本机 Maven、但有 Docker 时：

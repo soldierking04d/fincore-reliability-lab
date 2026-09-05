@@ -23,6 +23,8 @@ import java.util.Set;
  * @since 1.1.0
  */
 public final class MarketSurveillanceEngine {
+    /** 分层挂撤单信号要求出现的不同价格层数量。 */
+    private static final int LAYERING_LEVEL_COUNT = 3;
     /** 已见新单，用于把撤单与原始数量和时间关联。 */
     private final Map<String, OrderEvent> openOrders = new HashMap<>();
     /** 每个受益所有人的新单数量。 */
@@ -100,7 +102,7 @@ public final class MarketSurveillanceEngine {
             ignored -> new HashSet<>());
         // BigDecimal 的 equals 会比较小数位，100.0 与 100.00 在业务上应视为同一价位。
         levels.add(event.price().stripTrailingZeros());
-        if (levels.size() == 3) {
+        if (levels.size() == LAYERING_LEVEL_COUNT) {
             signals.add(new Signal(SignalType.LAYERING_PATTERN,
                 event.beneficialOwner(), event.orderId(), "同方向三个不同价格层快速撤销"));
         }
