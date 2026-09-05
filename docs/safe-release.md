@@ -13,7 +13,11 @@ java scripts/VerifyTestReports.java
 
 2026-09-03 的 [CI 证据](https://github.com/soldierking04d/fincore-reliability-lab/actions/runs/33762357631)：92 项执行、0 跳过，包括合约 13 项数据库验收。小规模并发/回滚测试不等于生产吞吐认证。
 
-实际部署使用后续提交 `9566aae` 的 [CI 33763673655](https://github.com/soldierking04d/fincore-reliability-lab/actions/runs/33763673655)，同样 92 项、0 跳过；部署版本和公网验收见[发布验收记录](release-acceptance-2026-09-03.md)。
+2026-09-06 的当前公网版本使用提交 `79c3032` 的
+[CI 33974519478](https://github.com/soldierking04d/fincore-reliability-lab/actions/runs/33974519478)，
+完整执行 152 项测试且无失败、错误或跳过；部署版本和公网验收见
+[质量加固版发布验收](release-acceptance-2026-09-06.md)。此前 V7 首次上线记录仍保留在
+[第一阶段发布验收](release-acceptance-2026-09-03.md)，但不再代表当前线上代码。
 
 ## 发行包契约
 

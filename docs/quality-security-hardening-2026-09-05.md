@@ -82,6 +82,17 @@ java scripts/VerifyTestReports.java
 `target/remote-verification-2026-09-05/`；`target` 已被 Git 忽略，不把体积较大的机器产物提交到仓库。
 GitHub Actions 会对提交后的源码重新执行同一门禁并保存构建产物。
 
+### 5.2 GitHub 与公网复验
+
+提交 `79c30323fa2437941bcbc30fbc44711442fd34f0` 的
+[GitHub Actions 运行 33974519478](https://github.com/soldierking04d/fincore-reliability-lab/actions/runs/33974519478)
+已经成功，保存了应用、测试、规范与运行证据制品。该 CI JAR 的 SHA-256 为
+`49fcdae93ac839c6e64b942aebb162c8c3a09fd3ea83982bc4d3fc1b4cb4c641`。
+
+2026-09-06 已把同一 JAR 部署为腾讯云发行版 `20260905-79c3032-1fc16a8`，线上容器内 JAR
+摘要与 CI 制品一致。公网入口、访问控制、数据库备份和非应用容器不重启证据见
+[质量加固版发布验收](release-acceptance-2026-09-06.md)。
+
 ## 6. 尚未由本轮证明的内容
 
 - 未因增加 JVM 参数而宣称生产 QPS、p99/p999 或 GC SLA；
