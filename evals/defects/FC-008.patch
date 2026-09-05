@@ -1,16 +1,16 @@
 diff --git a/src/main/java/dev/fincore/application/TradeReliabilityService.java b/src/main/java/dev/fincore/application/TradeReliabilityService.java
 --- a/src/main/java/dev/fincore/application/TradeReliabilityService.java
 +++ b/src/main/java/dev/fincore/application/TradeReliabilityService.java
-@@ -117,7 +117,7 @@ public class TradeReliabilityService {
+@@ -115,7 +115,7 @@ public class TradeReliabilityService {
       * @param rawSymbol 待对账交易对
       * @return 对账批次及全部差异
       */
--    @Transactional(isolation = Isolation.REPEATABLE_READ)
-+    @Transactional
+-    @Transactional(isolation = Isolation.REPEATABLE_READ, rollbackFor = Exception.class)
++    @Transactional(rollbackFor = Exception.class)
      public ReconciliationReport reconcile(String rawSymbol) {
          String symbol = normalizeSymbol(rawSymbol);
          lock("trade-reconcile:" + symbol);
-@@ -193,8 +193,7 @@ public class TradeReliabilityService {
+@@ -191,8 +191,7 @@ public class TradeReliabilityService {
          int rebuilt = 0;
          int quarantined = 0;
          for (TradeReliabilityMapper.DifferenceRow item : open) {
@@ -23,7 +23,7 @@ diff --git a/src/main/java/dev/fincore/application/TradeReliabilityService.java 
 diff --git a/src/main/java/dev/fincore/infrastructure/persistence/mapper/TradeReliabilityMapper.java b/src/main/java/dev/fincore/infrastructure/persistence/mapper/TradeReliabilityMapper.java
 --- a/src/main/java/dev/fincore/infrastructure/persistence/mapper/TradeReliabilityMapper.java
 +++ b/src/main/java/dev/fincore/infrastructure/persistence/mapper/TradeReliabilityMapper.java
-@@ -200,9 +200,6 @@ public interface TradeReliabilityMapper {
+@@ -304,9 +304,6 @@ public interface TradeReliabilityMapper {
      @Update("""
          UPDATE trade_projection projection
          SET status='QUARANTINED', version=version+1, updated_at=now()

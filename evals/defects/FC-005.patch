@@ -1,9 +1,9 @@
 diff --git a/src/main/java/dev/fincore/application/CompensationService.java b/src/main/java/dev/fincore/application/CompensationService.java
 --- a/src/main/java/dev/fincore/application/CompensationService.java
 +++ b/src/main/java/dev/fincore/application/CompensationService.java
-@@ -55,14 +55,9 @@ public class CompensationService {
+@@ -65,14 +65,9 @@ public class CompensationService {
       */
-     @Transactional
+     @Transactional(rollbackFor = Exception.class)
      public CompensationOutcome compensate(String originalBusinessKey, String reason) {
 -        // 补偿键与原始业务键一一对应，数据库唯一约束是最终幂等防线。
 -        String compensationKey = "COMP:" + originalBusinessKey;
@@ -21,7 +21,7 @@ diff --git a/src/main/java/dev/fincore/application/CompensationService.java b/sr
 diff --git a/src/main/java/dev/fincore/infrastructure/persistence/mapper/CompensationMapper.java b/src/main/java/dev/fincore/infrastructure/persistence/mapper/CompensationMapper.java
 --- a/src/main/java/dev/fincore/infrastructure/persistence/mapper/CompensationMapper.java
 +++ b/src/main/java/dev/fincore/infrastructure/persistence/mapper/CompensationMapper.java
-@@ -22,7 +22,6 @@ public interface CompensationMapper {
+@@ -35,7 +35,6 @@ public interface CompensationMapper {
              compensation_id, original_business_key, compensation_business_key, status, reason)
          VALUES (#{compensationId}, #{originalBusinessKey}, #{compensationBusinessKey},
                  'PROCESSING', #{reason})
@@ -32,7 +32,7 @@ diff --git a/src/main/java/dev/fincore/infrastructure/persistence/mapper/Compens
 diff --git a/src/main/resources/db/migration/V1__baseline.sql b/src/main/resources/db/migration/V1__baseline.sql
 --- a/src/main/resources/db/migration/V1__baseline.sql
 +++ b/src/main/resources/db/migration/V1__baseline.sql
-@@ -99,8 +99,8 @@ CREATE UNIQUE INDEX uk_reconciliation_open_account_type
+@@ -100,8 +100,8 @@ CREATE UNIQUE INDEX uk_reconciliation_open_account_type
  
  CREATE TABLE compensation_order (
      compensation_id UUID PRIMARY KEY,

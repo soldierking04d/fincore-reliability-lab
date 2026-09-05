@@ -1,11 +1,12 @@
 diff --git a/src/main/java/dev/fincore/domain/FeeShardRouter.java b/src/main/java/dev/fincore/domain/FeeShardRouter.java
 --- a/src/main/java/dev/fincore/domain/FeeShardRouter.java
 +++ b/src/main/java/dev/fincore/domain/FeeShardRouter.java
-@@ -34,8 +34,6 @@ public final class FeeShardRouter {
+@@ -40,9 +40,6 @@ public final class FeeShardRouter {
      public int shardFor(String businessKey) {
          if (businessKey == null || businessKey.isBlank()) {
              throw new IllegalArgumentException("businessKey is required");
          }
+-        // 混合后用位掩码取分片；构造器的 2 次幂校验保证掩码与取模等价。
 -        int hash = businessKey.hashCode();
 -        hash ^= (hash >>> 16);
 -        return hash & (shardCount - 1);

@@ -1,18 +1,18 @@
 diff --git a/src/main/java/dev/fincore/application/ShardLeaseService.java b/src/main/java/dev/fincore/application/ShardLeaseService.java
 --- a/src/main/java/dev/fincore/application/ShardLeaseService.java
 +++ b/src/main/java/dev/fincore/application/ShardLeaseService.java
-@@ -126,13 +126,5 @@ public class ShardLeaseService {
-      * @throws IllegalStateException Lease 缺失、过期、排空或已经被新 Epoch 接管时抛出
+@@ -130,13 +130,5 @@ public class ShardLeaseService {
+      * @throws FenceRejectedException Lease 缺失、过期、排空或已经被新 Epoch 接管时抛出
       */
      public void requireValidFenceForUpdate(FenceToken token) {
 -        ShardLeaseMapper.LeaseRow row = leaseMapper.lockForFenceValidation(token.shardId());
 -        if (row == null) {
--            throw new IllegalStateException("fence rejected: shard lease missing");
+-            throw new FenceRejectedException("fence rejected: shard lease missing");
 -        }
 -        Lease lease = toLease(row);
 -        if (!lease.ownerId().equals(token.ownerId()) || lease.epoch() != token.epoch() ||
 -            !"RUNNING".equals(lease.state()) || !lease.leaseUntil().isAfter(Instant.now())) {
--            throw new IllegalStateException("fence rejected: stale or draining worker");
+-            throw new FenceRejectedException("fence rejected: stale or draining worker");
 -        }
 +        // 故意注入的评测缺陷：不再拒绝已经过期的 Worker。
      }
