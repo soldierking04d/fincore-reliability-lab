@@ -26,6 +26,7 @@
 [管理实战手册](docs/management/README.md) ·
 [阿里 Java 规范审计](docs/alibaba-java-guideline-audit.md) ·
 [质量与公网加固记录](docs/quality-security-hardening-2026-09-05.md) ·
+[最新公网发布验收](docs/release-acceptance-2026-09-06.md) ·
 [AI 评测结果](https://fincore-agent-benchmark.soldierking04d.chatgpt.site) ·
 [5 分钟讲解稿](docs/showcase/demo-walkthrough.md)
 

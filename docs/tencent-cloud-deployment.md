@@ -73,6 +73,14 @@ IP 证书，不依赖额外购买域名，也不会触发腾讯云对未备案�
 仅替换 FinCore 应用，其他 11 个容器 ID 和启动时间保持不变；发布期间应用启动存在短暂不可用，不能宣称零停机。
 详见[发布验收记录](release-acceptance-2026-09-03.md)，线上精确版本见 [release.json](https://124.223.164.254/release.json)。
 
+2026-09-06 发布质量与公网加固版 `20260905-79c3032-1fc16a8`。后端提交为 `79c3032`，
+GitHub Actions 完整执行 152 项测试且无失败、错误或跳过；P3C-PMD 与 SpotBugs 均为 0，
+JaCoCo 行/分支覆盖率为 85.17%/60.52%。发布前生成数据库备份，只重建应用容器，Kafka、
+PostgreSQL、Nginx、Caddy、Prometheus 和 Grafana 的容器 ID 与启动时间均保持不变。
+公网复查确认首页、健康检查、九域演示、Grafana 和 Prometheus 可用，同时确认内部 Actuator、
+故障注入及匿名写接口被拒绝。完整版本、制品哈希、短暂不可用和证据边界见
+[质量加固版发布验收](release-acceptance-2026-09-06.md)。
+
 ## 部署与更新
 
 日常发布与整机初始化已分离。`deploy-tencent-cloud.sh` 现在只转入项目级发行脚本；不安装软件，
