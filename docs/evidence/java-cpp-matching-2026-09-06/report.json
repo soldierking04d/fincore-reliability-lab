@@ -1,0 +1,757 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-09-06T07:00:48.181Z",
+  "status": "measured-local-synthetic",
+  "provenance": {
+    "sourceSha256": {
+      "experiments/java-cpp-matching/java/MatchingLab.java": "0849c2de5cebecf6c454e32f6fc1fda17502ffe014989b0f2294c2cfe587e2c5",
+      "experiments/java-cpp-matching/cpp/matching_lab.cpp": "81c399f24adc83d8d2c3474301fbbd04f41dfeccc66b42d64c3a057bf3deb2a4",
+      "experiments/java-cpp-matching/harness.mjs": "b6378eebfff8b7f668b58cb0de7a965bb8d94f2292e256697538318c08adcfa7",
+      "experiments/java-cpp-matching/fixtures/golden.json": "ad838dd75deff97081f73e98a07750a338ee98a4d431fba3849af3d8edd5753f",
+      "experiments/java-cpp-matching/fixtures/sanitizer-probe.cpp": "6e6674c013e44960c4b1d8b3fd1251aaa6d9fab0d82495f94ffb15f38bc82083",
+      "scripts/verify-java-cpp-matching.sh": "ea3d700bbad26f0edd748c5be4bc648b58b0a80f682cf3bc8807afed9bedadb1"
+    },
+    "binarySha256": {
+      "matching-cpp": "0fff17f641f730abbb6e6a13a79b94964caae992fd4fb6ebb323ddd5f8f63c68",
+      "matching-cpp-sanitized": "9453f0e2e306cbd82f834c1f18a568e06d49a29d7f0eea37b41068bc3ed26c6d",
+      "sanitizer-probe": "b51b2e520717d64e258c6d56ff7346dbf1d499ffa2d6e6688d708ddb180ec40f",
+      "classes/MatchingLab$Cached.class": "2cb46e7fabdcbb9e17a25f59b57a77832786eaacd176291c8b7c7d227ff6e745",
+      "classes/MatchingLab$Command.class": "44eb39187798cf5bbade5faed715cc7a54cb725df51796c55e83b4448382856b",
+      "classes/MatchingLab$Engine.class": "ab08180e7551e098acc9bd42b6e8918d497a71b81cf314ed54c687fb603f22a4",
+      "classes/MatchingLab$Order.class": "1c50d02388268c757933cdcaef14909fc28283d03356bd54f499a34919830494",
+      "classes/MatchingLab$Result.class": "5d5091a11979c1fa3b871f3055dd74600bb0d002169829cf66ed814c41444f60",
+      "classes/MatchingLab$Trade.class": "62f00ca7c34055574b9ea706a97df1144e2fbd3914f4733168c2f77f9db5547a",
+      "classes/MatchingLab.class": "789048db82c101e3821a548e3be182ed283fb1858b6ebf3399f586d0dd7bef0f"
+    }
+  },
+  "scope": "Single-thread, one-symbol, volatile in-memory matching only. Production DB baseline NOT MEASURED and NOT COMPARABLE.",
+  "correctness": {
+    "goldenCases": 7,
+    "goldenCommands": 49,
+    "differentialSeeds": [
+      1,
+      42,
+      20260906
+    ],
+    "differentialCommands": 9000,
+    "engines": [
+      "java",
+      "cpp",
+      "cpp-asan-ubsan"
+    ],
+    "benchmarkFullResponseDifferential": true,
+    "sanitizerGateProbe": true
+  },
+  "configuration": {
+    "hostPlatform": "darwin",
+    "hostArch": "arm64",
+    "osRelease": "25.6.0",
+    "cpu": "Apple M5 Max",
+    "cpuCount": 18,
+    "totalMemoryBytes": 137438953472,
+    "javaVersion": "openjdk version \"21.0.11\" 2026-04-21\nOpenJDK Runtime Environment Homebrew (build 21.0.11)\nOpenJDK 64-Bit Server VM Homebrew (build 21.0.11, mixed mode, sharing)",
+    "javaFlags": [
+      "-Xms256m",
+      "-Xmx1g",
+      "-XX:+UseG1GC"
+    ],
+    "cppVersion": "Apple clang version 21.0.0 (clang-2100.1.1.101)\nTarget: arm64-apple-darwin25.6.0\nThread model: posix\nInstalledDir: /Library/Developer/CommandLineTools/usr/bin",
+    "cppFlags": "-std=c++20 -O3 -DNDEBUG -Wall -Wextra -Werror -arch x86_64",
+    "javaProperties": {
+      "os.arch": "x86_64",
+      "os.name": "Mac OS X",
+      "os.version": "26.6.2",
+      "java.vm.name": "OpenJDK 64-Bit Server VM",
+      "java.vm.version": "21.0.11",
+      "java.vendor": "Homebrew",
+      "sun.arch.data.model": "64"
+    },
+    "processArchitecture": "x86_64",
+    "translation": "Both timed Java21 and C++ are x86_64 under Rosetta on Apple Silicon; native sanitizer build is correctness-only",
+    "nodeVersion": "v24.20.0",
+    "warmupPasses": 3,
+    "independentRepeats": 5,
+    "seed": 20260906,
+    "processTimeoutMs": 120000
+  },
+  "methodology": {
+    "clock": "System.nanoTime / std::chrono::steady_clock",
+    "latency": "One timestamp pair per apply(); request validation, STP CANCEL_TAKER, matching, order bookkeeping, dedup response caching and engine allocations included. Parsing, output formatting, file IO, engine creation, warmup, invariant walks and final snapshot excluded.",
+    "throughput": "commands / complete measured loop wall time; includes timestamp/sample-array overhead",
+    "quantiles": "nearest-rank p50/p99/p999 per independent process; raw samples saved by each engine",
+    "warmup": "Each fresh process replays the full identical workload in fresh engines, then constructs a fresh measured engine. No claim that JIT or CPU reached steady state.",
+    "allocation": "Both engines allocate orders, price levels, dedup entries and trade results. Java reports measured-thread allocated bytes where supported; C++ allocation bytes/counts not instrumented. Cross-language allocation comparison unavailable.",
+    "limitations": [
+      "Local synthetic microbenchmark; no gateway, serialization, network, journal, database, Kafka, durability, recovery, concurrency or end-to-end order latency.",
+      "No CPU pinning, turbo/thermal isolation or OS-noise control. Hardware and translation recorded.",
+      "Duplicate request and completed order history remain in memory; bounded workload, not a production retention design.",
+      "Latency includes clock overhead. Timed samples can contain GC/JIT/OS scheduling pauses. No universal language winner inferred.",
+      "STP CANCEL_TAKER preserves earlier valid fills; cached protocol response replay differs from production current-order snapshot replay."
+    ]
+  },
+  "results": [
+    {
+      "workload": "mixed",
+      "seed": 20260906,
+      "commands": 24000,
+      "inputSha256": "ca3d760e79b9fbcf5ce9b77d53ab3e92784112be86df9f1a2b685e093b380d46",
+      "java": [
+        {
+          "samples": 24000,
+          "elapsedNs": 16895416,
+          "throughputOpsSec": 1420503.6443020995,
+          "p50Ns": 208,
+          "p99Ns": 1708,
+          "p999Ns": 71292,
+          "maxNs": 1037166,
+          "allocatedBytesMeasuredThread": 7162984,
+          "stateHash": "15011654831732822572",
+          "sampleFile": "workload-mixed.txt.java.samples.46556.csv",
+          "repeat": 1,
+          "processUsage": {
+            "scope": "Whole child process INCLUDING parsing, all warmup, verification, sample output and shutdown; not engine CPU/heap.",
+            "wallSeconds": 0.81,
+            "userCpuSeconds": 2.39,
+            "systemCpuSeconds": 0.32,
+            "maxRssBytes": null,
+            "source": "macOS /usr/bin/time -p; RSS unavailable because sandbox blocks time -l kern.clockrate query"
+          }
+        },
+        {
+          "samples": 24000,
+          "elapsedNs": 18687250,
+          "throughputOpsSec": 1284298.1177005712,
+          "p50Ns": 208,
+          "p99Ns": 1750,
+          "p999Ns": 111750,
+          "maxNs": 970458,
+          "allocatedBytesMeasuredThread": 7162984,
+          "stateHash": "15011654831732822572",
+          "sampleFile": "workload-mixed.txt.java.samples.46565.csv",
+          "repeat": 2,
+          "processUsage": {
+            "scope": "Whole child process INCLUDING parsing, all warmup, verification, sample output and shutdown; not engine CPU/heap.",
+            "wallSeconds": 0.84,
+            "userCpuSeconds": 2.55,
+            "systemCpuSeconds": 0.32,
+            "maxRssBytes": null,
+            "source": "macOS /usr/bin/time -p; RSS unavailable because sandbox blocks time -l kern.clockrate query"
+          }
+        },
+        {
+          "samples": 24000,
+          "elapsedNs": 17522875,
+          "throughputOpsSec": 1369638.2585620226,
+          "p50Ns": 209,
+          "p99Ns": 2042,
+          "p999Ns": 87042,
+          "maxNs": 940208,
+          "allocatedBytesMeasuredThread": 7162984,
+          "stateHash": "15011654831732822572",
+          "sampleFile": "workload-mixed.txt.java.samples.46571.csv",
+          "repeat": 3,
+          "processUsage": {
+            "scope": "Whole child process INCLUDING parsing, all warmup, verification, sample output and shutdown; not engine CPU/heap.",
+            "wallSeconds": 0.81,
+            "userCpuSeconds": 2.46,
+            "systemCpuSeconds": 0.33,
+            "maxRssBytes": null,
+            "source": "macOS /usr/bin/time -p; RSS unavailable because sandbox blocks time -l kern.clockrate query"
+          }
+        },
+        {
+          "samples": 24000,
+          "elapsedNs": 14725792,
+          "throughputOpsSec": 1629793.4942989824,
+          "p50Ns": 208,
+          "p99Ns": 1417,
+          "p999Ns": 65375,
+          "maxNs": 835958,
+          "allocatedBytesMeasuredThread": 7162984,
+          "stateHash": "15011654831732822572",
+          "sampleFile": "workload-mixed.txt.java.samples.46582.csv",
+          "repeat": 4,
+          "processUsage": {
+            "scope": "Whole child process INCLUDING parsing, all warmup, verification, sample output and shutdown; not engine CPU/heap.",
+            "wallSeconds": 0.82,
+            "userCpuSeconds": 2.51,
+            "systemCpuSeconds": 0.34,
+            "maxRssBytes": null,
+            "source": "macOS /usr/bin/time -p; RSS unavailable because sandbox blocks time -l kern.clockrate query"
+          }
+        },
+        {
+          "samples": 24000,
+          "elapsedNs": 16462917,
+          "throughputOpsSec": 1457821.8428726816,
+          "p50Ns": 208,
+          "p99Ns": 1500,
+          "p999Ns": 85208,
+          "maxNs": 920958,
+          "allocatedBytesMeasuredThread": 7162984,
+          "stateHash": "15011654831732822572",
+          "sampleFile": "workload-mixed.txt.java.samples.46587.csv",
+          "repeat": 5,
+          "processUsage": {
+            "scope": "Whole child process INCLUDING parsing, all warmup, verification, sample output and shutdown; not engine CPU/heap.",
+            "wallSeconds": 0.82,
+            "userCpuSeconds": 2.59,
+            "systemCpuSeconds": 0.33,
+            "maxRssBytes": null,
+            "source": "macOS /usr/bin/time -p; RSS unavailable because sandbox blocks time -l kern.clockrate query"
+          }
+        }
+      ],
+      "cpp": [
+        {
+          "samples": 24000,
+          "elapsedNs": 10775250,
+          "throughputOpsSec": 2227330,
+          "p50Ns": 291,
+          "p99Ns": 1416,
+          "p999Ns": 6708,
+          "maxNs": 463292,
+          "allocatedBytesMeasuredThread": null,
+          "stateHash": "15011654831732822572",
+          "sampleFile": "workload-mixed.txt.cpp.samples.46559.csv",
+          "repeat": 1,
+          "processUsage": {
+            "scope": "Whole child process INCLUDING parsing, all warmup, verification, sample output and shutdown; not engine CPU/heap.",
+            "wallSeconds": 0.14,
+            "userCpuSeconds": 0.12,
+            "systemCpuSeconds": 0.01,
+            "maxRssBytes": null,
+            "source": "macOS /usr/bin/time -p; RSS unavailable because sandbox blocks time -l kern.clockrate query"
+          }
+        },
+        {
+          "samples": 24000,
+          "elapsedNs": 10405042,
+          "throughputOpsSec": 2306570,
+          "p50Ns": 291,
+          "p99Ns": 1458,
+          "p999Ns": 6375,
+          "maxNs": 648458,
+          "allocatedBytesMeasuredThread": null,
+          "stateHash": "15011654831732822572",
+          "sampleFile": "workload-mixed.txt.cpp.samples.46563.csv",
+          "repeat": 2,
+          "processUsage": {
+            "scope": "Whole child process INCLUDING parsing, all warmup, verification, sample output and shutdown; not engine CPU/heap.",
+            "wallSeconds": 0.14,
+            "userCpuSeconds": 0.12,
+            "systemCpuSeconds": 0.01,
+            "maxRssBytes": null,
+            "source": "macOS /usr/bin/time -p; RSS unavailable because sandbox blocks time -l kern.clockrate query"
+          }
+        },
+        {
+          "samples": 24000,
+          "elapsedNs": 10265833,
+          "throughputOpsSec": 2337850,
+          "p50Ns": 291,
+          "p99Ns": 1375,
+          "p999Ns": 10042,
+          "maxNs": 455833,
+          "allocatedBytesMeasuredThread": null,
+          "stateHash": "15011654831732822572",
+          "sampleFile": "workload-mixed.txt.cpp.samples.46576.csv",
+          "repeat": 3,
+          "processUsage": {
+            "scope": "Whole child process INCLUDING parsing, all warmup, verification, sample output and shutdown; not engine CPU/heap.",
+            "wallSeconds": 0.14,
+            "userCpuSeconds": 0.12,
+            "systemCpuSeconds": 0.01,
+            "maxRssBytes": null,
+            "source": "macOS /usr/bin/time -p; RSS unavailable because sandbox blocks time -l kern.clockrate query"
+          }
+        },
+        {
+          "samples": 24000,
+          "elapsedNs": 10952833,
+          "throughputOpsSec": 2191210,
+          "p50Ns": 291,
+          "p99Ns": 1458,
+          "p999Ns": 13542,
+          "maxNs": 464542,
+          "allocatedBytesMeasuredThread": null,
+          "stateHash": "15011654831732822572",
+          "sampleFile": "workload-mixed.txt.cpp.samples.46578.csv",
+          "repeat": 4,
+          "processUsage": {
+            "scope": "Whole child process INCLUDING parsing, all warmup, verification, sample output and shutdown; not engine CPU/heap.",
+            "wallSeconds": 0.14,
+            "userCpuSeconds": 0.12,
+            "systemCpuSeconds": 0.01,
+            "maxRssBytes": null,
+            "source": "macOS /usr/bin/time -p; RSS unavailable because sandbox blocks time -l kern.clockrate query"
+          }
+        },
+        {
+          "samples": 24000,
+          "elapsedNs": 10690833,
+          "throughputOpsSec": 2244910,
+          "p50Ns": 292,
+          "p99Ns": 1375,
+          "p999Ns": 5041,
+          "maxNs": 537458,
+          "allocatedBytesMeasuredThread": null,
+          "stateHash": "15011654831732822572",
+          "sampleFile": "workload-mixed.txt.cpp.samples.46589.csv",
+          "repeat": 5,
+          "processUsage": {
+            "scope": "Whole child process INCLUDING parsing, all warmup, verification, sample output and shutdown; not engine CPU/heap.",
+            "wallSeconds": 0.15,
+            "userCpuSeconds": 0.13,
+            "systemCpuSeconds": 0.01,
+            "maxRssBytes": null,
+            "source": "macOS /usr/bin/time -p; RSS unavailable because sandbox blocks time -l kern.clockrate query"
+          }
+        }
+      ],
+      "responseSha256": "46fa72abb629196fb45f83a3a19f7135698296265bd1f3356025c38a4a24d926"
+    },
+    {
+      "workload": "sweeps",
+      "seed": 20260906,
+      "commands": 24000,
+      "inputSha256": "c18ffd221c73f77334e88e6e41337126391aa63a8b198a677a720f2cd416892d",
+      "java": [
+        {
+          "samples": 24000,
+          "elapsedNs": 10085042,
+          "throughputOpsSec": 2379762.027763494,
+          "p50Ns": 125,
+          "p99Ns": 1333,
+          "p999Ns": 14625,
+          "maxNs": 531708,
+          "allocatedBytesMeasuredThread": 8523840,
+          "stateHash": "12071420112007336906",
+          "sampleFile": "workload-sweeps.txt.java.samples.46597.csv",
+          "repeat": 1,
+          "processUsage": {
+            "scope": "Whole child process INCLUDING parsing, all warmup, verification, sample output and shutdown; not engine CPU/heap.",
+            "wallSeconds": 0.86,
+            "userCpuSeconds": 2.55,
+            "systemCpuSeconds": 0.35,
+            "maxRssBytes": null,
+            "source": "macOS /usr/bin/time -p; RSS unavailable because sandbox blocks time -l kern.clockrate query"
+          }
+        },
+        {
+          "samples": 24000,
+          "elapsedNs": 16333875,
+          "throughputOpsSec": 1469339.027022063,
+          "p50Ns": 125,
+          "p99Ns": 1583,
+          "p999Ns": 55333,
+          "maxNs": 1283917,
+          "allocatedBytesMeasuredThread": 8523840,
+          "stateHash": "12071420112007336906",
+          "sampleFile": "workload-sweeps.txt.java.samples.46605.csv",
+          "repeat": 2,
+          "processUsage": {
+            "scope": "Whole child process INCLUDING parsing, all warmup, verification, sample output and shutdown; not engine CPU/heap.",
+            "wallSeconds": 0.81,
+            "userCpuSeconds": 2.55,
+            "systemCpuSeconds": 0.32,
+            "maxRssBytes": null,
+            "source": "macOS /usr/bin/time -p; RSS unavailable because sandbox blocks time -l kern.clockrate query"
+          }
+        },
+        {
+          "samples": 24000,
+          "elapsedNs": 13759125,
+          "throughputOpsSec": 1744296.9665585565,
+          "p50Ns": 125,
+          "p99Ns": 1292,
+          "p999Ns": 82292,
+          "maxNs": 484208,
+          "allocatedBytesMeasuredThread": 8523840,
+          "stateHash": "12071420112007336906",
+          "sampleFile": "workload-sweeps.txt.java.samples.46611.csv",
+          "repeat": 3,
+          "processUsage": {
+            "scope": "Whole child process INCLUDING parsing, all warmup, verification, sample output and shutdown; not engine CPU/heap.",
+            "wallSeconds": 0.8,
+            "userCpuSeconds": 2.48,
+            "systemCpuSeconds": 0.32,
+            "maxRssBytes": null,
+            "source": "macOS /usr/bin/time -p; RSS unavailable because sandbox blocks time -l kern.clockrate query"
+          }
+        },
+        {
+          "samples": 24000,
+          "elapsedNs": 13699542,
+          "throughputOpsSec": 1751883.384130652,
+          "p50Ns": 125,
+          "p99Ns": 1459,
+          "p999Ns": 61084,
+          "maxNs": 883000,
+          "allocatedBytesMeasuredThread": 8523840,
+          "stateHash": "12071420112007336906",
+          "sampleFile": "workload-sweeps.txt.java.samples.46622.csv",
+          "repeat": 4,
+          "processUsage": {
+            "scope": "Whole child process INCLUDING parsing, all warmup, verification, sample output and shutdown; not engine CPU/heap.",
+            "wallSeconds": 0.81,
+            "userCpuSeconds": 2.55,
+            "systemCpuSeconds": 0.34,
+            "maxRssBytes": null,
+            "source": "macOS /usr/bin/time -p; RSS unavailable because sandbox blocks time -l kern.clockrate query"
+          }
+        },
+        {
+          "samples": 24000,
+          "elapsedNs": 8367459,
+          "throughputOpsSec": 2868254.269306847,
+          "p50Ns": 84,
+          "p99Ns": 1167,
+          "p999Ns": 22500,
+          "maxNs": 265709,
+          "allocatedBytesMeasuredThread": 8523840,
+          "stateHash": "12071420112007336906",
+          "sampleFile": "workload-sweeps.txt.java.samples.46627.csv",
+          "repeat": 5,
+          "processUsage": {
+            "scope": "Whole child process INCLUDING parsing, all warmup, verification, sample output and shutdown; not engine CPU/heap.",
+            "wallSeconds": 0.8,
+            "userCpuSeconds": 2.46,
+            "systemCpuSeconds": 0.33,
+            "maxRssBytes": null,
+            "source": "macOS /usr/bin/time -p; RSS unavailable because sandbox blocks time -l kern.clockrate query"
+          }
+        }
+      ],
+      "cpp": [
+        {
+          "samples": 24000,
+          "elapsedNs": 8946917,
+          "throughputOpsSec": 2682490,
+          "p50Ns": 250,
+          "p99Ns": 1208,
+          "p999Ns": 3250,
+          "maxNs": 527375,
+          "allocatedBytesMeasuredThread": null,
+          "stateHash": "12071420112007336906",
+          "sampleFile": "workload-sweeps.txt.cpp.samples.46601.csv",
+          "repeat": 1,
+          "processUsage": {
+            "scope": "Whole child process INCLUDING parsing, all warmup, verification, sample output and shutdown; not engine CPU/heap.",
+            "wallSeconds": 0.16,
+            "userCpuSeconds": 0.14,
+            "systemCpuSeconds": 0.01,
+            "maxRssBytes": null,
+            "source": "macOS /usr/bin/time -p; RSS unavailable because sandbox blocks time -l kern.clockrate query"
+          }
+        },
+        {
+          "samples": 24000,
+          "elapsedNs": 10174042,
+          "throughputOpsSec": 2358940,
+          "p50Ns": 250,
+          "p99Ns": 1333,
+          "p999Ns": 5000,
+          "maxNs": 655209,
+          "allocatedBytesMeasuredThread": null,
+          "stateHash": "12071420112007336906",
+          "sampleFile": "workload-sweeps.txt.cpp.samples.46603.csv",
+          "repeat": 2,
+          "processUsage": {
+            "scope": "Whole child process INCLUDING parsing, all warmup, verification, sample output and shutdown; not engine CPU/heap.",
+            "wallSeconds": 0.17,
+            "userCpuSeconds": 0.15,
+            "systemCpuSeconds": 0.01,
+            "maxRssBytes": null,
+            "source": "macOS /usr/bin/time -p; RSS unavailable because sandbox blocks time -l kern.clockrate query"
+          }
+        },
+        {
+          "samples": 24000,
+          "elapsedNs": 10731041,
+          "throughputOpsSec": 2236500,
+          "p50Ns": 291,
+          "p99Ns": 1375,
+          "p999Ns": 4459,
+          "maxNs": 1013750,
+          "allocatedBytesMeasuredThread": null,
+          "stateHash": "12071420112007336906",
+          "sampleFile": "workload-sweeps.txt.cpp.samples.46615.csv",
+          "repeat": 3,
+          "processUsage": {
+            "scope": "Whole child process INCLUDING parsing, all warmup, verification, sample output and shutdown; not engine CPU/heap.",
+            "wallSeconds": 0.16,
+            "userCpuSeconds": 0.14,
+            "systemCpuSeconds": 0.01,
+            "maxRssBytes": null,
+            "source": "macOS /usr/bin/time -p; RSS unavailable because sandbox blocks time -l kern.clockrate query"
+          }
+        },
+        {
+          "samples": 24000,
+          "elapsedNs": 9555833,
+          "throughputOpsSec": 2511550,
+          "p50Ns": 250,
+          "p99Ns": 1334,
+          "p999Ns": 3292,
+          "maxNs": 651667,
+          "allocatedBytesMeasuredThread": null,
+          "stateHash": "12071420112007336906",
+          "sampleFile": "workload-sweeps.txt.cpp.samples.46619.csv",
+          "repeat": 4,
+          "processUsage": {
+            "scope": "Whole child process INCLUDING parsing, all warmup, verification, sample output and shutdown; not engine CPU/heap.",
+            "wallSeconds": 0.15,
+            "userCpuSeconds": 0.14,
+            "systemCpuSeconds": 0.01,
+            "maxRssBytes": null,
+            "source": "macOS /usr/bin/time -p; RSS unavailable because sandbox blocks time -l kern.clockrate query"
+          }
+        },
+        {
+          "samples": 24000,
+          "elapsedNs": 10751542,
+          "throughputOpsSec": 2232240,
+          "p50Ns": 291,
+          "p99Ns": 1375,
+          "p999Ns": 3958,
+          "maxNs": 715292,
+          "allocatedBytesMeasuredThread": null,
+          "stateHash": "12071420112007336906",
+          "sampleFile": "workload-sweeps.txt.cpp.samples.46631.csv",
+          "repeat": 5,
+          "processUsage": {
+            "scope": "Whole child process INCLUDING parsing, all warmup, verification, sample output and shutdown; not engine CPU/heap.",
+            "wallSeconds": 0.16,
+            "userCpuSeconds": 0.14,
+            "systemCpuSeconds": 0.01,
+            "maxRssBytes": null,
+            "source": "macOS /usr/bin/time -p; RSS unavailable because sandbox blocks time -l kern.clockrate query"
+          }
+        }
+      ],
+      "responseSha256": "a8b1156844a1e3cafb62988e4d191de826d2e22987dfb33effe24bdc2c95b61a"
+    },
+    {
+      "workload": "retries",
+      "seed": 20260906,
+      "commands": 24000,
+      "inputSha256": "c3fbbdbfced062a89ccbe2a0907304578eeea4d97cae03f4013526ccd99aedd1",
+      "java": [
+        {
+          "samples": 24000,
+          "elapsedNs": 26667375,
+          "throughputOpsSec": 899976.0943849928,
+          "p50Ns": 209,
+          "p99Ns": 1250,
+          "p999Ns": 205750,
+          "maxNs": 784042,
+          "allocatedBytesMeasuredThread": 5099024,
+          "stateHash": "13392424723849216968",
+          "sampleFile": "workload-retries.txt.java.samples.46640.csv",
+          "repeat": 1,
+          "processUsage": {
+            "scope": "Whole child process INCLUDING parsing, all warmup, verification, sample output and shutdown; not engine CPU/heap.",
+            "wallSeconds": 0.76,
+            "userCpuSeconds": 2.31,
+            "systemCpuSeconds": 0.29,
+            "maxRssBytes": null,
+            "source": "macOS /usr/bin/time -p; RSS unavailable because sandbox blocks time -l kern.clockrate query"
+          }
+        },
+        {
+          "samples": 24000,
+          "elapsedNs": 11791208,
+          "throughputOpsSec": 2035414.8616494595,
+          "p50Ns": 125,
+          "p99Ns": 1083,
+          "p999Ns": 76833,
+          "maxNs": 747542,
+          "allocatedBytesMeasuredThread": 4898824,
+          "stateHash": "13392424723849216968",
+          "sampleFile": "workload-retries.txt.java.samples.46653.csv",
+          "repeat": 2,
+          "processUsage": {
+            "scope": "Whole child process INCLUDING parsing, all warmup, verification, sample output and shutdown; not engine CPU/heap.",
+            "wallSeconds": 0.79,
+            "userCpuSeconds": 2.4,
+            "systemCpuSeconds": 0.33,
+            "maxRssBytes": null,
+            "source": "macOS /usr/bin/time -p; RSS unavailable because sandbox blocks time -l kern.clockrate query"
+          }
+        },
+        {
+          "samples": 24000,
+          "elapsedNs": 12333125,
+          "throughputOpsSec": 1945978.8172097502,
+          "p50Ns": 167,
+          "p99Ns": 792,
+          "p999Ns": 54291,
+          "maxNs": 412584,
+          "allocatedBytesMeasuredThread": 5406184,
+          "stateHash": "13392424723849216968",
+          "sampleFile": "workload-retries.txt.java.samples.46657.csv",
+          "repeat": 3,
+          "processUsage": {
+            "scope": "Whole child process INCLUDING parsing, all warmup, verification, sample output and shutdown; not engine CPU/heap.",
+            "wallSeconds": 0.8,
+            "userCpuSeconds": 2.56,
+            "systemCpuSeconds": 0.33,
+            "maxRssBytes": null,
+            "source": "macOS /usr/bin/time -p; RSS unavailable because sandbox blocks time -l kern.clockrate query"
+          }
+        },
+        {
+          "samples": 24000,
+          "elapsedNs": 10972333,
+          "throughputOpsSec": 2187319.688529322,
+          "p50Ns": 166,
+          "p99Ns": 625,
+          "p999Ns": 56042,
+          "maxNs": 592500,
+          "allocatedBytesMeasuredThread": 5406184,
+          "stateHash": "13392424723849216968",
+          "sampleFile": "workload-retries.txt.java.samples.46665.csv",
+          "repeat": 4,
+          "processUsage": {
+            "scope": "Whole child process INCLUDING parsing, all warmup, verification, sample output and shutdown; not engine CPU/heap.",
+            "wallSeconds": 0.78,
+            "userCpuSeconds": 2.41,
+            "systemCpuSeconds": 0.33,
+            "maxRssBytes": null,
+            "source": "macOS /usr/bin/time -p; RSS unavailable because sandbox blocks time -l kern.clockrate query"
+          }
+        },
+        {
+          "samples": 24000,
+          "elapsedNs": 18396750,
+          "throughputOpsSec": 1304578.2543112235,
+          "p50Ns": 208,
+          "p99Ns": 1416,
+          "p999Ns": 95916,
+          "maxNs": 1374791,
+          "allocatedBytesMeasuredThread": 5406184,
+          "stateHash": "13392424723849216968",
+          "sampleFile": "workload-retries.txt.java.samples.46673.csv",
+          "repeat": 5,
+          "processUsage": {
+            "scope": "Whole child process INCLUDING parsing, all warmup, verification, sample output and shutdown; not engine CPU/heap.",
+            "wallSeconds": 0.8,
+            "userCpuSeconds": 2.49,
+            "systemCpuSeconds": 0.34,
+            "maxRssBytes": null,
+            "source": "macOS /usr/bin/time -p; RSS unavailable because sandbox blocks time -l kern.clockrate query"
+          }
+        }
+      ],
+      "cpp": [
+        {
+          "samples": 24000,
+          "elapsedNs": 6774333,
+          "throughputOpsSec": 3542780,
+          "p50Ns": 167,
+          "p99Ns": 1209,
+          "p999Ns": 2083,
+          "maxNs": 175292,
+          "allocatedBytesMeasuredThread": null,
+          "stateHash": "13392424723849216968",
+          "sampleFile": "workload-retries.txt.cpp.samples.46645.csv",
+          "repeat": 1,
+          "processUsage": {
+            "scope": "Whole child process INCLUDING parsing, all warmup, verification, sample output and shutdown; not engine CPU/heap.",
+            "wallSeconds": 0.1,
+            "userCpuSeconds": 0.08,
+            "systemCpuSeconds": 0.01,
+            "maxRssBytes": null,
+            "source": "macOS /usr/bin/time -p; RSS unavailable because sandbox blocks time -l kern.clockrate query"
+          }
+        },
+        {
+          "samples": 24000,
+          "elapsedNs": 9637292,
+          "throughputOpsSec": 2490330,
+          "p50Ns": 250,
+          "p99Ns": 1417,
+          "p999Ns": 8583,
+          "maxNs": 453791,
+          "allocatedBytesMeasuredThread": null,
+          "stateHash": "13392424723849216968",
+          "sampleFile": "workload-retries.txt.cpp.samples.46649.csv",
+          "repeat": 2,
+          "processUsage": {
+            "scope": "Whole child process INCLUDING parsing, all warmup, verification, sample output and shutdown; not engine CPU/heap.",
+            "wallSeconds": 0.11,
+            "userCpuSeconds": 0.1,
+            "systemCpuSeconds": 0.01,
+            "maxRssBytes": null,
+            "source": "macOS /usr/bin/time -p; RSS unavailable because sandbox blocks time -l kern.clockrate query"
+          }
+        },
+        {
+          "samples": 24000,
+          "elapsedNs": 7431458,
+          "throughputOpsSec": 3229510,
+          "p50Ns": 208,
+          "p99Ns": 1291,
+          "p999Ns": 1958,
+          "maxNs": 311292,
+          "allocatedBytesMeasuredThread": null,
+          "stateHash": "13392424723849216968",
+          "sampleFile": "workload-retries.txt.cpp.samples.46659.csv",
+          "repeat": 3,
+          "processUsage": {
+            "scope": "Whole child process INCLUDING parsing, all warmup, verification, sample output and shutdown; not engine CPU/heap.",
+            "wallSeconds": 0.1,
+            "userCpuSeconds": 0.08,
+            "systemCpuSeconds": 0.01,
+            "maxRssBytes": null,
+            "source": "macOS /usr/bin/time -p; RSS unavailable because sandbox blocks time -l kern.clockrate query"
+          }
+        },
+        {
+          "samples": 24000,
+          "elapsedNs": 7895625,
+          "throughputOpsSec": 3039660,
+          "p50Ns": 208,
+          "p99Ns": 1292,
+          "p999Ns": 2375,
+          "maxNs": 491083,
+          "allocatedBytesMeasuredThread": null,
+          "stateHash": "13392424723849216968",
+          "sampleFile": "workload-retries.txt.cpp.samples.46663.csv",
+          "repeat": 4,
+          "processUsage": {
+            "scope": "Whole child process INCLUDING parsing, all warmup, verification, sample output and shutdown; not engine CPU/heap.",
+            "wallSeconds": 0.1,
+            "userCpuSeconds": 0.08,
+            "systemCpuSeconds": 0.01,
+            "maxRssBytes": null,
+            "source": "macOS /usr/bin/time -p; RSS unavailable because sandbox blocks time -l kern.clockrate query"
+          }
+        },
+        {
+          "samples": 24000,
+          "elapsedNs": 7847500,
+          "throughputOpsSec": 3058300,
+          "p50Ns": 208,
+          "p99Ns": 1292,
+          "p999Ns": 3792,
+          "maxNs": 759209,
+          "allocatedBytesMeasuredThread": null,
+          "stateHash": "13392424723849216968",
+          "sampleFile": "workload-retries.txt.cpp.samples.46677.csv",
+          "repeat": 5,
+          "processUsage": {
+            "scope": "Whole child process INCLUDING parsing, all warmup, verification, sample output and shutdown; not engine CPU/heap.",
+            "wallSeconds": 0.1,
+            "userCpuSeconds": 0.08,
+            "systemCpuSeconds": 0.01,
+            "maxRssBytes": null,
+            "source": "macOS /usr/bin/time -p; RSS unavailable because sandbox blocks time -l kern.clockrate query"
+          }
+        }
+      ],
+      "responseSha256": "95d8213c82e2ba00fe9e26d5f12e06b03639999bc6851b52d53d61ff6ed5083f"
+    }
+  ]
+}

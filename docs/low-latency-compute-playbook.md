@@ -1,5 +1,9 @@
 # 低延迟交易、CPU/GPU 与研究计算专项手册
 
+Java 与 C++ 的交易改造现已独立成篇：[概念、架构、实现、资金协议与迁移门禁](java-cpp-trading-migration.md)、
+[双语言实测记录](java-cpp-trading-evidence.md)、[可运行实验](../experiments/java-cpp-matching/README.md)。
+下文保留 CPU/GPU 等全景知识，完整语言改造细节从这些入口阅读。
+
 这份手册覆盖 FinCore Reliability Lab 在“高并发”之外的低延迟与异构计算设计：明确指标、定位瓶颈、
 定义 CPU/网络/GPU/FPGA 的适用边界，制定故障回退，并通过实验验证性能收益与投入成本。
 

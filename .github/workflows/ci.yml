@@ -7,6 +7,32 @@ on:
     branches: ["main"]
 
 jobs:
+  java-cpp-matching:
+    # 独立内存模型不连接交易数据库；正确性与 sanitizer 是门禁，耗时仅保留原始观察。
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Verify cross-language matching and record bounded measurements
+        run: bash scripts/verify-java-cpp-matching.sh
+      - name: Retain cross-language evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fincore-java-cpp-matching-evidence
+          path: |
+            target/java-cpp-matching/report.json
+            target/java-cpp-matching/summary.json
+            target/java-cpp-matching/*.txt
+            target/java-cpp-matching/*.csv
+          if-no-files-found: error
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 20

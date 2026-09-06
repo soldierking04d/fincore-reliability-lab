@@ -1,0 +1,40 @@
+{
+  "description": "人工编写的协议与不变量样例；expected 不由任何撮合实现生成。每个场景使用全新引擎。",
+  "cases": [
+    {
+      "name": "aggregate-execution-notional-overflow-before-mutation",
+      "input": ["N r1 b1 a B 9223372036854775807 1", "N r2 b2 b B 9223372036854775807 1", "N r3 s1 c S 1 2", "N r4 s2 c S 1 1", "N r4 s2 c S 1 1", "N r5 s3 c S 1 1", "C r6 s2 c"],
+      "expected": ["A|r1|b1|1|-|0", "A|r2|b2|1|-|0", "R|r3|OVERFLOW", "A|r4|s2|0|b1:1:9223372036854775807|0", "A|r4|s2|0|b1:1:9223372036854775807|0", "A|r5|s3|0|b2:1:9223372036854775807|0", "R|r6|TERMINAL"]
+    },
+    {
+      "name": "price-time-partial-cancel-ownership",
+      "input": ["N r1 s1 alice S 101 5", "N r2 s2 bob S 100 4", "N r3 s3 carol S 100 3", "N r4 b1 dan B 101 6", "C r5 s3 mallory", "C r6 s3 carol", "N r7 b2 erin B 101 8", "C r8 s1 alice"],
+      "expected": ["A|r1|s1|5|-|0", "A|r2|s2|4|-|0", "A|r3|s3|3|-|0", "A|r4|b1|0|s2:4:100,s3:2:100|0", "R|r5|NOT_OWNER", "C|r6|s3|1", "A|r7|b2|3|s1:5:101|0", "R|r8|TERMINAL"]
+    },
+    {
+      "name": "terminal-idempotency-and-conflicting-key",
+      "input": ["N r1 o1 alice B 100 2", "C r2 o1 alice", "N r1 o1 alice B 100 2", "C r2 o1 alice", "N r1 o1 alice B 100 3", "N r3 o1 alice B 100 2", "C r4 missing alice", "C r4 o1 alice"],
+      "expected": ["A|r1|o1|2|-|0", "C|r2|o1|2", "A|r1|o1|2|-|0", "C|r2|o1|2", "R|r1|DUPLICATE_KEY", "R|r3|ORDER_EXISTS", "R|r4|NOT_FOUND", "R|r4|DUPLICATE_KEY"]
+    },
+    {
+      "name": "reject-overflow-before-any-fill",
+      "input": ["N r1 s1 alice S 1 2", "N r2 b1 bob B 9223372036854775807 2", "N r3 zero bob B 0 2", "N r4 neg bob B 1 -1", "N r5 b2 bob B 1 2", "N r6 edge alice B 9223372036854775807 1", "C r7 edge alice", "N r8 big bob B 9223372036854775808 1", "N r9 nope bob X 1 1"],
+      "expected": ["A|r1|s1|2|-|0", "R|r2|OVERFLOW", "R|r3|NON_POSITIVE", "R|r4|NON_POSITIVE", "A|r5|b2|0|s1:2:1|0", "A|r6|edge|1|-|0", "C|r7|edge|1", "R|r8|BAD_NUMBER", "R|r9|BAD_SIDE"]
+    },
+    {
+      "name": "self-trade-cancel-taker-preserves-earlier-fills",
+      "input": ["N r1 s1 other S 100 2", "N r2 s2 alice S 101 3", "N r3 b1 alice B 101 4", "N r4 b2 bob B 101 2", "N r5 b3 alice B 101 1", "C r6 s2 alice", "N r5 b3 alice B 101 1"],
+      "expected": ["A|r1|s1|2|-|0", "A|r2|s2|3|-|0", "A|r3|b1|0|s1:2:100|2", "A|r4|b2|0|s2:2:101|0", "A|r5|b3|0|-|1", "C|r6|s2|1", "A|r5|b3|0|-|1"]
+    },
+    {
+      "name": "highest-bid-and-exact-integer-above-js-safe-limit",
+      "input": ["N r1 b1 a B 9007199254740992 1", "N r2 b2 b B 9007199254740993 1", "N r3 s1 c S 9007199254740992 2", "N r4 s2 c S 9007199254740992 1"],
+      "expected": ["A|r1|b1|1|-|0", "A|r2|b2|1|-|0", "A|r3|s1|0|b2:1:9007199254740993,b1:1:9007199254740992|0", "A|r4|s2|1|-|0"]
+    },
+    {
+      "name": "malformed-protocol-does-not-reserve-request",
+      "input": ["N r1 missing", "N r1 o1 a B 1 1", "C bad! o1 a", "N r2 o2 a B 1.5 1", "C r2 o1 a", "N r3 o3 a B +1 1"],
+      "expected": ["R|?|BAD_PROTOCOL", "A|r1|o1|1|-|0", "R|?|BAD_PROTOCOL", "R|r2|BAD_NUMBER", "R|r2|DUPLICATE_KEY", "R|r3|BAD_NUMBER"]
+    }
+  ]
+}

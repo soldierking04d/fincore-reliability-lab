@@ -1,5 +1,11 @@
 # FinCore Reliability Lab
 
+The [Java → C++ trading migration playbook](docs/java-cpp-trading-migration.md) now connects architecture,
+funds reservations, ownership fencing, replay, safe cutover, and team economics with a
+[runnable cross-language matching experiment](experiments/java-cpp-matching/README.md) and
+[recorded measurements](docs/java-cpp-trading-evidence.md). The experiment is a limited in-memory model;
+the public financial application remains Java and PostgreSQL.
+
 [简体中文](README.md) | English
 
 ![Java 21](https://img.shields.io/badge/Java-21-ED8B00?logo=openjdk&logoColor=white)

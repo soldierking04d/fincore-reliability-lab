@@ -57,6 +57,8 @@ FPGA、DPDK 和专用核心如果没有录包、计数器、版本、单一发�
 
 ## 四、项目新增阅读入口
 
+- [Java → C++ 交易迁移专项：概设、详细案例、拓扑、时序、代码实验与团队交付](java-cpp-trading-migration.md)
+- [Java/C++ 实验数据与可比边界](java-cpp-trading-evidence.md)
 - [低延迟交易、CPU/GPU 与研究计算专项手册](low-latency-compute-playbook.md)
 - [高并发、线程、CPU 与 JVM/GC 落地说明](high-concurrency-jvm-tuning.md)
 - [总架构、服务拓扑与核心时序图](resilient-system-architecture.md)

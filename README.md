@@ -21,6 +21,8 @@
 [总架构与服务拓扑](docs/resilient-system-architecture.md) ·
 [互联网到数字资产交易](docs/internet-to-digital-asset-trading.md) ·
 [大流量撤单实现](docs/cancellation-under-load.md) ·
+[Java → C++ 交易改造专项](docs/java-cpp-trading-migration.md) ·
+[双语言代码与实测](experiments/java-cpp-matching/README.md) ·
 [交易所九域补全实验](docs/exchange-core-capability-lab.md) ·
 [合约关键故障实验](docs/derivatives-failure-lab.md) ·
 [管理实战手册](docs/management/README.md) ·
@@ -33,6 +35,11 @@
 如果这个项目能帮助你理解或验证金融系统可靠性，欢迎点击仓库右上角 **Star**。你的关注会帮助更多开发者发现这些可复现的故障实验。
 
 ## 先看证据等级
+
+Java → C++ 专项同时提供[改造决策与详细实现方案](docs/java-cpp-trading-migration.md)、
+[本次实验数据](docs/java-cpp-trading-evidence.md)和
+[网站专项入口](https://124.223.164.254/#java-cpp-migration)。三组基线分别为当前数据库撮合、Java 内存候选、
+C++ 内存候选；双语言实验只验证限定内存模型，不代表资金系统已迁移至 C++。
 
 为避免把设计目标写成生产成绩，项目统一使用三种证据标签：
 
