@@ -11,8 +11,6 @@ jobs:
     # 确定性演示只验证工作流合同；没有模型调用，不把模板通过率当作模型质量。
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    env:
-      TMPDIR: ${{ runner.temp }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -25,6 +23,9 @@ jobs:
           distribution: temurin
           java-version: "21"
       - name: Verify developer context kit and run Java red-green exercise
+        # runner 上下文在步骤环境可用，不能在 jobs.<job>.env 中引用。
+        env:
+          TMPDIR: ${{ runner.temp }}
         run: |
           node --test ai/developer-adoption/verify-kit.test.mjs ai/developer-adoption/verify-runner.test.mjs ai/developer-adoption/prepare-task.test.mjs ai/developer-adoption/verify-candidate.test.mjs
           node ai/developer-adoption/workshop/run-workshop.mjs
