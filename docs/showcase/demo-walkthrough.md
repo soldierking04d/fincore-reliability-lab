@@ -1,76 +1,72 @@
 # FinCore Demo Walkthrough / 项目演示步骤
 
-本页按系统边界、写入链路、资金规则、并发接管和故障实验组织项目演示步骤。
-This walkthrough connects the system design to its executable reliability checks.
+本页提供可复核的项目演示路线：先识别系统边界，再查看交易与账务实现，最后在隔离环境运行故障实验。
+This walkthrough links the system design to executable evidence. It is not a production readiness or capacity claim.
 
-## 中文演示步骤
+## 一、访问公开展示 / Public overview
 
-### 1. 查看项目范围
+- [公网项目首页](https://124.223.164.254/)
+- [项目 README 与阅读大纲](../../README.md)
+- [整体架构与服务拓扑](../resilient-system-architecture.md)
+- [Java/C++ 专项和实测边界](../java-cpp-trading-evidence.md)
 
-本项目验证金融结算在重复消息、并发、事务失败、补偿、对账、热点账户和服务缩容之后，是否保持唯一、平衡、可审计。
+从首页了解业务链路、关键不变量、源码位置和实验结果。公开仪表盘中的模拟资产、有限样本与已实现能力应分别阅读。
 
-### 2. 查看核心写入链路
+## 二、沿事务边界阅读 / Follow the transaction boundary
 
-结算命令通过 Kafka 进入服务。在同一个 PostgreSQL 事务里，系统完成 Inbox 去重、业务单创建、CAS 状态转换、账户锁定、平衡账本、余额更新、状态审计和 Outbox。任何未处理异常都会导致整体回滚，Kafka 可以安全重试。
+结算命令经 Kafka 进入服务，在一个 PostgreSQL 事务内完成 Inbox 去重、业务单创建、CAS 状态转换、
+固定顺序账户加锁、平衡账本、余额更新、状态审计及 Outbox。未处理异常导致整体回滚，消息可以重试。
 
-最终唯一性由数据库约束和事务保证，不依赖 JVM 内存、Redis 或 Offset。
+Uniqueness is enforced by database constraints and transactions. A Kafka offset, JVM cache entry or successful HTTP response alone does not prove a completed financial effect.
 
-### 3. 核验资金安全规则
+重点核验：
 
-- 金额使用 `BigDecimal` 和 `NUMERIC(38,18)`。
-- 每个账本交易的 Debit 和 Credit 必须相等。
-- 历史账本只追加，冲正通过独立补偿单和反向流水完成。
+- 金额使用 `BigDecimal` 与数据库精确数值类型；精度以对应业务表和字段定义为准。
+- 每笔账本交易借贷平衡，历史流水只追加；补偿通过独立业务单及反向流水完成。
+- 同一业务意图被重复投递时只能产生一次资金效果。
+- 分片 Worker 使用 Lease 与递增 Epoch；数据面围栏与资金写入必须在同一事务边界校验。
 
-### 4. 核验并发和缩容边界
+## 三、在隔离环境运行实验 / Run in an isolated environment
 
-账户按 UUID 固定顺序加行锁，状态通过 CAS 更新。分片 Worker 使用 Lease 和递增 Epoch；新 Worker 接管以后，旧 Worker 即使恢复也无法通过数据面 Fence 校验。校验和资金写入位于同一事务边界。
+先按 [一键启动](../../README.md#一键启动) 准备本地依赖。实验会创建模拟业务数据并注入故障，
+不要把测试脚本直接指向真实资金或其他应用共用的生产数据库。
 
-### 5. 运行自动实验
-
-运行：
+在仓库根目录运行：
 
 ```bash
 ./scripts/run-demo.sh
 ```
 
-它会自动验证重复结算只有一次资金效果、补偿幂等、手续费分片归集、旧 Epoch 拒写以及对账发现人为余额破坏。每项都必须是 `PASS`。
+| 检查 | 预期可观察结果 |
+|---|---|
+| 重复结算 | 同一业务意图只有一次资金效果 |
+| 补偿重试 | 反向账本幂等，不重复冲正 |
+| 手续费分片归集 | 归集结果与输入账本一致 |
+| Worker 接管 | 新 Epoch 接管后旧 Epoch 写入被拒绝 |
+| 人为余额差异 | 对账能发现故障注入造成的差异 |
 
-### 6. 查看 Coding Agent 评测范围
+每项业务断言应报告 `PASS`。同时检查报告中的输入和结果，不把进程正常退出当作资金验证成功。
 
-仓库把五类故障定义成统一任务，并使用 100 分 Rubric 评价功能、事务、幂等、恢复、资金安全、测试、性能、维护性和可观测性。评价标准是代码能不能在失败条件下上线，而不是能不能编译。
+The scenario exercises duplicate delivery, idempotent compensation, fee aggregation, fencing and reconciliation. Inspect both the assertions and the produced report; a healthy process alone is not evidence of financial correctness.
 
-## English demonstration steps
+## 四、查看观测与报告 / Inspect evidence
 
-### 1. Review the project scope
+以下地址仅适用于 README 默认本地依赖配置，不是公网服务端口：
 
-FinCore is an executable settlement-reliability lab. Its scenarios verify unique, balanced, auditable and recoverable financial results under duplicates, races, partial failure, compensation, reconciliation and worker takeover.
+- 本地应用健康：`http://127.0.0.1:8080/actuator/health`
+- 本地 Prometheus：`http://127.0.0.1:9090`
+- 本地 Grafana：`http://127.0.0.1:3000`
+- 本地生成报告：`reports/latest-scenario.json`
 
-### 2. Inspect the transaction boundary
+结合业务结果查看队列、数据库锁、消息积压和 JVM 指标。有限实验用于验证语义与恢复路径，
+不能直接推导目标硬件的生产吞吐、长稳或 RTO/RPO。
 
-A Kafka command enters the settlement listener. One PostgreSQL transaction records the Inbox item, creates the business order, performs a CAS transition, locks accounts in deterministic order, appends a balanced journal, updates the balance view, writes state audit and Outbox, and completes the Inbox record. Any unhandled failure rolls everything back and Kafka can retry safely.
+## 五、进一步验证 / Further validation
 
-Uniqueness is enforced by database constraints and the transaction. JVM memory, Redis and an offset do not provide the final financial guarantee.
+- [高并发与 JVM 参数](../high-concurrency-jvm-tuning.md)
+- [恢复与容量证据](../recovery-capacity-evidence.md)
+- [Java/C++ 复现说明](../../experiments/java-cpp-matching/README.md)
+- [团队治理与产品运营协同](../management/README.md)
 
-### 3. Verify financial invariants
-
-Money uses `BigDecimal` and `NUMERIC(38,18)`. Every journal transaction has equal debit and credit totals. Historical postings are append-only. A correction creates a separate compensation order and reverse journal instead of mutating the successful transaction.
-
-### 4. Inspect concurrency and fencing
-
-Accounts are locked in deterministic UUID order and states change through versioned CAS. Workers own logical shards through leases and increasing epochs. After takeover, a recovered old worker cannot pass the data-plane fence. Fence validation and financial writes share the same transaction boundary.
-
-### 5. Run the reliability checks
-
-Run `./scripts/run-demo.sh`. The scenario proves one financial effect under duplicate delivery, an idempotent reverse journal, fee-shard aggregation, stale-epoch rejection, and detection of an injected reconciliation difference. Every check must report `PASS`.
-
-### 6. Review the coding-agent evaluation scope
-
-The same repository defines five controlled repair tasks and one 100-point rubric. A coding agent is judged on concurrency, idempotency, recovery, financial safety, tests, capacity, maintainability, and observability—not merely compilation.
-
-## Useful live links
-
-- Health: http://127.0.0.1:8080/actuator/health
-- Prometheus: http://127.0.0.1:9090
-- Grafana: http://127.0.0.1:3000
-- Latest report: `reports/latest-scenario.json`
-
+Coding-agent evaluation uses the repository's controlled tasks and rubric to compare implementation correctness,
+recovery, tests and maintainability. It remains a bounded lab evaluation, not an authorization to deploy an agent's changes to a real financial system.

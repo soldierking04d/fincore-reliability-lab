@@ -28,7 +28,7 @@ the public financial application remains Java and PostgreSQL.
 [Leadership playbooks](docs/management/README.md) ·
 [Quality and public-demo hardening](docs/quality-security-hardening-2026-09-05.md) ·
 [AI benchmark](https://fincore-agent-benchmark.soldierking04d.chatgpt.site) ·
-[Project demonstration steps](docs/showcase/demo-walkthrough.md)
+[Five-minute walkthrough](docs/showcase/demo-walkthrough.md)
 
 If this project helps you understand or verify financial-system reliability, please consider clicking **Star** in the upper-right corner. It helps more developers discover these reproducible failure experiments.
 

@@ -45,6 +45,10 @@ jobs:
           cache: maven
       - name: Verify core model
         run: ./scripts/verify-core.sh
+      - name: Verify public content boundary
+        run: |
+          bash scripts/verify-public-content.sh --self-test
+          bash scripts/verify-public-content.sh
       - name: Verify Java convention baseline
         run: ./scripts/verify-code-conventions.sh
       - name: Validate public evaluation kit
