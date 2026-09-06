@@ -17,3 +17,9 @@ This repository models financial state. Any coding agent working here must obey 
 13. Do not expose a public HTTP endpoint that bypasses Kafka worker fencing and calls settlement directly.
 
 Before changing financial code, state the invariant being preserved and add a test that fails without the change.
+
+## Shared developer workflow
+
+For AI-assisted developer tasks, read `ai/developer-adoption/common-workflow.md`.
+The same task scope, evidence contract and review requirements apply regardless of the selected coding agent.
+This supplements the financial guardrails above; it does not replace them or grant extra permissions.

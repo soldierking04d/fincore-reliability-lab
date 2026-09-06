@@ -98,7 +98,7 @@ FinCore 同时是一份有证据边界的技术负责人能力作品集，但这
 | 金融正确性与风险 | 用幂等、平衡账本、状态机、补偿、对账和审计保证“失败可恢复、资金不重复” | 17 次重复结算仅产生 1 次资金效果；[资金安全 ADR](docs/adr/0001-financial-invariants.md) |
 | 架构、高并发与低延迟判断 | Java 21、Spring Boot、MyBatis、有界撮合 Lane、Kafka、Outbox、Epoch Fencing、G1/ZGC、Prometheus/Grafana；并区分 CPU/NUMA、网络、FPGA、GPU 的适用边界 | 60 笔成交 = 60 个唯一序列；[高并发与 JVM 落地](docs/high-concurrency-jvm-tuning.md)、[低延迟与异构计算手册](docs/low-latency-compute-playbook.md)、[手册缺口覆盖矩阵](docs/handbook-gap-coverage.md) |
 | 团队、交付与治理 | 团队梯队、跨部门沟通、SLO/灾备、FinOps、安全合规、供应商、技术雷达和高管沟通 | [18 个职责与实战章节](docs/management/README.md)、[5 份机器可读治理台账](governance/README.md) |
-| AI 落地与评测 | 用例登记、人工基线、成本、权限、发布阈值、失效日期、Kill Switch，以及多 Agent 隔离评测 | 8 个任务、54 次受控运行；[AI 用例登记](ai/README.md)、[评测报告](reports/evaluations/README.md) |
+| AI 落地与评测 | 公司内 AI 编程助手：仓库理解、按规范做小需求、测试驱动修复；共享规则、任务单、Java 代码证据与人工评审 | [仓库接入包](ai/developer-adoption/README.md)、[详细手册](docs/management/detailed/18-ai-developer-assistant-playbook.md)、[演示入口](https://124.223.164.254/#ai)；另有 8 个任务、54 次[受控评测](reports/evaluations/README.md) |
 | 数字资产可靠性 | 将已验证机制映射到充值确认、链重组、提现未知结果、Nonce/UTXO、HSM/MPC 和链上链下对账，并加入确定性状态机 | [数字资产可靠性设计与实施边界](docs/blockchain-digital-asset-reliability.md)、[交易所九域补全实验](docs/exchange-core-capability-lab.md) |
 
 项目使用完全虚构的数据，不包含任何前雇主代码、客户信息或内部参数。已经运行验证的能力与仍处于设计阶段的内容均明确标注，避免把架构设想包装成生产事实。

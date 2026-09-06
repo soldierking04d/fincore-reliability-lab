@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "scope": "只读源码地图，不是运行时调用追踪",
+  "route": "GET /api/accounts/{id}/ledger-summary",
+  "nodes": [
+    {"path": "src/main/java/dev/fincore/web/AccountController.java", "symbol": "summary", "evidence": ["@GetMapping(\"/{id}/ledger-summary\")", "service.ledgerSummary(id)"], "responsibility": "HTTP 参数映射"},
+    {"path": "src/main/java/dev/fincore/application/AccountService.java", "symbol": "ledgerSummary", "evidence": ["accountMapper.summarizeLedger(id)"], "responsibility": "委托查询并组装只读结果"},
+    {"path": "src/main/java/dev/fincore/infrastructure/persistence/mapper/AccountMapper.java", "symbol": "summarizeLedger", "evidence": ["LEFT JOIN ledger_entry", "GROUP BY a.account_id"], "responsibility": "MyBatis 参数绑定与数据库聚合"}
+  ],
+  "unknowns": ["仅凭这条链无法证明不存在账户时的 HTTP 状态；需要检查异常处理和测试。", "源码调用关系不能证明线上 SQL 延迟；需要运行期观测。"],
+  "referenceFiles": ["AGENTS.md", "src/test/java/dev/fincore/web/SettlementControllerTest.java", "scripts/verify-code-conventions.sh", "scripts/run-maven-verify.sh"]
+}

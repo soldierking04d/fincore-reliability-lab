@@ -1,5 +1,15 @@
 # AI 工程化落地实战
 
+实际实施先看[Claude Code / Codex 工具无关方案](19-agent-based-development-implementation.md)，包含公司共用层、任务包、独立验证及按需演进步骤。
+
+优先阅读[公司 AI 编程助手落地](18-ai-developer-assistant-playbook.md)：仓库理解、按规范开发、失败测试驱动修复；附共享规则、任务单、真实 Java 代码实验与团队试点方法。
+
+[内部需求与测试完整案例](17-ai-requirements-testing-playbook.md)作为补充：需求输入、澄清、验收标准、测试数据、参考模型执行、评审和需求变更；强调减少遗漏与净返工成本。
+
+若要先看日常需求如何落地，请从[普通公司需求案例](16-ai-company-delivery-casebook.md)开始：
+客服回复、知识库、新人问答与需求整理的工作流、收益、负面影响和小范围试点。
+本篇继续保留既有真实 Coding Agent 评测及较高风险场景的工程治理。
+
 ## 一、先看真实证据，而不是能力口号
 
 FinCore 当前已经落地的 AI 能力是 Coding Agent 受控评测。它把 AI 输出当作不可信候选，而不是

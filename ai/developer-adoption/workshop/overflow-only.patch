@@ -1,0 +1,11 @@
+--- a/TicketQuery.java
++++ b/TicketQuery.java
+@@ -6,7 +6,7 @@
+     public record PageRequest(int page, int size, long offset, String query) {}
+ 
+     public static PageRequest prepare(int page, int size, String query) {
+-        int offset = page * size;
++        long offset = (long) page * size;
+         String normalized = query == null ? "" : query.trim();
+         return new PageRequest(page, size, offset, normalized);
+     }

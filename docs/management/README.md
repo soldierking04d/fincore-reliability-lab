@@ -52,6 +52,10 @@ FinCore 已有的撮合、结算、Outbox、Worker 接管、对账和监控能�
 
 ## 详细实践层
 
+本轮重点：[公司 AI 编程助手落地](detailed/18-ai-developer-assistant-playbook.md)，包含仓库理解、按规范开发、测试驱动修复、共享规则与可重复 Java 实验。
+实施路径：[基于 Claude Code / Codex 的公司研发方案](detailed/19-agent-based-development-implementation.md)，统一任务与验收，按需从现成工具发展到共享脚本，当前不搭集中执行平台。
+另保留[AI 辅助内部需求澄清、验收标准与测试](detailed/17-ai-requirements-testing-playbook.md)作为补充案例。
+
 1. [梯队建设实战：从人员单点到可验证接管](detailed/01-talent-pipeline-playbook.md)
 2. [能力提升实战：把一次项目和事故变成团队资产](detailed/02-team-capability-growth-playbook.md)
 3. [跨部门沟通案例集：需求、上线、事故和口径冲突](detailed/03-cross-functional-casebook.md)

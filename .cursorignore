@@ -1,0 +1,18 @@
+# 仅减少 AI 上下文暴露；不能阻止终端/MCP访问，不能代替文件权限与隔离。
+.env
+.env.*
+!.env.example
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
+**/id_rsa*
+**/id_ed25519*
+**/*credentials*.json
+**/*.dump
+**/*.sql.gz
+**/*.log
+reports/runtime/
+reports/performance/
+target/
+no/

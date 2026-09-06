@@ -1,0 +1,933 @@
+{
+  "schemaVersion": 1,
+  "status": "demonstration_verified",
+  "sampleOnly": true,
+  "representsProductionDefect": false,
+  "cursorWasInvoked": false,
+  "generatedAt": "2026-09-06T15:45:11.349Z",
+  "execution": {
+    "node": "v24.20.0",
+    "target": "local_java_process",
+    "externalCalls": 0,
+    "java": "21.0.11",
+    "javac": "21.0.11"
+  },
+  "sourceHashes": {
+    "before/TicketQuery.java": "9538ac25ad126bfb37a7925cb80003020f180605aa8830cffdab188162024f37",
+    "after/TicketQuery.java": "f5e59a114454e13523dcf6bb6e5fc570f4b015d2807d189cdbd28f37e8c01e16",
+    "overflow-only/TicketQuery.java": "1c467f18303597e1ef0a0a87063ecb31434d8c3e4660593e1a913c7401e6c44e",
+    "tests/QueryProbe.java": "df1009504d58f95467ac3bb25faceb0cead50396a37a1ad7edd98cc62f4c6dc1",
+    "tests/cases.json": "e3c8b11ca0751d622b532e57af3ffcc05fd284c2d027ef6cb583601559f83b4d",
+    "run-workshop.mjs": "9849f93a719e54b0607333bcd755c8bf96497fe519b3450d4892687fb92200c5",
+    "solution.patch": "362c1eb33660dd3158d5b21440314bb357faaa88143357c7a36092a11b5b47ba",
+    "overflow-only.patch": "c4447d03e9114b88d21a8b280755bfaab29b3948c81656e33a976fdd9a5b36ff"
+  },
+  "variants": [
+    {
+      "variant": "before",
+      "compiled": true,
+      "total": 12,
+      "passed": 4,
+      "failed": 8,
+      "baselinePassed": 4,
+      "results": [
+        {
+          "id": "P01",
+          "name": "正常第一页及首尾 ASCII 空格",
+          "baseline": true,
+          "input": {
+            "page": 0,
+            "size": 20,
+            "query": " support "
+          },
+          "expected": {
+            "kind": "ok",
+            "page": 0,
+            "size": 20,
+            "offset": "0",
+            "query": "support"
+          },
+          "actual": {
+            "kind": "ok",
+            "page": 0,
+            "size": 20,
+            "offset": "0",
+            "query": "support"
+          },
+          "pass": true
+        },
+        {
+          "id": "P02",
+          "name": "正常后续页及空引用",
+          "baseline": true,
+          "input": {
+            "page": 2,
+            "size": 25,
+            "query": null
+          },
+          "expected": {
+            "kind": "ok",
+            "page": 2,
+            "size": 25,
+            "offset": "50",
+            "query": ""
+          },
+          "actual": {
+            "kind": "ok",
+            "page": 2,
+            "size": 25,
+            "offset": "50",
+            "query": ""
+          },
+          "pass": true
+        },
+        {
+          "id": "P03",
+          "name": "最大整数页号乘 200 不得按 int 溢出",
+          "baseline": false,
+          "input": {
+            "page": 2147483647,
+            "size": 200,
+            "query": "urgent"
+          },
+          "expected": {
+            "kind": "ok",
+            "page": 2147483647,
+            "size": 200,
+            "offset": "429496729400",
+            "query": "urgent"
+          },
+          "actual": {
+            "kind": "ok",
+            "page": 2147483647,
+            "size": 200,
+            "offset": "-200",
+            "query": "urgent"
+          },
+          "pass": false
+        },
+        {
+          "id": "P04",
+          "name": "最大整数页号配最小页大小",
+          "baseline": true,
+          "input": {
+            "page": 2147483647,
+            "size": 1,
+            "query": "open"
+          },
+          "expected": {
+            "kind": "ok",
+            "page": 2147483647,
+            "size": 1,
+            "offset": "2147483647",
+            "query": "open"
+          },
+          "actual": {
+            "kind": "ok",
+            "page": 2147483647,
+            "size": 1,
+            "offset": "2147483647",
+            "query": "open"
+          },
+          "pass": true
+        },
+        {
+          "id": "P05",
+          "name": "负页号拒绝",
+          "baseline": false,
+          "input": {
+            "page": -1,
+            "size": 20,
+            "query": "open"
+          },
+          "expected": {
+            "kind": "error",
+            "type": "IllegalArgumentException",
+            "message": "page 必须 >= 0"
+          },
+          "actual": {
+            "kind": "ok",
+            "page": -1,
+            "size": 20,
+            "offset": "-20",
+            "query": "open"
+          },
+          "pass": false
+        },
+        {
+          "id": "P06",
+          "name": "零页大小拒绝",
+          "baseline": false,
+          "input": {
+            "page": 0,
+            "size": 0,
+            "query": "open"
+          },
+          "expected": {
+            "kind": "error",
+            "type": "IllegalArgumentException",
+            "message": "size 必须在 1..200 之间"
+          },
+          "actual": {
+            "kind": "ok",
+            "page": 0,
+            "size": 0,
+            "offset": "0",
+            "query": "open"
+          },
+          "pass": false
+        },
+        {
+          "id": "P07",
+          "name": "超过 200 的页大小拒绝而非静默截断",
+          "baseline": false,
+          "input": {
+            "page": 0,
+            "size": 201,
+            "query": "open"
+          },
+          "expected": {
+            "kind": "error",
+            "type": "IllegalArgumentException",
+            "message": "size 必须在 1..200 之间"
+          },
+          "actual": {
+            "kind": "ok",
+            "page": 0,
+            "size": 201,
+            "offset": "0",
+            "query": "open"
+          },
+          "pass": false
+        },
+        {
+          "id": "P08",
+          "name": "负页大小拒绝",
+          "baseline": false,
+          "input": {
+            "page": 0,
+            "size": -1,
+            "query": "open"
+          },
+          "expected": {
+            "kind": "error",
+            "type": "IllegalArgumentException",
+            "message": "size 必须在 1..200 之间"
+          },
+          "actual": {
+            "kind": "ok",
+            "page": 0,
+            "size": -1,
+            "offset": "0",
+            "query": "open"
+          },
+          "pass": false
+        },
+        {
+          "id": "P09",
+          "name": "Unicode 空白查询统一为空字符串",
+          "baseline": false,
+          "input": {
+            "page": 1,
+            "size": 200,
+            "query": "   　\t\r\n"
+          },
+          "expected": {
+            "kind": "ok",
+            "page": 1,
+            "size": 200,
+            "offset": "200",
+            "query": ""
+          },
+          "actual": {
+            "kind": "ok",
+            "page": 1,
+            "size": 200,
+            "offset": "200",
+            "query": "   　"
+          },
+          "pass": false
+        },
+        {
+          "id": "P10",
+          "name": "去除 Unicode 首尾空白，内部混合空白原样保留",
+          "baseline": false,
+          "input": {
+            "page": 3,
+            "size": 10,
+            "query": "  工单   查询　 "
+          },
+          "expected": {
+            "kind": "ok",
+            "page": 3,
+            "size": 10,
+            "offset": "30",
+            "query": "工单   查询"
+          },
+          "actual": {
+            "kind": "ok",
+            "page": 3,
+            "size": 10,
+            "offset": "30",
+            "query": " 工单   查询　"
+          },
+          "pass": false
+        },
+        {
+          "id": "P11",
+          "name": "零宽字符不是合同中的空白，不能擅自删除",
+          "baseline": true,
+          "input": {
+            "page": 0,
+            "size": 20,
+            "query": "A​﻿B"
+          },
+          "expected": {
+            "kind": "ok",
+            "page": 0,
+            "size": 20,
+            "offset": "0",
+            "query": "A​﻿B"
+          },
+          "actual": {
+            "kind": "ok",
+            "page": 0,
+            "size": 20,
+            "offset": "0",
+            "query": "A​﻿B"
+          },
+          "pass": true
+        },
+        {
+          "id": "P12",
+          "name": "补充平面字符与不换行空格均正确处理",
+          "baseline": false,
+          "input": {
+            "page": 1,
+            "size": 1,
+            "query": "　🧾 工单　"
+          },
+          "expected": {
+            "kind": "ok",
+            "page": 1,
+            "size": 1,
+            "offset": "1",
+            "query": "🧾 工单"
+          },
+          "actual": {
+            "kind": "ok",
+            "page": 1,
+            "size": 1,
+            "offset": "1",
+            "query": "　🧾 工单　"
+          },
+          "pass": false
+        }
+      ]
+    },
+    {
+      "variant": "after",
+      "compiled": true,
+      "total": 12,
+      "passed": 12,
+      "failed": 0,
+      "baselinePassed": 4,
+      "results": [
+        {
+          "id": "P01",
+          "name": "正常第一页及首尾 ASCII 空格",
+          "baseline": true,
+          "input": {
+            "page": 0,
+            "size": 20,
+            "query": " support "
+          },
+          "expected": {
+            "kind": "ok",
+            "page": 0,
+            "size": 20,
+            "offset": "0",
+            "query": "support"
+          },
+          "actual": {
+            "kind": "ok",
+            "page": 0,
+            "size": 20,
+            "offset": "0",
+            "query": "support"
+          },
+          "pass": true
+        },
+        {
+          "id": "P02",
+          "name": "正常后续页及空引用",
+          "baseline": true,
+          "input": {
+            "page": 2,
+            "size": 25,
+            "query": null
+          },
+          "expected": {
+            "kind": "ok",
+            "page": 2,
+            "size": 25,
+            "offset": "50",
+            "query": ""
+          },
+          "actual": {
+            "kind": "ok",
+            "page": 2,
+            "size": 25,
+            "offset": "50",
+            "query": ""
+          },
+          "pass": true
+        },
+        {
+          "id": "P03",
+          "name": "最大整数页号乘 200 不得按 int 溢出",
+          "baseline": false,
+          "input": {
+            "page": 2147483647,
+            "size": 200,
+            "query": "urgent"
+          },
+          "expected": {
+            "kind": "ok",
+            "page": 2147483647,
+            "size": 200,
+            "offset": "429496729400",
+            "query": "urgent"
+          },
+          "actual": {
+            "kind": "ok",
+            "page": 2147483647,
+            "size": 200,
+            "offset": "429496729400",
+            "query": "urgent"
+          },
+          "pass": true
+        },
+        {
+          "id": "P04",
+          "name": "最大整数页号配最小页大小",
+          "baseline": true,
+          "input": {
+            "page": 2147483647,
+            "size": 1,
+            "query": "open"
+          },
+          "expected": {
+            "kind": "ok",
+            "page": 2147483647,
+            "size": 1,
+            "offset": "2147483647",
+            "query": "open"
+          },
+          "actual": {
+            "kind": "ok",
+            "page": 2147483647,
+            "size": 1,
+            "offset": "2147483647",
+            "query": "open"
+          },
+          "pass": true
+        },
+        {
+          "id": "P05",
+          "name": "负页号拒绝",
+          "baseline": false,
+          "input": {
+            "page": -1,
+            "size": 20,
+            "query": "open"
+          },
+          "expected": {
+            "kind": "error",
+            "type": "IllegalArgumentException",
+            "message": "page 必须 >= 0"
+          },
+          "actual": {
+            "kind": "error",
+            "type": "IllegalArgumentException",
+            "message": "page 必须 >= 0"
+          },
+          "pass": true
+        },
+        {
+          "id": "P06",
+          "name": "零页大小拒绝",
+          "baseline": false,
+          "input": {
+            "page": 0,
+            "size": 0,
+            "query": "open"
+          },
+          "expected": {
+            "kind": "error",
+            "type": "IllegalArgumentException",
+            "message": "size 必须在 1..200 之间"
+          },
+          "actual": {
+            "kind": "error",
+            "type": "IllegalArgumentException",
+            "message": "size 必须在 1..200 之间"
+          },
+          "pass": true
+        },
+        {
+          "id": "P07",
+          "name": "超过 200 的页大小拒绝而非静默截断",
+          "baseline": false,
+          "input": {
+            "page": 0,
+            "size": 201,
+            "query": "open"
+          },
+          "expected": {
+            "kind": "error",
+            "type": "IllegalArgumentException",
+            "message": "size 必须在 1..200 之间"
+          },
+          "actual": {
+            "kind": "error",
+            "type": "IllegalArgumentException",
+            "message": "size 必须在 1..200 之间"
+          },
+          "pass": true
+        },
+        {
+          "id": "P08",
+          "name": "负页大小拒绝",
+          "baseline": false,
+          "input": {
+            "page": 0,
+            "size": -1,
+            "query": "open"
+          },
+          "expected": {
+            "kind": "error",
+            "type": "IllegalArgumentException",
+            "message": "size 必须在 1..200 之间"
+          },
+          "actual": {
+            "kind": "error",
+            "type": "IllegalArgumentException",
+            "message": "size 必须在 1..200 之间"
+          },
+          "pass": true
+        },
+        {
+          "id": "P09",
+          "name": "Unicode 空白查询统一为空字符串",
+          "baseline": false,
+          "input": {
+            "page": 1,
+            "size": 200,
+            "query": "   　\t\r\n"
+          },
+          "expected": {
+            "kind": "ok",
+            "page": 1,
+            "size": 200,
+            "offset": "200",
+            "query": ""
+          },
+          "actual": {
+            "kind": "ok",
+            "page": 1,
+            "size": 200,
+            "offset": "200",
+            "query": ""
+          },
+          "pass": true
+        },
+        {
+          "id": "P10",
+          "name": "去除 Unicode 首尾空白，内部混合空白原样保留",
+          "baseline": false,
+          "input": {
+            "page": 3,
+            "size": 10,
+            "query": "  工单   查询　 "
+          },
+          "expected": {
+            "kind": "ok",
+            "page": 3,
+            "size": 10,
+            "offset": "30",
+            "query": "工单   查询"
+          },
+          "actual": {
+            "kind": "ok",
+            "page": 3,
+            "size": 10,
+            "offset": "30",
+            "query": "工单   查询"
+          },
+          "pass": true
+        },
+        {
+          "id": "P11",
+          "name": "零宽字符不是合同中的空白，不能擅自删除",
+          "baseline": true,
+          "input": {
+            "page": 0,
+            "size": 20,
+            "query": "A​﻿B"
+          },
+          "expected": {
+            "kind": "ok",
+            "page": 0,
+            "size": 20,
+            "offset": "0",
+            "query": "A​﻿B"
+          },
+          "actual": {
+            "kind": "ok",
+            "page": 0,
+            "size": 20,
+            "offset": "0",
+            "query": "A​﻿B"
+          },
+          "pass": true
+        },
+        {
+          "id": "P12",
+          "name": "补充平面字符与不换行空格均正确处理",
+          "baseline": false,
+          "input": {
+            "page": 1,
+            "size": 1,
+            "query": "　🧾 工单　"
+          },
+          "expected": {
+            "kind": "ok",
+            "page": 1,
+            "size": 1,
+            "offset": "1",
+            "query": "🧾 工单"
+          },
+          "actual": {
+            "kind": "ok",
+            "page": 1,
+            "size": 1,
+            "offset": "1",
+            "query": "🧾 工单"
+          },
+          "pass": true
+        }
+      ]
+    },
+    {
+      "variant": "overflow-only",
+      "compiled": true,
+      "total": 12,
+      "passed": 5,
+      "failed": 7,
+      "baselinePassed": 4,
+      "results": [
+        {
+          "id": "P01",
+          "name": "正常第一页及首尾 ASCII 空格",
+          "baseline": true,
+          "input": {
+            "page": 0,
+            "size": 20,
+            "query": " support "
+          },
+          "expected": {
+            "kind": "ok",
+            "page": 0,
+            "size": 20,
+            "offset": "0",
+            "query": "support"
+          },
+          "actual": {
+            "kind": "ok",
+            "page": 0,
+            "size": 20,
+            "offset": "0",
+            "query": "support"
+          },
+          "pass": true
+        },
+        {
+          "id": "P02",
+          "name": "正常后续页及空引用",
+          "baseline": true,
+          "input": {
+            "page": 2,
+            "size": 25,
+            "query": null
+          },
+          "expected": {
+            "kind": "ok",
+            "page": 2,
+            "size": 25,
+            "offset": "50",
+            "query": ""
+          },
+          "actual": {
+            "kind": "ok",
+            "page": 2,
+            "size": 25,
+            "offset": "50",
+            "query": ""
+          },
+          "pass": true
+        },
+        {
+          "id": "P03",
+          "name": "最大整数页号乘 200 不得按 int 溢出",
+          "baseline": false,
+          "input": {
+            "page": 2147483647,
+            "size": 200,
+            "query": "urgent"
+          },
+          "expected": {
+            "kind": "ok",
+            "page": 2147483647,
+            "size": 200,
+            "offset": "429496729400",
+            "query": "urgent"
+          },
+          "actual": {
+            "kind": "ok",
+            "page": 2147483647,
+            "size": 200,
+            "offset": "429496729400",
+            "query": "urgent"
+          },
+          "pass": true
+        },
+        {
+          "id": "P04",
+          "name": "最大整数页号配最小页大小",
+          "baseline": true,
+          "input": {
+            "page": 2147483647,
+            "size": 1,
+            "query": "open"
+          },
+          "expected": {
+            "kind": "ok",
+            "page": 2147483647,
+            "size": 1,
+            "offset": "2147483647",
+            "query": "open"
+          },
+          "actual": {
+            "kind": "ok",
+            "page": 2147483647,
+            "size": 1,
+            "offset": "2147483647",
+            "query": "open"
+          },
+          "pass": true
+        },
+        {
+          "id": "P05",
+          "name": "负页号拒绝",
+          "baseline": false,
+          "input": {
+            "page": -1,
+            "size": 20,
+            "query": "open"
+          },
+          "expected": {
+            "kind": "error",
+            "type": "IllegalArgumentException",
+            "message": "page 必须 >= 0"
+          },
+          "actual": {
+            "kind": "ok",
+            "page": -1,
+            "size": 20,
+            "offset": "-20",
+            "query": "open"
+          },
+          "pass": false
+        },
+        {
+          "id": "P06",
+          "name": "零页大小拒绝",
+          "baseline": false,
+          "input": {
+            "page": 0,
+            "size": 0,
+            "query": "open"
+          },
+          "expected": {
+            "kind": "error",
+            "type": "IllegalArgumentException",
+            "message": "size 必须在 1..200 之间"
+          },
+          "actual": {
+            "kind": "ok",
+            "page": 0,
+            "size": 0,
+            "offset": "0",
+            "query": "open"
+          },
+          "pass": false
+        },
+        {
+          "id": "P07",
+          "name": "超过 200 的页大小拒绝而非静默截断",
+          "baseline": false,
+          "input": {
+            "page": 0,
+            "size": 201,
+            "query": "open"
+          },
+          "expected": {
+            "kind": "error",
+            "type": "IllegalArgumentException",
+            "message": "size 必须在 1..200 之间"
+          },
+          "actual": {
+            "kind": "ok",
+            "page": 0,
+            "size": 201,
+            "offset": "0",
+            "query": "open"
+          },
+          "pass": false
+        },
+        {
+          "id": "P08",
+          "name": "负页大小拒绝",
+          "baseline": false,
+          "input": {
+            "page": 0,
+            "size": -1,
+            "query": "open"
+          },
+          "expected": {
+            "kind": "error",
+            "type": "IllegalArgumentException",
+            "message": "size 必须在 1..200 之间"
+          },
+          "actual": {
+            "kind": "ok",
+            "page": 0,
+            "size": -1,
+            "offset": "0",
+            "query": "open"
+          },
+          "pass": false
+        },
+        {
+          "id": "P09",
+          "name": "Unicode 空白查询统一为空字符串",
+          "baseline": false,
+          "input": {
+            "page": 1,
+            "size": 200,
+            "query": "   　\t\r\n"
+          },
+          "expected": {
+            "kind": "ok",
+            "page": 1,
+            "size": 200,
+            "offset": "200",
+            "query": ""
+          },
+          "actual": {
+            "kind": "ok",
+            "page": 1,
+            "size": 200,
+            "offset": "200",
+            "query": "   　"
+          },
+          "pass": false
+        },
+        {
+          "id": "P10",
+          "name": "去除 Unicode 首尾空白，内部混合空白原样保留",
+          "baseline": false,
+          "input": {
+            "page": 3,
+            "size": 10,
+            "query": "  工单   查询　 "
+          },
+          "expected": {
+            "kind": "ok",
+            "page": 3,
+            "size": 10,
+            "offset": "30",
+            "query": "工单   查询"
+          },
+          "actual": {
+            "kind": "ok",
+            "page": 3,
+            "size": 10,
+            "offset": "30",
+            "query": " 工单   查询　"
+          },
+          "pass": false
+        },
+        {
+          "id": "P11",
+          "name": "零宽字符不是合同中的空白，不能擅自删除",
+          "baseline": true,
+          "input": {
+            "page": 0,
+            "size": 20,
+            "query": "A​﻿B"
+          },
+          "expected": {
+            "kind": "ok",
+            "page": 0,
+            "size": 20,
+            "offset": "0",
+            "query": "A​﻿B"
+          },
+          "actual": {
+            "kind": "ok",
+            "page": 0,
+            "size": 20,
+            "offset": "0",
+            "query": "A​﻿B"
+          },
+          "pass": true
+        },
+        {
+          "id": "P12",
+          "name": "补充平面字符与不换行空格均正确处理",
+          "baseline": false,
+          "input": {
+            "page": 1,
+            "size": 1,
+            "query": "　🧾 工单　"
+          },
+          "expected": {
+            "kind": "ok",
+            "page": 1,
+            "size": 1,
+            "offset": "1",
+            "query": "🧾 工单"
+          },
+          "actual": {
+            "kind": "ok",
+            "page": 1,
+            "size": 1,
+            "offset": "1",
+            "query": "　🧾 工单　"
+          },
+          "pass": false
+        }
+      ]
+    }
+  ],
+  "contract": {
+    "beforeHasRealFailure": true,
+    "beforeNormalBaselinePasses": true,
+    "afterAllPass": true,
+    "sameCasesForBothVariants": true,
+    "overflowReproducedExactly": true,
+    "surgicalFixOnlyChangesOverflow": true
+  }
+}

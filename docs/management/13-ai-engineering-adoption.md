@@ -1,5 +1,15 @@
 # AI 工程化落地：从工具试用到受控业务能力
 
+最新实施说明：[不绑定 Cursor，基于 Claude Code / Codex 建立公司研发流程](detailed/19-agent-based-development-implementation.md)。
+
+本轮主线是[公司 AI 编程助手落地](detailed/18-ai-developer-assistant-playbook.md)：读懂仓库、按规范做小需求、失败测试驱动修复；交付共享规则、任务单、Java 前后版本和实际测试证据。以代码交付为核心，收益须计入 review 与返工。
+
+[内部需求澄清与测试设计](detailed/17-ai-requirements-testing-playbook.md)作为补充：通过预约发送案例，把规则、验收、用例和变更影响串起来，保留未决项与真实服务尚未测试的边界。
+
+先看普通工作中的具体例子：[客服回复、内部知识问答、需求与测试草案](detailed/16-ai-company-delivery-casebook.md)。
+这份说明以现有工作流、收益、返工和维护成本为主，包含两周小试点与正负价值算例。
+网页提供合成资料与固定候选演示，未接入真实模型；以下原有金融工程评测与治理资料独立保留。
+
 > 文档层级：概要设计。真实评测数据、用例架构、发布阶段和 90 天计划见
 > [《AI 工程化落地实战》](detailed/14-ai-engineering-adoption-playbook.md)。机器可读边界见
 > [`ai/use-cases.json`](../../ai/use-cases.json)。

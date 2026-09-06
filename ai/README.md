@@ -1,5 +1,26 @@
 # FinCore AI 工程化登记
 
+## 先看程序员怎么用：AI 编程助手接入公司
+
+当前主线是[仓库接入包](developer-adoption/README.md)：真实源文件地图、Claude Code/Codex 共用流程、三份开发任务单、独立候选验证和人工评审模板。
+进一步实施见[Claude Code / Codex 共用方案](../docs/management/detailed/19-agent-based-development-implementation.md)：公司维护统一上下文、任务合同、独立候选验证和人工收件；两种 Agent 只适配执行入口，原 Cursor 规则为可选项。
+围绕读懂仓库、按规范做小需求、失败测试驱动修复，详细见[落地手册](../docs/management/detailed/18-ai-developer-assistant-playbook.md)。
+本次没有调用 Cursor 或真实 LLM；代码执行结果不等于模型表现，也不代表公司已经部署。
+
+## 补充：内部需求与其他日常工作
+
+保留[内部需求与测试](../docs/management/detailed/17-ai-requirements-testing-playbook.md)：
+原始需求 → 产品澄清 → REQ/AC → 关联测试与数据 → 参考模型执行 → 评审与变更影响。
+[源码](requirements-test-workflow.ts)与[独立测试](requirements-test-workflow.test.ts)使用合成资料，不接真实 LLM 或邮件系统。
+执行 `node --test ai/requirements-test-workflow.test.ts` 可复算；未知规则保持阻塞，真实集成检查仍为未执行。
+
+- [客服回复、内部知识问答、需求整理完整说明](../docs/management/detailed/16-ai-company-delivery-casebook.md)；
+- [确定性演示源码](company-workflow.ts)与[独立测试](company-workflow.test.ts)；
+- Node.js 24 执行 `node --test ai/company-workflow.test.ts`，无需模型密钥和网络；
+- 页面以收益、返工、知识维护和两周小试点为主。所有样本合成，未接真实模型，不修改下方生产用例状态。
+
+## 原有工程治理入口
+
 本目录不是模型宣传页，而是 AI 能力进入 FinCore 前必须通过的治理入口。
 
 - [`use-cases.json`](use-cases.json)：机器可读的用例、模型版本、价值基线、风险、数据、权限、发布阈值、人工批准、关闭开关和降级方案；

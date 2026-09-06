@@ -7,6 +7,34 @@ on:
     branches: ["main"]
 
 jobs:
+  ai-everyday-demo:
+    # 确定性演示只验证工作流合同；没有模型调用，不把模板通过率当作模型质量。
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      TMPDIR: ${{ runner.temp }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Verify internal requirements, tests and everyday AI examples
+        run: node --test ai/company-workflow.test.ts ai/requirements-test-workflow.test.ts
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Verify developer context kit and run Java red-green exercise
+        run: |
+          node --test ai/developer-adoption/verify-kit.test.mjs ai/developer-adoption/verify-runner.test.mjs ai/developer-adoption/prepare-task.test.mjs ai/developer-adoption/verify-candidate.test.mjs
+          node ai/developer-adoption/workshop/run-workshop.mjs
+      - name: Retain actual Java exercise evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-developer-workshop-evidence
+          path: ${{ runner.temp }}/ai-pagination-workshop-*/report.json
+          if-no-files-found: error
   java-cpp-matching:
     # 独立内存模型不连接交易数据库；正确性与 sanitizer 是门禁，耗时仅保留原始观察。
     runs-on: ubuntu-latest

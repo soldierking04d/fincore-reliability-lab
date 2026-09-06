@@ -1,0 +1,62 @@
+[
+  {
+    "id": "P01", "name": "正常第一页及首尾 ASCII 空格", "baseline": true,
+    "input": {"page": 0, "size": 20, "query": " support "},
+    "expected": {"kind": "ok", "page": 0, "size": 20, "offset": "0", "query": "support"}
+  },
+  {
+    "id": "P02", "name": "正常后续页及空引用", "baseline": true,
+    "input": {"page": 2, "size": 25, "query": null},
+    "expected": {"kind": "ok", "page": 2, "size": 25, "offset": "50", "query": ""}
+  },
+  {
+    "id": "P03", "name": "最大整数页号乘 200 不得按 int 溢出", "baseline": false,
+    "input": {"page": 2147483647, "size": 200, "query": "urgent"},
+    "expected": {"kind": "ok", "page": 2147483647, "size": 200, "offset": "429496729400", "query": "urgent"}
+  },
+  {
+    "id": "P04", "name": "最大整数页号配最小页大小", "baseline": true,
+    "input": {"page": 2147483647, "size": 1, "query": "open"},
+    "expected": {"kind": "ok", "page": 2147483647, "size": 1, "offset": "2147483647", "query": "open"}
+  },
+  {
+    "id": "P05", "name": "负页号拒绝", "baseline": false,
+    "input": {"page": -1, "size": 20, "query": "open"},
+    "expected": {"kind": "error", "type": "IllegalArgumentException", "message": "page 必须 >= 0"}
+  },
+  {
+    "id": "P06", "name": "零页大小拒绝", "baseline": false,
+    "input": {"page": 0, "size": 0, "query": "open"},
+    "expected": {"kind": "error", "type": "IllegalArgumentException", "message": "size 必须在 1..200 之间"}
+  },
+  {
+    "id": "P07", "name": "超过 200 的页大小拒绝而非静默截断", "baseline": false,
+    "input": {"page": 0, "size": 201, "query": "open"},
+    "expected": {"kind": "error", "type": "IllegalArgumentException", "message": "size 必须在 1..200 之间"}
+  },
+  {
+    "id": "P08", "name": "负页大小拒绝", "baseline": false,
+    "input": {"page": 0, "size": -1, "query": "open"},
+    "expected": {"kind": "error", "type": "IllegalArgumentException", "message": "size 必须在 1..200 之间"}
+  },
+  {
+    "id": "P09", "name": "Unicode 空白查询统一为空字符串", "baseline": false,
+    "input": {"page": 1, "size": 200, "query": "\u00a0\u2003\u202f\u3000\t\r\n"},
+    "expected": {"kind": "ok", "page": 1, "size": 200, "offset": "200", "query": ""}
+  },
+  {
+    "id": "P10", "name": "去除 Unicode 首尾空白，内部混合空白原样保留", "baseline": false,
+    "input": {"page": 3, "size": 10, "query": " \u00a0工单\u2003\u202f 查询\u3000 "},
+    "expected": {"kind": "ok", "page": 3, "size": 10, "offset": "30", "query": "工单\u2003\u202f 查询"}
+  },
+  {
+    "id": "P11", "name": "零宽字符不是合同中的空白，不能擅自删除", "baseline": true,
+    "input": {"page": 0, "size": 20, "query": "A\u200b\ufeffB"},
+    "expected": {"kind": "ok", "page": 0, "size": 20, "offset": "0", "query": "A\u200b\ufeffB"}
+  },
+  {
+    "id": "P12", "name": "补充平面字符与不换行空格均正确处理", "baseline": false,
+    "input": {"page": 1, "size": 1, "query": "\u3000🧾\u00a0工单\u3000"},
+    "expected": {"kind": "ok", "page": 1, "size": 1, "offset": "1", "query": "🧾\u00a0工单"}
+  }
+]

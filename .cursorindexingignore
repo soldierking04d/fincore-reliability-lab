@@ -1,0 +1,6 @@
+# 这些是索引降噪，不是保密策略；仍可被其他读取方式访问。
+node_modules/
+dist/
+build/
+target/
+.git/
