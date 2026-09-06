@@ -83,6 +83,10 @@ PostgreSQL、Nginx、Caddy、Prometheus 和 Grafana 的容器 ID 与启动时间
 
 ## 部署与更新
 
+2026-09-07 已更新 [AI 研发实施专题](https://124.223.164.254/#ai)：读代码、内部需求实现和缺陷修复的
+工具无关流程、公司手册、任务单与验证工具包已上线。此次仅更新静态页面和资料，后端及同机其他程序
+保持运行。版本、制品摘要与公网校验见 [AI 专题发布记录](release-acceptance-2026-09-07-ai.md)。
+
 日常发布与整机初始化已分离。`deploy-tencent-cloud.sh` 现在只转入项目级发行脚本；不安装软件，
 不重启 Docker，不改全局网络、Swap 或其他项目。详见 [安全发布与验收](safe-release.md)。
 
