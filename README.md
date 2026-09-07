@@ -16,8 +16,7 @@
 
 ![FinCore Reliability Lab：业务、金融、工程、管理、AI 与数字资产](docs/showcase/github-social-preview.jpg)
 
-[在线完整演示](https://fincore-reliability-demo.soldierking04d.chatgpt.site/) ·
-[腾讯云运行实例](https://124.223.164.254/) ·
+[在线完整演示（腾讯云）](https://124.223.164.254/) ·
 [总架构与服务拓扑](docs/resilient-system-architecture.md) ·
 [互联网到数字资产交易](docs/internet-to-digital-asset-trading.md) ·
 [大流量撤单实现](docs/cancellation-under-load.md) ·
@@ -65,7 +64,7 @@ README 中没有环境与报告链接支撑的 QPS、p99/p999、CPU、GC 和容�
 | 交易所外围核心能力 | `9 / 9 PASS` | VERIFIED | 行情、订单语义、FIX/OMS、市场监察、安全、费用、撮合恢复、合约与链上状态可一键复算 |
 | 工程质量门禁 | `152 / 152 PASS` | VERIFIED | 完整 Docker 验收无跳过；行覆盖 85.17%、分支覆盖 60.52%，P3C 与 SpotBugs 零阻断项 |
 
-你可以在[在线完整演示](https://fincore-reliability-demo.soldierking04d.chatgpt.site/)里直接查看系统监控、价格波动、订单量、QPS、架构图、服务拓扑和核心时序图，也可以在本地复现全部实验。
+你可以在[在线完整演示](https://124.223.164.254/)里直接查看系统监控、价格波动、订单量、QPS、架构图、服务拓扑和核心时序图，也可以在本地复现全部实验。
 
 ## 3 分钟开始
 

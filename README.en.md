@@ -22,8 +22,7 @@ the public financial application remains Java and PostgreSQL.
 
 ![FinCore Reliability Lab across business, finance, engineering, leadership, AI, and digital assets](docs/showcase/github-social-preview.jpg)
 
-[Live portfolio](https://fincore-reliability-demo.soldierking04d.chatgpt.site/) ·
-[Public runtime](https://124.223.164.254/) ·
+[Live portfolio (Tencent Cloud)](https://124.223.164.254/) ·
 [System architecture](docs/resilient-system-architecture.md) ·
 [Leadership playbooks](docs/management/README.md) ·
 [Quality and public-demo hardening](docs/quality-security-hardening-2026-09-05.md) ·
@@ -56,7 +55,7 @@ This is not a diagram-only sample. It is a set of experiments that can run, inje
 | Automated technology governance | `5 registries` | VERIFIED | Ownership, risk, metrics, adoption, and audit evidence checked by Maven/CI |
 | Engineering quality gate | `152 / 152 PASS` | VERIFIED | Full Docker verification with no skips; 85.17% line and 60.52% branch coverage, with zero blocking P3C or SpotBugs findings |
 
-The [live portfolio](https://fincore-reliability-demo.soldierking04d.chatgpt.site/) exposes system metrics, price movement, order volume, QPS, architecture diagrams, service topology, and core sequence diagrams. Every experiment can also be reproduced locally.
+The [live portfolio](https://124.223.164.254/) exposes system metrics, price movement, order volume, QPS, architecture diagrams, service topology, and core sequence diagrams. Every experiment can also be reproduced locally.
 
 ## Start in three minutes
 

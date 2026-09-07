@@ -11,7 +11,6 @@
 | Spring Boot 健康检查 | <https://124.223.164.254/actuator/health> |
 | Grafana 实时监控面板 | <https://124.223.164.254/grafana/d/fincore-overview/fincore-reliability-overview?orgId=1&from=now-15m&to=now&refresh=5s> |
 | Prometheus 查询界面 | <https://124.223.164.254/prometheus/> |
-| 完整项目讲解网站（Sites 备用入口） | <https://fincore-reliability-demo.soldierking04d.chatgpt.site/> |
 | AI Agent 评测网站 | <https://fincore-agent-benchmark.soldierking04d.chatgpt.site/> |
 
 公网 HTTPS 由 Caddy 自动签发和续期证书，再转发给 Nginx；HTTP IP 入口仍保留用于兼容访问。
