@@ -1,0 +1,46 @@
+[Unit]
+Description=FinCore private read-only chain workbench
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=120
+StartLimitBurst=3
+
+[Service]
+Type=simple
+DynamicUser=yes
+WorkingDirectory=/opt/fincore-chain-workbench/current
+Environment=NODE_ENV=production
+Environment=FINCORE_WORKBENCH_PORT=4399
+# 从实际工作目录解析入口，避免 current 符号链接与 ESM 真实路径不一致而跳过启动判断。
+ExecStart=/opt/fincore-chain-workbench/runtime/bin/node --max-old-space-size=256 src/server.mjs
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=15
+MemoryMax=512M
+CPUQuota=100%
+TasksMax=64
+LimitNOFILE=256
+LimitCORE=0
+UMask=0077
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+InaccessiblePaths=-/opt/fincore-reliability-lab -/opt/chainpulse-market-collector -/opt/okx-quant-lab -/run/docker.sock
+StandardOutput=journal
+StandardError=journal
+LogRateLimitIntervalSec=60s
+LogRateLimitBurst=20
+
+[Install]
+WantedBy=multi-user.target

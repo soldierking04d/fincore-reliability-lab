@@ -1,0 +1,9 @@
+target/
+data/
+*.mv.db
+*.trace.db
+*.lock.db
+*.env
+*.pem
+*.key
+reports/runtime/

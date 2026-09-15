@@ -1,0 +1,7 @@
+node_modules/
+public/app.bundle.js
+reports/
+.env
+*.pem
+*.key
+*.log

@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="referrer" content="no-referrer">
+    <meta name="color-scheme" content="light">
+    <title>Fincore · 链上只读预检</title>
+    <link rel="stylesheet" href="./styles.css">
+    <script type="module" src="./app.bundle.js"></script>
+  </head>
+  <body>
+    <header class="site-header page-width">
+      <a class="wordmark" href="./" aria-label="Fincore 链上预检首页"><span class="brand-mark" aria-hidden="true">F</span><span>FINCORE <span class="brand-section">/ 链上预检</span></span></a>
+      <span class="network-label"><span class="status-dot" aria-hidden="true"></span>Solana 主网 · 只读</span>
+    </header>
+
+    <main class="page-width">
+      <section class="intro" aria-labelledby="page-title">
+        <div><p class="eyebrow">交易前的检查台</p><h1 id="page-title">先核对，再决定。</h1><p class="intro-copy">用公开地址查看真实资金池报价与交易模拟。每一步结果，都有清楚的边界。</p></div>
+        <span class="mode-stamp">PREVIEW ONLY<span>执行权限始终关闭</span></span>
+      </section>
+
+      <aside class="safety-note" aria-label="只读边界">
+        <span class="safety-symbol" aria-hidden="true">!</span>
+        <div><strong>只预检，不下单</strong><p>不会请求签名，也不会广播交易。连接仅共享公开地址，不证明钱包控制权，也不是服务器登录。</p></div>
+      </aside>
+
+      <div id="config-error" class="notice error-notice" role="alert" hidden><p id="config-error-text"></p><button id="reload-config" type="button" class="button secondary">重新读取配置</button></div>
+
+      <div class="workspace">
+        <div class="input-column">
+          <section class="card wallet-card" aria-labelledby="wallet-heading">
+            <div class="section-heading"><div><span class="step-label">01 / 公开地址</span><h2 id="wallet-heading">连接只读钱包</h2></div><span id="wallet-badge" class="badge neutral">未连接</span></div>
+            <label for="wallet-select">已发现的钱包</label>
+            <div class="wallet-controls"><select id="wallet-select" disabled><option value="">正在查找兼容钱包…</option></select><button id="connect-wallet" type="button" class="button secondary" disabled>连接钱包</button></div>
+            <p id="wallet-help" class="help">只支持提供 Solana 主网账户的 Wallet Standard 钱包，不会自动连接。</p>
+            <div id="connected-wallet" class="connected-wallet" hidden><span class="field-caption">当前公开地址</span><code id="wallet-address" class="address"></code><button id="disconnect-wallet" type="button" class="text-button">断开连接</button></div>
+            <p id="wallet-message" class="inline-message" role="status" aria-live="polite"></p>
+          </section>
+
+          <section class="card intent-card" aria-labelledby="intent-heading">
+            <div class="section-heading"><div><span class="step-label">02 / 预检意图</span><h2 id="intent-heading">查看买入或卖出</h2></div></div>
+            <div class="segmented-control" role="group" aria-label="选择预检方向"><button id="side-buy" type="button" aria-pressed="true">买入 FCLAB</button><button id="side-sell" type="button" aria-pressed="false">卖出 FCLAB</button></div>
+            <form id="preview-form" novalidate>
+              <div class="amount-heading"><label id="amount-label" for="amount-input">输入 SOL 数量</label><span id="amount-limit" class="field-caption">等待读取限额</span></div>
+              <div class="amount-control"><input id="amount-input" inputmode="decimal" autocomplete="off" spellcheck="false" value="0.0001" aria-describedby="atomic-amount amount-error" disabled><span id="amount-unit">SOL</span></div>
+              <p id="atomic-amount" class="help monospace">原子数量：—</p>
+              <p id="amount-error" class="inline-message error-text" role="status"></p>
+              <div id="sell-note" class="notice compact" hidden>卖出所得为 WSOL，不会自动转回 SOL。</div>
+              <button id="preview-button" type="submit" class="button primary full-width" disabled>连接钱包后预检</button>
+              <p class="button-caption">只读取链上数据、计算报价并模拟；不会创建订单。</p>
+            </form>
+          </section>
+
+          <section class="card asset-card" aria-labelledby="asset-heading">
+            <div class="section-heading"><div><span class="step-label">固定检查对象</span><h2 id="asset-heading">资产与资金池</h2></div><span id="asset-badge" class="badge neutral">读取中</span></div>
+            <dl class="asset-summary"><div><dt>资产</dt><dd id="asset-name">—</dd></div><div><dt>网络</dt><dd id="asset-network">—</dd></div><div><dt>资产精度</dt><dd id="asset-decimals">—</dd></div></dl>
+            <div class="address-field"><span class="field-caption">资产地址</span><code id="mint-address" class="address">等待配置</code></div>
+            <div class="address-field"><span class="field-caption">资金池地址</span><code id="pool-address" class="address">等待配置</code></div>
+            <p class="help">配置地址标识本次检查对象。池储备、钱包余额与模拟结果以每次预检响应为准。</p>
+          </section>
+        </div>
+
+        <section class="card result-card" aria-labelledby="result-heading" aria-busy="false" id="results-panel">
+          <div class="section-heading"><div><span class="step-label">03 / 本次结果</span><h2 id="result-heading">预检记录</h2></div><span id="result-badge" class="badge neutral">尚未预检</span></div>
+          <div id="result-empty" class="empty-result"><div class="empty-mark" aria-hidden="true">⌕</div><h3 id="empty-title">等待一次真实检查</h3><p id="empty-description">连接钱包并选择数量后，这里会展示报价、余额、资金池与模拟结果。</p><div class="empty-checklist"><span>账户与余额</span><span>报价与最小到账</span><span>交易模拟</span></div></div>
+          <div id="result-content" hidden>
+            <div id="result-summary" class="result-summary"><span id="result-status-label" class="eyebrow"></span><h3 id="result-title"></h3><p id="result-description"></p></div>
+            <dl class="result-context"><div><dt>检查方向</dt><dd id="result-side"></dd></div><div><dt>输入原子数量</dt><dd id="result-input" class="monospace"></dd></div><div><dt>公开地址</dt><dd id="result-wallet" class="address"></dd></div></dl>
+            <div id="result-warning-box" class="notice" hidden><strong>需要注意</strong><ul id="result-warnings"></ul></div>
+            <div id="result-data" class="result-data"></div>
+            <p class="result-boundary">即使模拟通过，也不代表未来能成交、能卖出或已完成交易。本页面的执行权限始终关闭。</p>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <footer class="page-width site-footer"><span>FINCORE RELIABILITY LAB</span><p>公开地址不等于身份认证 · 模拟不等于链上确认 · 不保存钱包会话</p></footer>
+  </body>
+</html>

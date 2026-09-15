@@ -1,0 +1,21 @@
+{
+  "name": "fincore-chain-local-workbench",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24 <25" },
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "build": "esbuild public/app.mjs --bundle --format=esm --outfile=public/app.bundle.js",
+    "start": "node src/server.mjs"
+  },
+  "dependencies": {
+    "@orca-so/whirlpools-client": "7.0.0",
+    "@orca-so/whirlpools-core": "3.1.0",
+    "@solana/kit": "5.5.1",
+    "@solana/web3.js": "1.98.4",
+    "@wallet-standard/app": "1.1.1",
+    "bs58": "6.0.0"
+  },
+  "devDependencies": { "esbuild": "0.28.2" }
+}

@@ -9,3 +9,5 @@ reports/latest-scenario.json
 reports/vm-deployment-scenario.json
 reports/runtime/
 reports/performance/
+# 本机保留的旧部署配置副本，不作为当前发布配置。
+/no/
