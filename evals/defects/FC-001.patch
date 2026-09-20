@@ -1,25 +1,28 @@
 diff --git a/src/main/java/dev/fincore/application/SettlementService.java b/src/main/java/dev/fincore/application/SettlementService.java
 --- a/src/main/java/dev/fincore/application/SettlementService.java
 +++ b/src/main/java/dev/fincore/application/SettlementService.java
-@@ -91,10 +91,7 @@ public class SettlementService {
+@@ -104,11 +104,7 @@ public class SettlementService {
      public SettlementOutcome settle(SettlementCommand command, FenceToken fenceToken) {
          String payload = toJson(command);
          // Inbox 是消息级幂等第一道防线；插入失败表示该 messageId 已处理或正在处理。
 -        if (settlementMapper.insertInbox(command.messageId(), payload) == 0) {
--            duplicates.increment();
--            return currentOutcomeByMessage(command.messageId());
+-            requireMatchingMessage(command);
+-            TransactionMetrics.incrementAfterCommit(duplicates);
+-            return currentOutcome(command.businessKey(), true);
 -        }
 +        settlementMapper.insertInbox(command.messageId(), payload);
          // 围栏必须在资金事务内部校验，防止旧 Worker 在控制面检查后恢复并迟到写入。
          if (fenceToken != null) {
-             shardLeases.requireValidFenceForUpdate(fenceToken);
-@@ -103,11 +99,6 @@ public class SettlementService {
+             requireFenceThroughCommit(fenceToken);
+@@ -117,13 +113,6 @@ public class SettlementService {
          }
  
          // business_key 唯一约束是业务级幂等第二道防线。
 -        int created = settlementMapper.insertOrder(command);
 -        if (created == 0) {
--            duplicates.increment();
+-            requireMatchingBusiness(command,
+-                settlementMapper.findCommandByBusinessKey(command.businessKey()));
+-            TransactionMetrics.incrementAfterCommit(duplicates);
 -            markInboxProcessed(command.messageId());
 -            return currentOutcome(command.businessKey(), true);
 -        }
