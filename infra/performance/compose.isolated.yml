@@ -1,0 +1,95 @@
+# 专用本地实验栈：不能与根目录 Compose 合并，不读取生产环境或复用外部卷。
+# 必须显式使用独立 -p 项目名；唯一宿主端口固定回环 18080，端口冲突时停止而非替换旧服务。
+services:
+  postgres:
+    image: postgres:16.10-alpine
+    mem_limit: 768m
+    command: [postgres, -c, fincore.isolated_performance=synthetic-only]
+    environment:
+      POSTGRES_DB: fincore_performance
+      POSTGRES_USER: fincore_lab
+      # 仅在隔离 Docker 网络中使用的公开实验密码；禁止沿用到生产。
+      POSTGRES_PASSWORD: isolated-synthetic-only
+    volumes:
+      - performance-postgres:/var/lib/postgresql/data
+      - ./01-audit-role.sql:/docker-entrypoint-initdb.d/01-audit-role.sql:ro
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U fincore_lab -d fincore_performance"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+  kafka:
+    image: apache/kafka:4.1.0
+    mem_limit: 1g
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_HEAP_OPTS: -Xms256m -Xmx512m
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+    volumes:
+      - performance-kafka:/var/lib/kafka/data
+    healthcheck:
+      test: [CMD-SHELL, "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+  kafka-init:
+    image: apache/kafka:4.1.0
+    mem_limit: 512m
+    depends_on:
+      kafka:
+        condition: service_healthy
+    command:
+      - bash
+      - -ec
+      - >-
+        for topic in settlement.commands.v1 settlement.events.v1 matching.events.v1 spot.delivery.commands.v1; do
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092
+          --create --if-not-exists --partitions 8 --replication-factor 1 --topic "$$topic";
+        done
+  app:
+    build:
+      context: ../..
+    mem_limit: 1536m
+    cpus: 2
+    environment:
+      SPRING_PROFILES_ACTIVE: lab
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/fincore_performance
+      SPRING_DATASOURCE_USERNAME: fincore_lab
+      SPRING_DATASOURCE_PASSWORD: isolated-synthetic-only
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      FINCORE_WORKER_ID: isolated-performance-worker
+      FINCORE_DB_POOL_SIZE: 12
+      FINCORE_SETTLEMENT_CONSUMERS: 2
+      FINCORE_MATCHING_LANES: 2
+      FINCORE_JVM_PROFILE: g1
+    ports:
+      - "127.0.0.1:18080:8080"
+    volumes:
+      - performance-runtime:/var/log/fincore
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+volumes:
+  performance-postgres:
+  performance-kafka:
+  performance-runtime:
+networks:
+  default:
+    # Runtime services communicate only on this project-scoped network.
+    # Building/pulling images still requires the host's ordinary network access.
+    internal: true

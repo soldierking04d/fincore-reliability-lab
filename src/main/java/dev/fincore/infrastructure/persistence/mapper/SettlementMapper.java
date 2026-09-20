@@ -37,6 +37,22 @@ public interface SettlementMapper {
         """)
     int insertInbox(@Param("messageId") String messageId, @Param("payload") String payload);
 
+    /** 查询原始消息类型及载荷，用于验证消息键和业务键之间的持久化关联。 */
+    @Select("""
+        SELECT message_type AS "messageType", payload
+        FROM inbox_message WHERE message_id=#{messageId}
+        """)
+    InboxRow findInbox(@Param("messageId") String messageId);
+
+    /** 业务键冲突后读取权威经济载荷；调用方不能只比较幂等键或当前状态。 */
+    @Select("""
+        SELECT message_id AS "messageId", business_key AS "businessKey",
+               payer_account_id AS "payerAccountId", payee_account_id AS "payeeAccountId",
+               fee_account_id AS "feeAccountId", asset, amount, fee
+        FROM settlement_order WHERE business_key=#{businessKey}
+        """)
+    SettlementCommand findCommandByBusinessKey(@Param("businessKey") String businessKey);
+
     /**
      * 幂等创建结算单。
      *
@@ -117,10 +133,11 @@ public interface SettlementMapper {
      * @return 匹配的持久化快照；不存在时返回 null
      */
     @Select("""
-        SELECT business_key AS "businessKey", status,
-               COALESCE(failure_reason, '') AS detail
-        FROM settlement_order
-        WHERE message_id=#{messageId}
+        SELECT s.business_key AS "businessKey", s.status,
+               COALESCE(s.failure_reason, '') AS detail
+        FROM inbox_message i
+        JOIN settlement_order s ON s.business_key=(i.payload::jsonb ->> 'businessKey')
+        WHERE i.message_id=#{messageId} AND i.message_type='SETTLEMENT_COMMAND'
         """)
     SettlementResultRow findByMessageId(@Param("messageId") String messageId);
 
@@ -137,5 +154,9 @@ public interface SettlementMapper {
 
     /** 结算结果持久化快照。 */
     record SettlementResultRow(String businessKey, String status, String detail) {
+    }
+
+    /** 原始 Inbox 消息快照。 */
+    record InboxRow(String messageType, String payload) {
     }
 }

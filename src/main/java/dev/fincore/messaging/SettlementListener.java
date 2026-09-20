@@ -12,6 +12,7 @@ import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -49,8 +50,8 @@ public class SettlementListener {
     private final String workerId;
     /** 当前正在执行的结算消息数。 */
     private final AtomicInteger inFlight = new AtomicInteger();
-    /** 单条结算消息的端到端处理时长。 */
-    private final Timer processingTimer;
+    /** 计时使用同一个注册表时钟，标签只允许固定业务类型、阶段和结果。 */
+    private final MeterRegistry registry;
 
     /** 创建结算消息消费者。 */
     public SettlementListener(SettlementService service, WorkerLeaseManager leases,
@@ -62,9 +63,9 @@ public class SettlementListener {
         this.leases = leases;
         this.router = new ShardRouter(shardCount);
         this.workerId = workerId;
-        this.processingTimer = registry.timer("fincore.settlement.consumer.processing");
+        this.registry = registry;
         Gauge.builder("fincore.settlement.consumer.inflight", inFlight, AtomicInteger::get)
-            .description("当前正在执行的结算 Kafka 消息数")
+            .description("当前处于路由、获取租约或事务处理中的金融 Kafka 消息数")
             .register(registry);
     }
 
@@ -79,32 +80,71 @@ public class SettlementListener {
     )
     public void onCommand(ConsumerRecord<String, Object> record) {
         // 监听器线程同步完成整笔事务；方法成功返回后容器才允许提交该记录的 offset。
-        Object command = record.value();
-        int shardId;
-        if (command instanceof SettlementCommand settlement) {
-            shardId = router.shardFor(settlement.payerAccountId().toString());
-        } else if (command instanceof SpotDeliveryCommand delivery) {
-            shardId = spot.shardFor(delivery.tradeId());
-        } else {
-            throw new IllegalArgumentException("unsupported financial command type");
-        }
-        FenceToken fence = leases.currentFence(shardId, workerId);
-        Timer.Sample sample = Timer.start();
+        Timer.Sample sample = Timer.start(registry);
         inFlight.incrementAndGet();
+        String type = "unsupported";
+        String outcome = "failure";
         try {
-            if (command instanceof SettlementCommand settlement) {
-                service.settle(settlement, fence);
-            } else {
-                // 现货交割复用同一执行预算，避免新增 Topic 时按默认值再膨胀一组 CPU 竞争线程。
-                spot.settle((SpotDeliveryCommand) command, fence);
-            }
-        } catch (FenceRejectedException exception) {
-            // 只有明确的围栏异常可以改变 Lease 缓存；普通异常即使文案相似也不能触发所有权控制流。
-            leases.invalidate(shardId, fence.epoch());
+            Object command = record.value();
+            type = command instanceof SettlementCommand ? "settlement"
+                : command instanceof SpotDeliveryCommand ? "spot" : "unsupported";
+            int shardId = timedStage(type, "routing", () -> shardFor(command));
+            FenceToken fence = timedStage(type, "lease", () -> leases.currentFence(shardId, workerId));
+            timedStage(type, "transaction", () -> {
+                try {
+                    if (command instanceof SettlementCommand settlement) {
+                        service.settle(settlement, fence);
+                    } else {
+                        spot.settle((SpotDeliveryCommand) command, fence);
+                    }
+                    return null;
+                } catch (FenceRejectedException exception) {
+                    // 只有已获取令牌后的明确围栏拒绝才使对应 Epoch 缓存失效。
+                    leases.invalidate(shardId, fence.epoch());
+                    throw exception;
+                }
+            });
+            // 这里表示同步消费成功返回，包含已提交重复/业务失败结果；新增金融成功看事务完成计数。
+            outcome = "success";
+        } catch (RuntimeException | Error exception) {
+            outcome = outcome(exception);
             throw exception;
         } finally {
             inFlight.decrementAndGet();
-            sample.stop(processingTimer);
+            sample.stop(registry.timer("fincore.settlement.consumer.processing", "type", type, "outcome", outcome));
         }
+    }
+
+    /** 路由包含现货权威事实查询；未知类型也必须保留失败耗时。 */
+    private int shardFor(Object command) {
+        if (command instanceof SettlementCommand settlement) {
+            return router.shardFor(settlement.payerAccountId().toString());
+        }
+        if (command instanceof SpotDeliveryCommand delivery) {
+            return spot.shardFor(delivery.tradeId());
+        }
+        throw new IllegalArgumentException("unsupported financial command type");
+    }
+
+    /** 每个阶段的失败独立计时，不使用账户、成交、消息编号或异常文案作标签。 */
+    private <T> T timedStage(String type, String stage, Supplier<T> action) {
+        Timer.Sample sample = Timer.start(registry);
+        String outcome = "failure";
+        try {
+            T result = action.get();
+            outcome = "success";
+            return result;
+        } catch (RuntimeException | Error exception) {
+            outcome = outcome(exception);
+            throw exception;
+        } finally {
+            sample.stop(registry.timer("fincore.settlement.consumer.stage",
+                "type", type, "stage", stage, "outcome", outcome));
+        }
+    }
+
+    /** 固定结果集合避免异常类名、错误消息或业务键导致时序基数无限增长。 */
+    private static String outcome(Throwable exception) {
+        return exception instanceof FenceRejectedException ? "fence_rejected" : "failure";
     }
 }

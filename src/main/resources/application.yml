@@ -98,6 +98,9 @@ management:
         http.server.requests: true
         fincore.matching.queue.wait: true
         fincore.outbox.publish.batch: true
+        # 消费全程与路由/租约/事务阶段可按固定 type/outcome 标签聚合 P95/P99。
+        fincore.settlement.consumer.processing: true
+        fincore.settlement.consumer.stage: true
 fincore:
   concurrency:
     # 同一交易对固定进入同一单线程 Lane；多交易对可以并行，队列满时立即返回 429。

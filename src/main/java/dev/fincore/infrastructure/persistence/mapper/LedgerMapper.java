@@ -28,6 +28,9 @@ public interface LedgerMapper {
     /**
      * 锁定账户并返回资产与余额快照。
      *
+     * <p>余额写入不修改账户键，使用 NO KEY UPDATE 与外键检查的 KEY SHARE 兼容，避免
+     * 两笔结算先创建引用账户的订单后升级锁而死锁；余额写入之间仍互斥，账户仍按 UUID 全序锁定。</p>
+     *
      * @param accountId 账户编号
      * @return 匹配的持久化快照；不存在时返回 null
      */
@@ -36,7 +39,7 @@ public interface LedgerMapper {
                balance-reserved_balance-pending_debit AS "availableBalance"
         FROM account
         WHERE account_id=#{accountId}
-        FOR UPDATE
+        FOR NO KEY UPDATE
         """)
     LockedAccountRow lockAccount(@Param("accountId") UUID accountId);
 

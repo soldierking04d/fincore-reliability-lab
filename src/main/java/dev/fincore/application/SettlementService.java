@@ -23,6 +23,8 @@ import java.util.Map;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * 资金结算核心服务。
@@ -103,18 +105,21 @@ public class SettlementService {
         String payload = toJson(command);
         // Inbox 是消息级幂等第一道防线；插入失败表示该 messageId 已处理或正在处理。
         if (settlementMapper.insertInbox(command.messageId(), payload) == 0) {
-            duplicates.increment();
-            return currentOutcomeByMessage(command.messageId());
+            requireMatchingMessage(command);
+            TransactionMetrics.incrementAfterCommit(duplicates);
+            return currentOutcome(command.businessKey(), true);
         }
         // 围栏必须在资金事务内部校验，防止旧 Worker 在控制面检查后恢复并迟到写入。
         if (fenceToken != null) {
-            shardLeases.requireValidFenceForUpdate(fenceToken);
+            requireFenceThroughCommit(fenceToken);
         }
 
         // business_key 唯一约束是业务级幂等第二道防线。
         int created = settlementMapper.insertOrder(command);
         if (created == 0) {
-            duplicates.increment();
+            requireMatchingBusiness(command,
+                settlementMapper.findCommandByBusinessKey(command.businessKey()));
+            TransactionMetrics.incrementAfterCommit(duplicates);
             markInboxProcessed(command.messageId());
             return currentOutcome(command.businessKey(), true);
         }
@@ -133,7 +138,7 @@ public class SettlementService {
             transition(command.businessKey(), SettlementStatus.PROCESSING, SettlementStatus.FAILED,
                 "insufficient balance");
             markInboxProcessed(command.messageId());
-            failures.increment();
+            TransactionMetrics.incrementAfterCommit(failures);
             return new SettlementOutcome(command.businessKey(), SettlementStatus.FAILED, false, "insufficient balance");
         }
 
@@ -163,7 +168,7 @@ public class SettlementService {
         outboxMapper.insert(UUID.randomUUID(), command.businessKey(), "SETTLEMENT_SUCCEEDED",
             toJson(Map.of("businessKey", command.businessKey(), "status", "SUCCESS")));
         markInboxProcessed(command.messageId());
-        success.increment();
+        TransactionMetrics.incrementAfterCommit(success);
         return new SettlementOutcome(command.businessKey(), SettlementStatus.SUCCESS, false, "settled");
     }
 
@@ -171,13 +176,14 @@ public class SettlementService {
      * 查询指定业务键的结算结果。
      *
      * @param businessKey 结算业务键
-     * @return 当前结算状态
+     * @return 已提交的当前结算状态
+     * @throws SettlementNotVisibleException 尚无已提交的结果，可能仍在异步处理
      */
     public SettlementOutcome get(String businessKey) {
         return currentOutcome(businessKey, false);
     }
 
-    /** 按 UUID 字符串顺序锁定付款、收款和手续费账户。 */
+    /** 按 UUID 全序锁定付款、收款和手续费账户。 */
     private Map<UUID, LockedAccount> lockAccounts(SettlementCommand command) {
         List<UUID> ids = UuidOrder.uniqueSorted(
             command.payerAccountId(), command.payeeAccountId(), command.feeAccountId());
@@ -233,15 +239,63 @@ public class SettlementService {
     /** 查询业务键对应的当前结算结果。 */
     private SettlementOutcome currentOutcome(String key, boolean duplicate) {
         SettlementMapper.SettlementResultRow row = settlementMapper.findByBusinessKey(key);
+        if (row == null) {
+            throw new SettlementNotVisibleException(key);
+        }
         return new SettlementOutcome(row.businessKey(), SettlementStatus.valueOf(row.status()),
             duplicate, row.detail());
     }
 
-    /** 按消息编号查询幂等重放结果。 */
-    private SettlementOutcome currentOutcomeByMessage(String messageId) {
-        SettlementMapper.SettlementResultRow row = settlementMapper.findByMessageId(messageId);
-        return new SettlementOutcome(row.businessKey(), SettlementStatus.valueOf(row.status()),
-            true, "duplicate message: " + row.detail());
+    /** 消息唯一键不能被另一业务或不同经济载荷复用；持久化 Inbox 保存重放关联。 */
+    private void requireMatchingMessage(SettlementCommand command) {
+        SettlementMapper.InboxRow inbox = settlementMapper.findInbox(command.messageId());
+        if (inbox == null) {
+            throw new IllegalStateException("conflicting inbox message is not visible");
+        }
+        if (!"SETTLEMENT_COMMAND".equals(inbox.messageType())) {
+            throw new BusinessConflictException("messageId is already used by another message type");
+        }
+        final SettlementCommand original;
+        try {
+            original = json.readValue(inbox.payload(), SettlementCommand.class);
+        } catch (JsonProcessingException exception) {
+            throw new IllegalStateException("stored settlement payload cannot be read", exception);
+        }
+        if (!command.messageId().equals(original.messageId())) {
+            throw new IllegalStateException("stored settlement messageId does not match its inbox key");
+        }
+        requireMatchingBusiness(command, original);
+    }
+
+    /** 幂等判断使用完整经济载荷；金额按数值比较，允许 JSON 的小数位数不同。 */
+    private void requireMatchingBusiness(SettlementCommand command, SettlementCommand original) {
+        if (original == null) {
+            throw new IllegalStateException("conflicting settlement order is not visible");
+        }
+        if (!command.businessKey().equals(original.businessKey())
+            || !command.payerAccountId().equals(original.payerAccountId())
+            || !command.payeeAccountId().equals(original.payeeAccountId())
+            || !command.feeAccountId().equals(original.feeAccountId())
+            || !command.asset().equals(original.asset())
+            || command.amount().compareTo(original.amount()) != 0
+            || command.fee().compareTo(original.fee()) != 0) {
+            throw new BusinessConflictException("settlement idempotency key conflicts with the stored payload");
+        }
+    }
+
+    /** 锁定 Lease 后保持锁至提交，提交回调重新检查 TTL，防止账户锁等待跨过有效期。 */
+    private void requireFenceThroughCommit(FenceToken token) {
+        if (!TransactionSynchronizationManager.isActualTransactionActive()
+            || !TransactionSynchronizationManager.isSynchronizationActive()) {
+            throw new IllegalStateException("fenced settlement requires an active transaction");
+        }
+        shardLeases.requireValidFenceForUpdate(token);
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void beforeCommit(boolean readOnly) {
+                shardLeases.requireValidFenceForUpdate(token);
+            }
+        });
     }
 
     /** 标记 Inbox 消息已处理。 */

@@ -84,7 +84,7 @@ public class SettlementController {
      * 查询结算业务的当前处理结果。
      *
      * @param businessKey 结算业务键
-     * @return 结算状态和说明
+     * @return 已提交的结算状态和说明；结果尚不可见时返回 404 SETTLEMENT_NOT_VISIBLE，允许继续查询
      */
     @GetMapping("/{businessKey}")
     public SettlementOutcome get(@PathVariable String businessKey) {

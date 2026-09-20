@@ -18,6 +18,8 @@
 
 [在线完整演示（腾讯云）](https://124.223.164.254/) ·
 [总架构与服务拓扑](docs/resilient-system-architecture.md) ·
+[中间件 / 热点账户 / 结算性能专项](docs/performance/README.md) ·
+[结算性能独立章节与最新实现](docs/performance/settlement-completion.md) ·
 [互联网到数字资产交易](docs/internet-to-digital-asset-trading.md) ·
 [大流量撤单实现](docs/cancellation-under-load.md) ·
 [Java → C++ 交易改造专项](docs/java-cpp-trading-migration.md) ·
@@ -48,6 +50,10 @@ C++ 内存候选；双语言实验只验证限定内存模型，不代表资金�
 
 README 中没有环境与报告链接支撑的 QPS、p99/p999、CPU、GC 和容量数字，均不得表述为已实现成绩。
 
+性能专项提供[三份详细实施手册](docs/performance/README.md)和[可运行结算对照工具](scripts/performance/README.md)：
+从 Kafka/Outbox 与连接池，到共享资金行、分片归集与退款，再到结算终态、锁等待、幂等恢复和逐资产验账。
+源码现状、候选优化与本轮测试分别标明；没有把 HTTP 202 或未运行的参数方案当成到账吞吐成绩。
+
 ## 30 秒判断它是否值得关注
 
 它不是只有架构图和说明文字的样例，而是一组可以运行、制造故障、观察指标并验证恢复结果的实验。最重要的结果直接来自场景代码和自动检查：
@@ -62,7 +68,7 @@ README 中没有环境与报告链接支撑的 QPS、p99/p999、CPU、GC 和容�
 | Coding Agent 受控评测 | `54 runs` | OBSERVED | 8 个金融可靠性任务，公开规则、隐藏验收、财务安全否决 |
 | 技术治理自动校验 | `5 registries` | VERIFIED | Owner、风险、指标、技术采用、审计证据由 Maven/CI 检查 |
 | 交易所外围核心能力 | `9 / 9 PASS` | VERIFIED | 行情、订单语义、FIX/OMS、市场监察、安全、费用、撮合恢复、合约与链上状态可一键复算 |
-| 工程质量门禁 | `152 / 152 PASS` | VERIFIED | 完整 Docker 验收无跳过；行覆盖 85.17%、分支覆盖 60.52%，P3C 与 SpotBugs 零阻断项 |
+| 已发布后端的历史质量门禁 | `152 / 152 PASS` | VERIFIED | 9 月 6 日完整 Docker 验收；不是当前全部源码的测试数，最新结算补丁见独立验证记录 |
 
 你可以在[在线完整演示](https://124.223.164.254/)里直接查看系统监控、价格波动、订单量、QPS、架构图、服务拓扑和核心时序图，也可以在本地复现全部实验。
 

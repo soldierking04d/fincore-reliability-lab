@@ -16,6 +16,8 @@ import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * 成交驱动的现货双资产原子交割。
@@ -25,7 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p><strong>执行链路：</strong>消息只携带成交编号；金额和四个账户从撮合事务保存的权威事实读取。
  * 事务内验证 Fence、锁交割记录、占用 Inbox、按 UUID 全序锁四个账户、写两组平衡账本、消耗在途、
- * 更新 SETTLED 并写 Outbox，提交前再次验证 Fence。</p>
+ * 更新 SETTLED 并写 Outbox，方法返回和最外层事务提交前再次验证 Fence。</p>
  *
  * <p><strong>CPU 与锁：</strong>一次交割只处理固定四个账户和两种资产，UUID 直接比较而非转字符串；
  * 不创建并行任务，避免同一事务跨线程和额外上下文切换。主要瓶颈是账户锁与数据库提交，因此
@@ -91,27 +93,31 @@ public class SpotDeliveryService {
         if (fence.shardId() != shardFor(command.tradeId())) {
             throw new FenceRejectedException("fence rejected: wrong delivery shard");
         }
-        leases.requireValidFenceForUpdate(fence);
+        requireFenceThroughCommit(fence);
         var row = funds.lockDelivery(command.tradeId());
         int inserted = funds.inbox(command.messageId(), command.tradeId());
         if (inserted == 0 && !funds.inboxTrade(command.messageId()).accountId().equals(command.tradeId())) {
             throw new IllegalArgumentException("delivery messageId reused with a different trade");
         }
         if (DELIVERY_SETTLED.equals(row.status())) {
-            duplicates.increment();
+            TransactionMetrics.incrementAfterCommit(duplicates);
             return row;
         }
         // 四个账户先去重排序；同一用户同时充当多腿账户时不会重复加锁。
         for (UUID id : UuidOrder.uniqueSorted(row.buyerQuoteId(), row.buyerBaseId(),
             row.sellerBaseId(), row.sellerQuoteId())) {
-            if (funds.lockFunds(id).financialHold()) {
+            var account = funds.lockFunds(id);
+            if (account.financialHold()) {
                 throw new IllegalStateException("financial account frozen for review");
             }
+            // 资产字段来自本事务刚取得的锁定快照，省去持有四个账户锁后的四次重复查询。
+            if (id.equals(row.buyerQuoteId()) || id.equals(row.sellerQuoteId())) {
+                requireAsset(account, row.quoteAsset());
+            }
+            if (id.equals(row.buyerBaseId()) || id.equals(row.sellerBaseId())) {
+                requireAsset(account, row.baseAsset());
+            }
         }
-        requireAsset(row.buyerQuoteId(), row.quoteAsset());
-        requireAsset(row.sellerQuoteId(), row.quoteAsset());
-        requireAsset(row.buyerBaseId(), row.baseAsset());
-        requireAsset(row.sellerBaseId(), row.baseAsset());
 
         transfer(row.tradeId(), row.quoteAsset(), row.buyerQuoteId(), row.sellerQuoteId(), row.quoteAmount());
         transfer(row.tradeId(), row.baseAsset(), row.sellerBaseId(), row.buyerBaseId(), row.quantity());
@@ -122,8 +128,23 @@ public class SpotDeliveryService {
             "{\"tradeId\":\"" + row.tradeId() + "\",\"status\":\"SETTLED\"}"));
         // 事务等待账户锁期间 Lease 可能已经超时，提交前再次失败关闭。
         leases.requireValidFenceForUpdate(fence);
-        completed.increment();
+        TransactionMetrics.incrementAfterCommit(completed);
         return funds.delivery(row.tradeId());
+    }
+
+    /** 外层事务可能在本方法返回后继续等待；围栏必须持续有效至真实事务提交。 */
+    private void requireFenceThroughCommit(FenceToken fence) {
+        if (!TransactionSynchronizationManager.isActualTransactionActive()
+            || !TransactionSynchronizationManager.isSynchronizationActive()) {
+            throw new IllegalStateException("fenced spot delivery requires an active transaction");
+        }
+        leases.requireValidFenceForUpdate(fence);
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void beforeCommit(boolean readOnly) {
+                leases.requireValidFenceForUpdate(fence);
+            }
+        });
     }
 
     /** 按资产写入借贷平衡的两腿账本，随后消耗付款在途并增加收款可用。 */
@@ -145,8 +166,8 @@ public class SpotDeliveryService {
     }
 
     /** 账户资产必须与权威交割资产一致。 */
-    private void requireAsset(UUID account, String asset) {
-        if (!funds.funds(account).asset().equals(asset)) {
+    private static void requireAsset(SpotFundsMapper.FundsRow account, String asset) {
+        if (!account.asset().equals(asset)) {
             throw new IllegalStateException("spot delivery account asset mismatch");
         }
     }

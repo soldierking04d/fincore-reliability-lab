@@ -24,6 +24,8 @@ the public financial application remains Java and PostgreSQL.
 
 [Live portfolio (Tencent Cloud)](https://124.223.164.254/) ·
 [System architecture](docs/resilient-system-architecture.md) ·
+[Middleware, hot-account and settlement performance](docs/performance/README.md) ·
+[Standalone settlement implementation and verification](docs/performance/settlement-completion.md) ·
 [Leadership playbooks](docs/management/README.md) ·
 [Quality and public-demo hardening](docs/quality-security-hardening-2026-09-05.md) ·
 [AI benchmark](https://fincore-agent-benchmark.soldierking04d.chatgpt.site) ·
@@ -41,6 +43,12 @@ The repository separates three kinds of claims so that a design goal is never pr
 
 QPS, p99/p999, CPU, GC, and capacity figures are not claimed as achieved results without an environment and a linked report.
 
+The [performance playbooks](docs/performance/README.md) connect middleware budgets, shared-account locks,
+fee sharding and refund liquidity with settlement finality, diagnosis SQL, fault testing and rollback.
+A [bounded local comparison tool](scripts/performance/README.md) checks three account distributions through
+the existing Kafka entry point and reconciles observed results. Protocol tests, proposed changes and
+unmeasured database capacity are explicitly separated; HTTP acceptance is never presented as settlement completion.
+
 ## Decide in 30 seconds
 
 This is not a diagram-only sample. It is a set of experiments that can run, inject failures, expose operational signals, and verify recovery. The headline results come directly from scenario code and automated checks:
@@ -53,7 +61,7 @@ This is not a diagram-only sample. It is a set of experiments that can run, inje
 | Market-crash recovery | `10 / 10 PASS` | VERIFIED | Retries, no liquidity, takeover, disorder, missing/corrupt/ghost data, and repair |
 | Controlled coding-agent evaluation | `54 runs` | OBSERVED | Eight financial-reliability tasks with hidden acceptance and safety vetoes |
 | Automated technology governance | `5 registries` | VERIFIED | Ownership, risk, metrics, adoption, and audit evidence checked by Maven/CI |
-| Engineering quality gate | `152 / 152 PASS` | VERIFIED | Full Docker verification with no skips; 85.17% line and 60.52% branch coverage, with zero blocking P3C or SpotBugs findings |
+| Released backend's historical quality gate | `152 / 152 PASS` | VERIFIED | September 6 full Docker verification; not the test count of current source. See the standalone settlement verification record for the latest patch |
 
 The [live portfolio](https://124.223.164.254/) exposes system metrics, price movement, order volume, QPS, architecture diagrams, service topology, and core sequence diagrams. Every experiment can also be reproduced locally.
 

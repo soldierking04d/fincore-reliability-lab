@@ -95,13 +95,16 @@ public interface SpotFundsMapper {
     /**
      * 锁定账户；调用方必须按 UUID 全序锁定本事务涉及的所有账户。
      *
+     * <p>余额和资金分桶不修改账户键，NO KEY UPDATE 仍互斥余额写入，同时兼容外键检查的
+     * KEY SHARE，防止两笔事务先持引用锁、再升级 FOR UPDATE 时互相死锁。</p>
+     *
      * @param id 目标记录编号
      * @return 匹配的持久化快照；不存在时返回 null
      */
     @Select("""
         SELECT account_id, asset, balance, reserved_balance, pending_debit, financial_hold,
                balance-reserved_balance-pending_debit AS available
-        FROM account WHERE account_id=#{id} FOR UPDATE
+        FROM account WHERE account_id=#{id} FOR NO KEY UPDATE
         """)
     FundsRow lockFunds(@Param("id") UUID id);
 

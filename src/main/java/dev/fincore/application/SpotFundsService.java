@@ -130,14 +130,20 @@ public class SpotFundsService {
         }
         // 原地排序去重避免额外 HashSet，并让全部资金路径保持同一数据库加锁顺序。
         UuidOrder.sortAndRemoveDuplicates(payers);
+        SpotFundsMapper.FundsRow lockedPayer = null;
         for (UUID id : payers) {
-            if (funds.lockFunds(id).financialHold()) {
+            var account = funds.lockFunds(id);
+            if (account.financialHold()) {
                 throw new IllegalStateException("financial account frozen for review");
+            }
+            if (id.equals(payer)) {
+                lockedPayer = account;
             }
         }
         BigDecimal required = taker.side() == OrderSide.BUY
             ? taker.price().multiply(taker.originalQuantity()) : taker.originalQuantity();
-        if (funds.funds(payer).available().compareTo(required) < 0) {
+        // 锁定快照在本事务首次写入之前仍是当前值，避免再查同一账户延长持锁时间。
+        if (Objects.requireNonNull(lockedPayer, "locked payer").available().compareTo(required) < 0) {
             // 盘前快照之后可能被其他资金事务占用；失败回滚整单，不提交假批准。
             throw new IllegalStateException("insufficient available balance after concurrent update");
         }

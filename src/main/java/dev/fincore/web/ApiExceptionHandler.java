@@ -1,6 +1,7 @@
 package dev.fincore.web;
 
 import dev.fincore.application.BusinessConflictException;
+import dev.fincore.application.SettlementNotVisibleException;
 import dev.fincore.infrastructure.concurrent.ConcurrencyRejectedException;
 import dev.fincore.infrastructure.concurrent.ConcurrencyTimeoutException;
 import dev.fincore.messaging.MessageSubmissionException;
@@ -30,6 +31,18 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class ApiExceptionHandler {
     /** 统一记录未预期服务端故障。 */
     private static final Logger LOGGER = LoggerFactory.getLogger(ApiExceptionHandler.class);
+
+    /** 已接收的异步命令也可能尚未产生可见结果；404 不代表结算失败。 */
+    @ExceptionHandler(SettlementNotVisibleException.class)
+    ResponseEntity<Map<String, Object>> settlementNotVisible(SettlementNotVisibleException exception) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
+            "timestamp", Instant.now().toString(),
+            "code", "SETTLEMENT_NOT_VISIBLE",
+            "businessKey", exception.businessKey(),
+            "error", exception.getMessage(),
+            "retryable", true
+        ));
+    }
     /** 将 Kafka 接收失败或未知状态转换为可重试 503。 */
     @ExceptionHandler(MessageSubmissionException.class)
     ResponseEntity<Map<String, Object>> messagingUnavailable(MessageSubmissionException exception) {
