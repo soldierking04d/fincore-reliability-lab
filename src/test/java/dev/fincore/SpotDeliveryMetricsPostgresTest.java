@@ -31,7 +31,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.transaction.TransactionSystemException;
 
 /** Real PostgreSQL commit, rollback and concurrent replay checks for spot metrics. */
-class SpotDeliveryMetricsPostgresTest extends LocalPostgresTestSupport {
+class SpotDeliveryMetricsPostgresTest extends AbstractLocalPostgresTestSupport {
+    /** 同时持有外键引用锁并竞争账户写锁的事务数量。 */
+    private static final int FK_CONTENTION_PARTICIPANTS = 2;
+
     /** A returned delivery is completed only after the enclosing physical commit. */
     @Test
     void completedAndDuplicateCountersFollowPhysicalCommit() {
@@ -139,10 +142,10 @@ class SpotDeliveryMetricsPostgresTest extends LocalPostgresTestSupport {
     @Test
     void accountLocksDoNotDeadlockAfterConcurrentForeignKeyReferences() throws Exception {
         Fixture fixture = fixture();
-        CyclicBarrier referencesHeld = new CyclicBarrier(2);
-        try (var executor = TestExecutors.fixedThreadPool(2, "spot-fk-lock-postgres-")) {
+        CyclicBarrier referencesHeld = new CyclicBarrier(FK_CONTENTION_PARTICIPANTS);
+        try (var executor = TestExecutors.fixedThreadPool(FK_CONTENTION_PARTICIPANTS, "spot-fk-lock-postgres-")) {
             List<Future<?>> futures = new ArrayList<>();
-            for (int index = 0; index < 2; index++) {
+            for (int index = 0; index < FK_CONTENTION_PARTICIPANTS; index++) {
                 futures.add(executor.submit(() -> transactions.executeWithoutResult(status -> {
                     // A real FK check holds KEY SHARE, as financial references inserted before account locking do.
                     UUID issue = UUID.randomUUID();

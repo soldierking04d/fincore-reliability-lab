@@ -49,6 +49,8 @@ public class SpotFundsService {
     private static final int MAX_NOTIONAL_INTEGER_DIGITS = 20;
     /** 金额零值。 */
     private static final BigDecimal ZERO = BigDecimal.ZERO;
+    /** 付款账户锁定快照缺失时的诊断信息。 */
+    private static final String LOCKED_PAYER_REQUIRED = "locked payer";
     /** 资金持久化。 */
     private final SpotFundsMapper funds;
     /** 权威订单与成交。 */
@@ -143,7 +145,7 @@ public class SpotFundsService {
         BigDecimal required = taker.side() == OrderSide.BUY
             ? taker.price().multiply(taker.originalQuantity()) : taker.originalQuantity();
         // 锁定快照在本事务首次写入之前仍是当前值，避免再查同一账户延长持锁时间。
-        if (Objects.requireNonNull(lockedPayer, "locked payer").available().compareTo(required) < 0) {
+        if (Objects.requireNonNull(lockedPayer, LOCKED_PAYER_REQUIRED).available().compareTo(required) < 0) {
             // 盘前快照之后可能被其他资金事务占用；失败回滚整单，不提交假批准。
             throw new IllegalStateException("insufficient available balance after concurrent update");
         }

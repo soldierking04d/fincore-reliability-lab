@@ -48,6 +48,8 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  */
 @Service
 public class SettlementService {
+    /** 通用结算命令在 Inbox 中的固定类型标识。 */
+    private static final String SETTLEMENT_COMMAND_TYPE = "SETTLEMENT_COMMAND";
     /** 结算单、Inbox 和状态审计持久化接口。 */
     private final SettlementMapper settlementMapper;
     /** 账户余额与不可变账本持久化接口。 */
@@ -252,7 +254,7 @@ public class SettlementService {
         if (inbox == null) {
             throw new IllegalStateException("conflicting inbox message is not visible");
         }
-        if (!"SETTLEMENT_COMMAND".equals(inbox.messageType())) {
+        if (!SETTLEMENT_COMMAND_TYPE.equals(inbox.messageType())) {
             throw new BusinessConflictException("messageId is already used by another message type");
         }
         final SettlementCommand original;

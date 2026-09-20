@@ -1,7 +1,8 @@
 package dev.fincore;
 
-import java.util.UUID;
 import java.net.URI;
+import java.util.Set;
+import java.util.UUID;
 import javax.sql.DataSource;
 import org.apache.ibatis.session.LocalCacheScope;
 import org.flywaydb.core.Flyway;
@@ -18,9 +19,18 @@ import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
 
-/** 真实 PostgreSQL 回归；每个测试类独占临时 schema，仅使用合成数据。 */
+/**
+ * 真实 PostgreSQL 回归；每个测试类独占临时 schema，仅使用合成数据。
+ *
+ * @author FinCore Reliability Lab
+ * @since 2026-09-21
+ */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public abstract class LocalPostgresTestSupport {
+public abstract class AbstractLocalPostgresTestSupport {
+    /** CI 明确要求执行真实数据库验收的开关。 */
+    private static final String REQUIRE_DATABASE_PROPERTY = "fincore.test.require-database";
+    /** 显式测试连接只允许访问本机隔离数据库。 */
+    private static final Set<String> LOOPBACK_HOSTS = Set.of("127.0.0.1", "localhost", "[::1]");
     protected DataSource dataSource;
     protected JdbcTemplate jdbc;
     protected TransactionTemplate transactions;
@@ -37,7 +47,7 @@ public abstract class LocalPostgresTestSupport {
         String password = System.getProperty("fincore.test.postgres-password", "");
         if (url == null || url.isBlank()) {
             boolean available = DockerClientFactory.instance().isDockerAvailable();
-            if (!available && Boolean.getBoolean("fincore.test.require-database")) {
+            if (!available && Boolean.getBoolean(REQUIRE_DATABASE_PROPERTY)) {
                 throw new IllegalStateException("结算集成验收要求 PostgreSQL，禁止跳过后宣称通过");
             }
             Assumptions.assumeTrue(available,
@@ -49,7 +59,7 @@ public abstract class LocalPostgresTestSupport {
             password = postgres.getPassword();
         } else {
             String host = URI.create(url.substring("jdbc:".length())).getHost();
-            if (!"127.0.0.1".equals(host) && !"localhost".equals(host) && !"[::1]".equals(host)) {
+            if (host == null || !LOOPBACK_HOSTS.contains(host)) {
                 throw new IllegalArgumentException("PostgreSQL test URL must explicitly target a loopback test database");
             }
         }

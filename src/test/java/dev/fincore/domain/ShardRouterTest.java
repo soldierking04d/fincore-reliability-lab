@@ -13,6 +13,10 @@ import org.junit.jupiter.api.Test;
  * @since 1.0.0
  */
 class ShardRouterTest {
+    /** 路由重放与合法分片边界使用的固定业务键样本数。 */
+    private static final int ROUTING_SAMPLE_COUNT = 512;
+    /** 最大正数二次幂分片数在 int 内对应的位移量。 */
+    private static final int MAX_SHARD_COUNT_SHIFT = 30;
     @Test void routingIsDeterministicAndBounded() {
         ShardRouter router = new ShardRouter(8);
         int shard = router.shardFor("user-123");
@@ -30,7 +34,7 @@ class ShardRouterTest {
     @Test void feeRoutingIsDeterministicAcrossInstancesAndReplays() {
         FeeShardRouter first = new FeeShardRouter(16);
         FeeShardRouter restarted = new FeeShardRouter(16);
-        for (int order = 0; order < 512; order++) {
+        for (int order = 0; order < ROUTING_SAMPLE_COUNT; order++) {
             String key = settlementKey(order);
             int expected = first.shardFor(key);
             assertEquals(expected, first.shardFor(key), key);
@@ -41,12 +45,12 @@ class ShardRouterTest {
     /** 费用路由在单分片、常用规模及最大合法正分片数下都不能越界。 */
     @Test void feeRoutingStaysInsideEveryConfiguredShardRange() {
         String[] edgeKeys = {"a", "Aa", "BB", "订单:手续费:001", "polygenelubricants"};
-        for (int count : new int[]{1, 2, 4, 16, 64, 1024, 1 << 30}) {
+        for (int count : new int[]{1, 2, 4, 16, 64, 1024, 1 << MAX_SHARD_COUNT_SHIFT}) {
             FeeShardRouter router = new FeeShardRouter(count);
             for (String key : edgeKeys) {
                 assertFeeShardInRange(router, count, key);
             }
-            for (int order = 0; order < 512; order++) {
+            for (int order = 0; order < ROUTING_SAMPLE_COUNT; order++) {
                 assertFeeShardInRange(router, count, settlementKey(order));
             }
         }

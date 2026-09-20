@@ -52,7 +52,16 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 /** 冲突、过期围栏和回滚必须保持全部金融状态不变。 */
-class SettlementCorrectnessPostgresTest extends LocalPostgresTestSupport {
+class SettlementCorrectnessPostgresTest extends AbstractLocalPostgresTestSupport {
+    /** 并发重投总次数；预期只有一笔成功资金效果。 */
+    private static final int DUPLICATE_ATTEMPTS = 6;
+    /** 重放失败终态时必须保持不变的资金事实表。 */
+    private static final List<String> FINANCIAL_FACT_TABLES = List.of(
+        "account", "ledger_transaction", "ledger_entry", "state_audit", "outbox_event");
+    /** 回滚时逐行比较的全部金融事务状态。 */
+    private static final List<String> FINANCIAL_STATE_TABLES = List.of(
+        "account", "settlement_order", "inbox_message", "ledger_transaction",
+        "ledger_entry", "state_audit", "outbox_event");
     private SettlementService settlements;
     private ShardLeaseService leases;
     private SimpleMeterRegistry metrics;
@@ -181,7 +190,7 @@ class SettlementCorrectnessPostgresTest extends LocalPostgresTestSupport {
         Map<String, List<Map<String, Object>>> afterAlias = snapshot();
         assertTrue(settle(retry).duplicate());
         assertEquals(afterAlias, snapshot());
-        for (String table : List.of("account", "ledger_transaction", "ledger_entry", "state_audit", "outbox_event")) {
+        for (String table : FINANCIAL_FACT_TABLES) {
             assertEquals(before.get(table), afterAlias.get(table), table);
         }
         assertEquals(1.0, metrics.counter("fincore.settlement.failure").count());
@@ -192,17 +201,20 @@ class SettlementCorrectnessPostgresTest extends LocalPostgresTestSupport {
     void concurrentDuplicateKeysHaveOneFinancialEffect(boolean sameMessage) throws Exception {
         SettlementCommand original = command();
         CountDownLatch start = new CountDownLatch(1);
-        try (var executor = TestExecutors.fixedThreadPool(6, "settlement-duplicates-")) {
+        try (var executor = TestExecutors.fixedThreadPool(DUPLICATE_ATTEMPTS, "settlement-duplicates-")) {
             var futures = new java.util.ArrayList<java.util.concurrent.Future<SettlementOutcome>>();
-            for (int i = 0; i < 6; i++) {
-                SettlementCommand candidate = sameMessage ? original : copy(original,
-                    i + "-" + original.messageId(), original.businessKey(), original.amount(), original.fee());
-                futures.add(executor.submit(() -> {
-                    start.await();
-                    return settle(candidate);
-                }));
+            try {
+                for (int i = 0; i < DUPLICATE_ATTEMPTS; i++) {
+                    SettlementCommand candidate = sameMessage ? original : copy(original,
+                        i + "-" + original.messageId(), original.businessKey(), original.amount(), original.fee());
+                    futures.add(executor.submit(() -> {
+                        start.await();
+                        return settle(candidate);
+                    }));
+                }
+            } finally {
+                start.countDown();
             }
-            start.countDown();
             int duplicates = 0;
             for (var future : futures) {
                 SettlementOutcome outcome = future.get(10, TimeUnit.SECONDS);
@@ -390,8 +402,7 @@ class SettlementCorrectnessPostgresTest extends LocalPostgresTestSupport {
 
     private Map<String, List<Map<String, Object>>> snapshot() {
         Map<String, List<Map<String, Object>>> result = new LinkedHashMap<>();
-        for (String table : List.of("account", "settlement_order", "inbox_message", "ledger_transaction",
-                "ledger_entry", "state_audit", "outbox_event")) {
+        for (String table : FINANCIAL_STATE_TABLES) {
             result.put(table, jdbc.queryForList("SELECT * FROM " + table + " ORDER BY 1"));
         }
         return result;

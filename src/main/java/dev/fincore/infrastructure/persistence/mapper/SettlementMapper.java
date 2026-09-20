@@ -37,14 +37,24 @@ public interface SettlementMapper {
         """)
     int insertInbox(@Param("messageId") String messageId, @Param("payload") String payload);
 
-    /** 查询原始消息类型及载荷，用于验证消息键和业务键之间的持久化关联。 */
+    /**
+     * 查询原始消息类型及载荷，用于验证消息键和业务键之间的持久化关联。
+     *
+     * @param messageId 待查询的消息幂等键
+     * @return 原始消息快照；不存在时返回 null
+     */
     @Select("""
         SELECT message_type AS "messageType", payload
         FROM inbox_message WHERE message_id=#{messageId}
         """)
     InboxRow findInbox(@Param("messageId") String messageId);
 
-    /** 业务键冲突后读取权威经济载荷；调用方不能只比较幂等键或当前状态。 */
+    /**
+     * 业务键冲突后读取权威经济载荷；调用方不能只比较幂等键或当前状态。
+     *
+     * @param businessKey 待查询的业务幂等键
+     * @return 已持久化的结算命令；不存在时返回 null
+     */
     @Select("""
         SELECT message_id AS "messageId", business_key AS "businessKey",
                payer_account_id AS "payerAccountId", payee_account_id AS "payeeAccountId",
