@@ -38,6 +38,18 @@ class PublicDemoAccessFilterTest {
         assertEquals(403, invoke(filter, "POST", "/lab/faults/duplicate-message", null));
     }
 
+    /** 访问日志只开放精确 POST 路径，匿名不能读取或导出访问者信息。 */
+    @Test
+    void analyticsAllowsOnlyExactPost() throws ServletException, IOException {
+        PublicDemoAccessFilter filter = new PublicDemoAccessFilter(ADMIN_TOKEN);
+        assertEquals(200, invoke(filter, "POST", "/api/analytics/page-view", null));
+        assertEquals(403, invoke(filter, "GET", "/api/analytics/page-view", null));
+        assertEquals(403, invoke(filter, "HEAD", "/api/analytics/page-view", null));
+        assertEquals(403, invoke(filter, "OPTIONS", "/api/analytics/page-view", null));
+        assertEquals(403, invoke(filter, "GET", "/api/analytics/visits", null));
+        assertEquals(403, invoke(filter, "POST", "/api/analytics/page-view/extra", null));
+    }
+
     /** 内部压测和受控运维必须通过请求头携带正确管理令牌。 */
     @Test
     void validAdminTokenAllowsControlledWrites() throws ServletException, IOException {

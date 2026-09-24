@@ -15,7 +15,8 @@ class VerifyTestReports {
             "dev.fincore.TradeReliabilityIntegrationTest", "dev.fincore.FeeAggregationIntegrationTest",
             "dev.fincore.LabScenarioIntegrationTest", "dev.fincore.SpotFundsIntegrationTest",
             "dev.fincore.SpotDeliveryKafkaIntegrationTest", "dev.fincore.KafkaVolumeRecoveryIntegrationTest",
-            "dev.fincore.SettlementCorrectnessPostgresTest", "dev.fincore.SpotDeliveryMetricsPostgresTest"));
+            "dev.fincore.SettlementCorrectnessPostgresTest", "dev.fincore.SpotDeliveryMetricsPostgresTest",
+            "dev.fincore.WebsitePageVisitPostgresTest"));
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
         factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");

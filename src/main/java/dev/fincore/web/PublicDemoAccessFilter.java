@@ -21,7 +21,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
  *
  * <p><strong>解决的问题：</strong>Nginx 是第一道公网边界，但反向代理配置错误、容器网络内调用或
  * 端口误暴露都可能绕过它。本过滤器在应用进程内再次执行明确允许清单：匿名用户只能读取演示数据、
- * 健康与指标，并启动四个有全局限流的确定性场景；其他写操作必须携带管理令牌。</p>
+ * 健康与指标、提交有界页面访问日志，并启动四个有全局限流的确定性场景；其他写操作必须携带管理令牌。</p>
  *
  * <p><strong>正确性与性能边界：</strong>过滤只发生在 HTTP 入口，不改变 Kafka Worker、资金事务或
  * Fencing。路径集合为进程启动时创建的不可变常量，每个请求只执行方法、路径和固定长度令牌比较，
@@ -40,6 +40,12 @@ public class PublicDemoAccessFilter extends OncePerRequestFilter {
     /** 权限拒绝响应保持固定，不回显路径、令牌或内部异常。 */
     private static final String ACCESS_DENIED_BODY =
         "{\"code\":\"PUBLIC_DEMO_ACCESS_DENIED\",\"error\":\"request is not allowed\"}";
+    /** 日志路由前缀，仅开放下述精确写入口。 */
+    private static final String ANALYTICS_PATH = "/api/analytics";
+    /** 日志的子路径统一禁止匿名读取。 */
+    private static final String ANALYTICS_PREFIX = ANALYTICS_PATH + "/";
+    /** 访问日志唯一的匿名接口。 */
+    private static final String PAGE_VIEW_PATH = ANALYTICS_PATH + "/page-view";
     /** 允许匿名启动的固定场景。 */
     private static final Set<String> PUBLIC_SCENARIOS = Set.of(
         "/lab/scenarios/full",
@@ -98,10 +104,14 @@ public class PublicDemoAccessFilter extends OncePerRequestFilter {
         );
     }
 
-    /** 匿名请求只允许只读业务查询、最小观测端点和四个确定性场景。 */
+    /** 匿名请求只允许只读业务查询、最小观测端点、页面日志和四个确定性场景。 */
     private static boolean isAnonymousRequestAllowed(HttpServletRequest request) {
         String method = request.getMethod();
         String path = request.getRequestURI();
+        // 访问日志只开放这个精确写入口，不允许匿名查询、探测子路径或批量导出。
+        if (ANALYTICS_PATH.equals(path) || path.startsWith(ANALYTICS_PREFIX)) {
+            return HttpMethod.POST.matches(method) && PAGE_VIEW_PATH.equals(path);
+        }
         if (HttpMethod.GET.matches(method) || HttpMethod.HEAD.matches(method)) {
             return path.startsWith("/api/") || PUBLIC_ACTUATOR_PATHS.contains(path);
         }

@@ -102,6 +102,10 @@ management:
         fincore.settlement.consumer.processing: true
         fincore.settlement.consumer.stage: true
 fincore:
+  analytics:
+    # 必须是直连应用的反向代理精确 IP；空值表示忽略所有客户端 IP 转发头。
+    trusted-proxies: ${FINCORE_ANALYTICS_TRUSTED_PROXIES:}
+    retention-days: ${FINCORE_ANALYTICS_RETENTION_DAYS:30}
   concurrency:
     # 同一交易对固定进入同一单线程 Lane；多交易对可以并行，队列满时立即返回 429。
     matching-lanes: ${FINCORE_MATCHING_LANES:4}

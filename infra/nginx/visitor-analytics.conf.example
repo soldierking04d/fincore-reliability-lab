@@ -1,0 +1,26 @@
+# 以下段落并入现有 http {}，不覆盖其他项目路由。
+# set_real_ip_from 必须替换为实际 Caddy 容器 IP；容器重建后重新核对，不信任整个公网或任意 XFF。
+set_real_ip_from 172.18.0.7;
+real_ip_header X-Forwarded-For;
+real_ip_recursive off;
+limit_req_zone $binary_remote_addr zone=fincore_visitors:1m rate=6r/m;
+limit_req_zone $server_name zone=fincore_visitors_global:1m rate=10r/s;
+
+# 以下 location 并入已有 server {}；精确匹配，不开放其他匿名写入。
+location = /api/analytics/page-view {
+    limit_except POST { deny all; }
+    limit_req zone=fincore_visitors burst=6 nodelay;
+    limit_req zone=fincore_visitors_global burst=20 nodelay;
+    client_max_body_size 1k;
+    proxy_connect_timeout 2s;
+    proxy_read_timeout 3s;
+    proxy_pass http://fincore_app;
+    proxy_set_header Host $host;
+    proxy_set_header X-FinCore-Visitor-IP $remote_addr;
+    proxy_set_header X-Forwarded-For "";
+    proxy_set_header Cookie "";
+    proxy_set_header Authorization "";
+    proxy_set_header X-FinCore-Admin-Token "";
+    access_log off;
+    add_header Cache-Control "no-store" always;
+}
