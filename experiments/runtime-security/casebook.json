@@ -1,0 +1,72 @@
+{
+  "reviewedAt": "2026-10-29",
+  "cases": [
+    {
+      "id": "oom", "cve": "CVE-2026-109618", "title": "初始化失败，清理却继续相信对象有效", "layer": "PHP 核心 / 内存管理",
+      "summary": "关键不只是内存用完，而是失败打断后，谁还持有尚未初始化完成的对象。",
+      "preconditions": ["运行时仍含受影响路径，且请求能进入相关解析或初始化流程。", "分配失败发生时，未完成对象已对其他内部状态可见。", "随后清理或读取路径将不完整状态当作有效对象。"],
+      "steps": [
+        ["分配", "创建请求对象，但部分字段尚未就绪。", "对象应保持私有，外部无法消费。"],
+        ["中断", "另一处分配失败引起非局部退出。", "不能假设普通函数返回和 finally 语义仍完整成立。"],
+        ["清理", "退出路径处理之前公开的对象。", "清理操作只能面对满足其前提的状态。"],
+        ["修正", "改变 OOM 的退出时机与终止策略。", "软失败在安全点处理；硬失败直接终止，避免危险清理。"]
+      ],
+      "patch": "官方补丁调整 OOM 控制流。业务层可借鉴“构造完成后发布”，但它不能替代 PHP 引擎补丁。",
+      "nonFix": "只把输入长度调小、关闭报错或写 try/catch，不能证明所有分配失败路径已修复。",
+      "before": "// 生命周期示意，不是 PHP 原始补丁\nworker.state = allocate_request();\ninitialize(worker.state); // 此处失败，worker 已可见半成品\ncleanup(worker.state);    // 仍假设对象完整",
+      "after": "// 本项目可验证的应用层约束\nstaged = construct_complete_request();\nworker.publish(staged); // 完成初始化后才公开\n// 请求结束：先解除外部引用，再释放所有者\nworker.unpublish();\nrelease(staged);",
+      "verification": ["生命周期模型：初始化失败时不发布半成品。", "C++：构造失败时 weak_ptr 不获得对象。", "PHP 原生安全点与硬 OOM：本项目未执行，需要引擎回归测试。"],
+      "source": "https://github.com/php/php-src/security/advisories/GHSA-w8hw-w9fx-j79w"
+    },
+    {
+      "id": "stale", "cve": "CVE-2026-109619", "title": "请求已结束，Worker 里的引用还活着", "layer": "请求状态 / Worker 复用",
+      "summary": "把“引用存在”误认为“引用指向的资源仍有效”，会跨越两个不同的生命周期。",
+      "preconditions": ["同一 Worker 中存在比单次请求更长寿的状态槽。", "请求状态被释放后，长寿状态槽未解除引用或又被晚期诊断重新写入。", "后续请求在正常初始化前消费这个残留状态。"],
+      "steps": [
+        ["生产状态", "请求 A 向持久 Worker 保存请求级引用。", "持有者与资源的存活期必须匹配。"],
+        ["请求结束", "A 的请求内存释放，Worker 槽仍非空。", "非空不等于有效。"],
+        ["后续消费", "请求 B 的前置处理接触旧状态。", "在正常初始化前发生的读取也必须受保护。"],
+        ["修正", "清理并约束跨请求状态生命周期。", "业务实现中删除旧上下文，或用可验证的所有权/弱引用。"]
+      ],
+      "patch": "必须更新运行时。实验另外验证：C++ 拒绝过期弱引用，Java 清理线程绑定，异步语言按请求隔离上下文。",
+      "nonFix": "换成长连接池、更大的 Worker 数或垃圾回收语言，不会自动修复业务身份残留。Java 身份串用与 C/C++ 的 UAF 不是同一个漏洞。",
+      "before": "// Java：错误示例\nTENANT.set(tenantA);\nprocess(); // 抛错，清理被跳过\n// 同线程下一任务仍可能读到 tenantA",
+      "after": "TENANT.set(currentTenant);\ntry {\n    return process();\n} finally {\n    TENANT.remove();\n}\n// 异步任务需要在实际执行上下文另建作用域。",
+      "verification": ["Java：旧实现残留 A；修正后成功/失败路径均无旧身份。", "Node/Python：并发负例观察 B/B；修正后观察 A/B。", "C++：裸指针负例被 ASan 检测，弱引用实现正常退出。"],
+      "source": "https://github.com/php/php-src/security/advisories/GHSA-6wmf-4rv5-p3rp"
+    },
+    {
+      "id": "session", "cve": "CVE-2026-115560", "title": "启动时与业务中途使用了不同会话协议", "layer": "会话配置 / 执行顺序",
+      "summary": "前置处理已经按一种序列化方式生成状态，业务后来切换处理方式，不能假设之前的状态会随之重建。",
+      "preconditions": ["上传进度仍开启。", "配置中的序列化器为 php_binary 或 php_serialize。", "应用在调用 session_start 前，用 ini_set 切到 php。"],
+      "steps": [
+        ["启动配置", "请求解析先读取会话相关设置。", "前置处理与后续消费者应遵循一致配置。"],
+        ["业务切换", "应用中途改变序列化器。", "配置更改不等于已有状态被重新初始化。"],
+        ["处理措施", "按官方建议临时停用上传进度。", "配置在请求解析前生效，且覆盖全部 Worker。"]
+      ],
+      "patch": "保持序列化器配置一致，临时关闭上传进度并替换 Worker；继续核对后续正式补丁。关闭功能的业务影响也要验收。",
+      "nonFix": "不能因核心版本满足 10/21 基线就把这项补充问题标为已完成，也不能把全部 PHP 上传功能一概判成已可利用。",
+      "before": "; 启动配置\nsession.serialize_handler = php_binary\nsession.upload_progress.enabled = 1\n\n// 应用又切换配置\nini_set('session.serialize_handler', 'php');\nsession_start();",
+      "after": "; 启动时统一设置，依据业务选择一种序列化器\nsession.serialize_handler = php\nsession.upload_progress.enabled = 0\n\n// 应用不再中途切换处理器\nsession_start();",
+      "verification": ["静态核对应用中是否存在序列化器切换。", "核对实际 Web SAPI 启动配置和全部 Worker 代际。", "测试登录、会话持久化、上传以及前端进度反馈。"],
+      "source": "https://www.php.net/archive/2026.php"
+    },
+    {
+      "id": "decoder", "cve": "CVE-2026-111497", "title": "应用版本相同，实际加载的解码库却不同", "layer": "原生依赖 / 响应解压",
+      "summary": "软件资产不能只记录语言版本：发行包修订、共享库与实际启用的解码路径也决定风险。",
+      "preconditions": ["实际加载受影响 Brotli 解码器。", "应用或 HTTP 库启用自动响应解压，远端内容能到达相应解码路径。", "PHP 官方 Windows 包与其他平台的库来源应分别核对。"],
+      "steps": [
+        ["HTTP 响应", "应用接收远端返回的编码内容。", "响应内容也属于不可信输入。"],
+        ["原生解码", "本地库处理压缩字节。", "原生越界写需要库补丁。"],
+        ["输出预算", "业务接收解码后的字节。", "输出上限控制资源放大，但不能补上之前的原生内存错误。"],
+        ["依赖更新", "核对官方重打包或维护方库补丁。", "实际加载库、来源、修订和摘要一致。"]
+      ],
+      "patch": "PHP 官方 Windows -1 重打包包含 Brotli 1.2.1。其他平台按真实加载库和维护方公告核验；再按业务设置解压输出与并发预算。",
+      "nonFix": "只限制 Content-Length 或解压输出不等于修复越界写。请求 Accept-Encoding: identity 也不能单独当作关闭本地自动解码的证明。",
+      "before": "// PHP cURL：空字符串可启用支持编码的自动处理\ncurl_setopt($ch, CURLOPT_ENCODING, '');\n$body = curl_exec($ch);\n// 不应只在 $body 返回后才开始考虑全部风险。",
+      "after": "// 首先更新 PHP 包 / 实际 Brotli 库并核验摘要。\n// 应急停用自动解码时，需核对真实库行为和业务兼容：\ncurl_setopt($ch, CURLOPT_HTTP_CONTENT_DECODING, false);\n// 对仍带 Content-Encoding 的结果明确拒绝或交给已修补、\n// 有输出预算的解码链路；不能当成普通 JSON 直接消费。",
+      "verification": ["离线核对同一 PHP 版本的原包与 -1 重打包。", "本地 gzip 实验：压缩输入与输出分别计量，超限/截断/取消均拒绝结果。", "gzip 资源限制实验不是 Brotli 内存损坏补丁验收。"],
+      "source": "https://www.php.net/archive/2026.php"
+    }
+  ]
+}

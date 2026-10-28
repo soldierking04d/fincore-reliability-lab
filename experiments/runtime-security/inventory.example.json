@@ -1,0 +1,7 @@
+[
+  { "name": "示例：旧 PHP Web Worker", "phpVersion": "8.4.26", "distribution": "upstream", "platform": "linux", "uploadProgressEnabled": true, "workersReplaced": false, "brotliLoaded": false },
+  { "name": "示例：核心升级但配置遗漏", "phpVersion": "8.4.27", "distribution": "upstream", "platform": "linux", "uploadProgressEnabled": true, "workersReplaced": true, "brotliLoaded": false },
+  { "name": "示例：本清单规则满足", "phpVersion": "8.4.27", "distribution": "upstream", "platform": "linux", "uploadProgressEnabled": false, "workersReplaced": true, "brotliLoaded": false },
+  { "name": "示例：Windows 仍用原始包", "phpVersion": "8.5.12", "distribution": "upstream", "platform": "windows", "uploadProgressEnabled": false, "workersReplaced": true, "brotliLoaded": true },
+  { "name": "示例：发行版回补待核验", "phpVersion": "8.3.30", "distribution": "vendor", "platform": "linux", "uploadProgressEnabled": false, "workersReplaced": true, "brotliLoaded": false }
+]

@@ -1,0 +1,46 @@
+.runtime-security { color: #203e60; }
+.runtime-security h2 { font-size: clamp(24px,3vw,36px); font-weight: 650; margin: 12px 0; }
+.runtime-security h3 { font-size: 18px; font-weight: 600; margin: 10px 0; }
+.runtime-security p { color: #526b86; line-height: 1.9; margin: 10px 0; }
+.runtime-security a { color: #1558b1; text-decoration: underline; text-underline-offset: 3px; }
+.runtime-security nav, .runtime-security-actions { display: flex; flex-wrap: wrap; gap: 12px 24px; margin: 18px 0; }
+.runtime-security-overview { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 16px; margin: 24px 0; }
+.runtime-security-overview article, .runtime-security-result article { padding: 20px; border: 1px solid #dce4ef; border-radius: 12px; background: #f7f9fc; }
+.runtime-security-overview span, .runtime-security-result article > span { font-size: 12px; color: #536c86; }
+.runtime-security-baseline { background: #edf4fc; padding: 16px 20px; border-radius: 10px; }
+.runtime-security details { border-top: 1px solid #dce4ef; padding: 20px 0; }
+.runtime-security summary { cursor: pointer; font-size: 17px; font-weight: 600; line-height: 1.6; }
+.runtime-security summary:focus-visible, .runtime-security button:focus-visible, .runtime-security input:focus-visible, .runtime-security select:focus-visible { outline: 3px solid #609ddd; outline-offset: 3px; }
+.runtime-security-flow { display: flex; flex-wrap: wrap; gap: 8px; margin: 22px 0; list-style: decimal inside; }
+.runtime-security-flow li { background: #edf4fc; padding: 10px 14px; border-radius: 8px; }
+.runtime-security-actions button { border: 1px solid #b6cce4; border-radius: 8px; padding: 10px 14px; cursor: pointer; }
+.runtime-security-actions button[aria-pressed="true"] { background: #e6effc; border-color: #4075ac; }
+.runtime-security-table { overflow-x: auto; margin: 20px 0; }
+.runtime-security-table table { border-collapse: collapse; width: 100%; min-width: 620px; font-size: 14px; }
+.runtime-security-table th, .runtime-security-table td { border: 1px solid #dce4ef; padding: 14px; text-align: left; vertical-align: top; line-height: 1.8; }
+.runtime-security-table th { background: #edf4fc; }
+.runtime-security-checklist { list-style: decimal; padding-left: 24px; line-height: 1.9; margin: 22px 0; }
+.runtime-security-checklist li { padding-left: 6px; margin: 12px 0; }
+.runtime-security pre { overflow-x: auto; padding: 18px; background: #f1f5fa; border: 1px solid #dce4ef; border-radius: 8px; font: 13px/1.9 monospace; margin: 20px 0; }
+.runtime-security-form { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 16px; margin: 20px 0; }
+.runtime-security-form label { display: grid; gap: 8px; font-size: 14px; }
+.runtime-security-form input, .runtime-security-form select { width: 100%; min-width: 0; border: 1px solid #b6cce4; background: white; padding: 12px; border-radius: 8px; color: #244769; }
+.runtime-security-checkboxes { display: flex; flex-wrap: wrap; gap: 12px 20px; margin: 20px 0; }
+.runtime-security-checkboxes label { display: flex; gap: 8px; align-items: center; font-size: 14px; }
+.runtime-security-checkboxes input { width: 18px; height: 18px; }
+.runtime-security-result { padding: 20px; border: 1px solid #dce4ef; border-radius: 10px; margin: 20px 0; }
+.runtime-security-result article { margin-top: 12px; padding: 16px; }
+.runtime-security-result h4 { font-size: 16px; font-weight: 600; margin: 8px 0; }
+.runtime-security-result article[data-status="action"] { background: #fff8ed; border-color: #ebd6a7; }
+.runtime-security-result article[data-status="covered"] { background: #f0f8f3; border-color: #c9dfd1; }
+.runtime-security details > ul { list-style: disc; padding-left: 24px; line-height: 2; margin-top: 16px; }
+.runtime-security-code-compare { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 20px; margin: 24px 0; }
+.runtime-security-code-compare > section { min-width: 0; }
+.runtime-security-case { padding-top: 22px; }
+.runtime-security-case h4 { font-size: 16px; font-weight: 650; margin-top: 22px; }
+.runtime-security-case ul, .runtime-security-result ul { list-style: disc; padding-left: 24px; line-height: 1.9; margin: 12px 0; }
+.runtime-security-topology { overflow-x: auto; margin: 24px 0; }
+.runtime-security-topology svg { display: block; width: 100%; min-width: 800px; }
+.runtime-security-topology figcaption { color: #526b86; font-size: 13px; margin-top: 12px; line-height: 1.7; }
+@media(max-width: 900px) { .runtime-security-code-compare { grid-template-columns: 1fr; } }
+@media(max-width: 900px) { .runtime-security-overview, .runtime-security-form { grid-template-columns: 1fr; } }
