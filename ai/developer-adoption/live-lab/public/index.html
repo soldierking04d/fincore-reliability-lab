@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FinCore · AI 研发验证工作台</title><link rel="stylesheet" href="/styles.css"><script type="module" src="/app.js"></script></head>
+<body><main>
+<header><a href="http://localhost:4398/#ai">← FinCore 作品集</a><span class="tag">LOCAL ONLY · 不连接生产</span></header>
+<section class="intro"><p class="eyebrow">AI ENGINEERING / DELIVERY LOOP</p><h1>让需求变成代码，<br>再用测试证明它。</h1><p>从真实 Java 编译和失败用例开始。代码由模型生成，是否通过由独立验证器判断，是否验收由人确认。</p></section>
+<div id="notice" role="status" aria-live="polite">正在连接本机执行器…</div>
+<section class="panel" id="setup"><div class="section-head"><h2>01 / 建立任务</h2><span>限定一个小需求，不改交易主链路</span></div>
+<h3>工单查询参数规范化</h3><p id="requirement"></p>
+<div class="form-grid"><label>执行方式<select id="mode"><option value="codex">真实 AI · 本机 Codex 登录</option><option value="reference">参考实现 · 无模型，真实跑 Java</option><option value="incomplete">漏项演练 · 只修溢出，测试应拒绝</option></select></label><label>补充背景（不改变验收合同）<textarea id="notes" maxlength="1000" placeholder="例如：供内部运营查询工单，不允许静默截断参数。"></textarea></label></div>
+<details><summary>费用折算单价（可选，USD / 百万 Token）</summary><p>默认不填，不猜账单。订阅登录的 Token 只能表示用量；以下仅是按你填写的价格折算。缓存输入是输入 Token 的子集，不重复计费。</p><div class="form-grid rates"><label>未缓存输入<input id="rate-input" type="number" min="0" max="10000" step="any"></label><label>缓存输入<input id="rate-cache" type="number" min="0" max="10000" step="any"></label><label>输出<input id="rate-output" type="number" min="0" max="10000" step="any"></label></div></details>
+<p class="small" id="environment"></p><button id="create">建立任务并复现旧版测试</button><p class="small">建立任务只运行受信旧源码。点击“生成候选”才调用模型并消耗额度；每任务最多 2 次，每次超时 180 秒，无自动模型重试。</p></section>
+<section class="history"><label>运行记录<select id="history"><option value="">选择历史记录</option></select></label><button id="reload" class="secondary">刷新记录</button></section>
+<div id="workspace" hidden>
+<section class="panel"><div class="section-head"><h2>02 / 运行总览</h2><strong id="state"></strong></div><div class="metrics" id="metrics"></div><div id="timeline" class="timeline"></div><p id="cost-note" class="small"></p><p id="run-error" class="error"></p>
+<details><summary>每次模型调用的用量与耗时</summary><div id="attempts"></div></details>
+<div class="actions"><button id="generate">生成候选代码</button><button id="cancel" class="danger">取消当前执行</button><a id="download" class="button secondary">下载完整报告</a></div><p id="mode-note" class="small"></p></section>
+<section class="panel"><div class="section-head"><h2>03 / 方案与代码差异</h2><span>只允许一个候选源码；不信任模型的“测试通过”声明</span></div><p id="summary"></p><ul id="risks"></ul><details><summary>逐行差异（− 删除 / ＋ 新增）</summary><pre id="diff"></pre></details><div class="code-grid"><details><summary>旧版 TicketQuery.java</summary><pre id="before"></pre></details><details open><summary>候选 TicketQuery.java</summary><pre id="candidate">等待生成</pre></details></div>
+<label class="check"><input type="checkbox" id="approve">我已检查候选代码，同意在本机 OS 沙箱中编译执行；不等于同意合并或发布。</label><button id="verify">执行独立测试</button></section>
+<section class="panel"><div class="section-head"><h2>04 / 测试证据</h2><span id="test-summary"></span></div><p class="small">使用原有 12 项合同测试和受信探针；编译/运行错误不算预期失败。不下载依赖，不访问数据库。</p><pre id="diagnostic" hidden></pre><div class="table-wrap"><table><thead><tr><th>用例</th><th>旧版</th><th>候选</th><th>输入 / 期望 / 实际</th></tr></thead><tbody id="tests"></tbody></table></div></section>
+<section class="panel"><div class="section-head"><h2>05 / 人工验收</h2><span>全绿才允许验收，仍不自动发布</span></div><label>评审结论<textarea id="review" maxlength="1000" placeholder="说明看过的边界、仍需补充的覆盖与是否接受本次改动（至少 4 字）。"></textarea></label><button id="accept">确认验收并归档</button><p id="review-result"></p><p class="small">当前为公开教学案例，不是盲测；通过这些测试不证明生产级正确。人工等待与审查时间单列，不能假装成 AI 提效。</p></section>
+</div><footer>源码、候选与报告保存在本机忽略目录。仅监听 127.0.0.1:4400，无公网部署；不会合并代码、连接钱包或改资金账本。</footer>
+</main></body></html>

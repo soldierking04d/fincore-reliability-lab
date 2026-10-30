@@ -1,0 +1,20 @@
+name: ai-delivery-evidence
+on:
+  push:
+    branches: [main]
+    paths: ['ai/developer-adoption/live-lab/**', 'web/**', '.github/workflows/ai-delivery-evidence.yml']
+  pull_request:
+    paths: ['ai/developer-adoption/live-lab/**', 'web/**', '.github/workflows/ai-delivery-evidence.yml']
+jobs:
+  read-only-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify local execution contracts and sanitized public evidence without model calls
+        run: node --test ai/developer-adoption/live-lab/*.test.mjs
