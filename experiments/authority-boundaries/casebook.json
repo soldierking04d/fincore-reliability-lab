@@ -1,0 +1,54 @@
+{
+  "asOf": "2026-10-30",
+  "scope": "公开资料核对与离线防御教学；不是对两家平台生产环境的取证、补丁或安全认证。",
+  "headline": "不是只守住私钥：还要守住谁能借你的身份发指令",
+  "plainSummary": "第三方监控脚本本应只测页面速度，却可能拿到页面里的交易能力；运维系统本应只维护服务，却可能越过边界触达提现或签名。两条链路不同，共同的问题是低信任入口碰到了高价值权限。",
+  "sources": [
+    {"id":"wechat","title":"用户提供的公众号事件整理（早期版本）","url":"https://mp.weixin.qq.com/s/9VuEYQ4c8L8muhTB0Iqe0w","kind":"二手时间线","verified":"已读取正文；其中未公布原因/补偿等表述已被后续公告更新。"},
+    {"id":"poly-status","title":"Polymarket 官方状态页","url":"https://status.polymarket.com/cmvtuswgi00221bkzps7w21pt","kind":"官方披露","verified":"确认第三方受损、cancel-only 与 relayer 暂停、恢复和补偿承诺；不提供最终损失。"},
+    {"id":"binance","title":"Binance Security Incident Update（含后续修订）","url":"https://www.binance.com/en/support/announcement/detail/c5a8729a97ac486d963784d96c5642d7","kind":"官方初步披露","verified":"公开 CMS 正文核对；疑似运维电脑受损后进入服务容器；未发现私钥泄露证据。"},
+    {"id":"binance-api","title":"Binance 公告公开 CMS 数据接口","url":"https://www.binance.com/bapi/composite/v1/public/cms/article/detail/query?articleCode=c5a8729a97ac486d963784d96c5642d7","kind":"官方原文读取路径","verified":"核对修订备注：入金正常，暂停提现。网页索引的旧版本可能仍写充提暂停。"},
+    {"id":"hudson","title":"Hudson Rock：第三方脚本静态分析","url":"https://www.infostealers.com/article/polymarket-breach-alert-wallet-draining-code-found-in-a-third-party-script/","kind":"研究方分析","verified":"研究方检查脚本文本；请求签名不代表静默成功签名，余额截图不等于事件净损失。"},
+    {"id":"crystal","title":"Crystal Intelligence 链上调查","url":"https://crystalintelligence.com/investigations/binance-hack-what-we-know-what-teams-should-do-now/","kind":"研究方分析","verified":"关于 EIP-7702、钱包关联和多链流出的分析；本项目未独立重放链上交易。"},
+    {"id":"eip","title":"EIP-7702 协议规范","url":"https://eips.ethereum.org/EIPS/eip-7702","kind":"协议依据","verified":"授权列表、nonce、持久委托及外层执行失败不回滚授权的语义。"},
+    {"id":"owasp-js","title":"OWASP 第三方 JavaScript 管理","url":"https://cheatsheetseries.owasp.org/cheatsheets/Third_Party_Javascript_Management_Cheat_Sheet.html","kind":"防御依据","verified":"第三方代码权限、固定资源、隔离与数据接口治理。"},
+    {"id":"sri","title":"MDN Subresource Integrity","url":"https://developer.mozilla.org/en-US/docs/Web/Security/Defenses/Subresource_Integrity","kind":"防御依据","verified":"摘要校验与跨域 CORS 条件；摘要不能由同一受损通道自动更新。"},
+    {"id":"csp","title":"MDN CSP script-src","url":"https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/script-src","kind":"防御依据","verified":"来源/nonce/hash限制不等于给已获准脚本做能力沙箱。"},
+    {"id":"tx-auth","title":"OWASP 交易授权","url":"https://cheatsheetseries.owasp.org/cheatsheets/Transaction_Authorization_Cheat_Sheet.html","kind":"防御依据","verified":"身份认证与特定交易授权分开；服务端核对业务重要字段。"}
+  ],
+  "facts": [
+    {"level":"官方已确认","event":"Polymarket","statement":"第三方服务商发生安全问题；10/30 北京时间 02:05 进入只撤单并暂停中继，03:05 状态页标记解决。平台承诺补偿受影响用户。","source":"poly-status"},
+    {"level":"研究方分析","event":"Polymarket","statement":"研究方把异常代码定位到 DebugBear 监控集成，描述了复用交易客户端与签名器的行为。不能据此认定每位访客都成功被盗。","source":"hudson"},
+    {"level":"官方初步披露","event":"Binance","statement":"官方称疑似运维电脑被攻陷后进入服务容器，产生未授权提现；暂未发现私钥泄露证据。最终根因报告仍待公布。","source":"binance"},
+    {"level":"官方估算，非最终审计","event":"Binance","statement":"官方当时估算影响约 63 亿美元，约 30 亿美元已冻结，并宣布由 SAFU 与公司资金承担。冻结不等于追回、到账或最终净损失。","source":"binance"},
+    {"level":"官方修订需特别注意","event":"Binance","statement":"公开 CMS 正文修订注明入金正常，当前暂停的是提现。不能复制搜索索引或早期报道中的“充提全部暂停”。","source":"binance-api"},
+    {"level":"研究方分析，未独立链上重放","event":"Binance","statement":"EIP-7702 委托与批量授权是研究方描述的以太坊链路；不能直接解释所有链的资产流出，也不能据此断言攻击者拿到了私钥。","source":"crystal"},
+    {"level":"尚未证实","event":"两起事件","statement":"没有可靠依据把两起事件认定为同一攻击者、同一入口；攻击组织归属、完整签名审批失效路径与最终损失仍需最终取证。","source":"wechat"}
+  ],
+  "timeline": [
+    {"time":"10/30 01:59:20","event":"Polymarket","detail":"研究方发现移除集成的构建时间；构建时间不等于已覆盖全部用户会话。","level":"研究证据","source":"hudson"},
+    {"time":"10/30 02:05","event":"Polymarket","detail":"官方状态页：只撤单，暂停 relayer。","level":"官方状态","source":"poly-status"},
+    {"time":"10/30 03:05","event":"Polymarket","detail":"官方状态页标记解决；不等于赔偿与所有旧会话审查已完成。","level":"官方状态","source":"poly-status"},
+    {"time":"10/30 04:20—04:24","event":"Binance","detail":"研究方报告以太坊委托和主要转出；此处不是本项目独立交易重放。","level":"研究时间线","source":"crystal"},
+    {"time":"10/30 后续公告","event":"Binance","detail":"初步入口、影响估算、冻结及补偿公布；后续备注澄清入金正常。","level":"官方初步披露","source":"binance-api"}
+  ],
+  "business": [
+    {"title":"先分清四本账","problem":"用户账面余额、平台实际控制资产、攻击地址冻结资产、已追回并可用资产不是一个数字。","action":"逐链逐币核对控制权和负债；冻结只记待追踪状态。账本借贷平衡也可能存在资产缺口，不能用改用户余额掩盖。"},
+    {"title":"停什么，不停什么","problem":"全部关停会扩大业务损失，但盲目维持提现会让流失继续。","action":"按入口和权限拆分下单、撤单、中继、充值记账、提现、客服查询；控制面不可信时，撤单也不能仅凭旧会话放行。具体措施依据本平台风险，不复制新闻动作。"},
+    {"title":"资金损失外还有执行损失","problem":"被迫卖出持仓会改变价格与风险敞口；暂停可能带来排队、滑点和服务承诺问题。","action":"保存订单/成交/链上回执的共同时间线；区分被盗金额、交易执行损失、补偿义务和机会成本，独立审批补偿规则。"},
+    {"title":"恢复不是把按钮打开","problem":"删除脚本或重启容器后，旧会话、凭据和链上持久授权可能仍有效。","action":"入口封堵、权限清理、环境重建、账务核对和分阶段放量各有证据；任一关键项未知就不恢复高风险能力。"}
+  ],
+  "controls": [
+    {"layer":"浏览器供应链","risk":"允许一个监控域名不等于信任它之后送来的每一份代码。","implementation":"交易/签名页优先不加载第三方执行脚本；必要资源经审查后自托管、固定版本与摘要。CSP 限源，SRI 校验内容；跨域资源必须满足 CORS。","limit":"SRI 不能防首次审查就恶意或摘要与代码一起被改；CSP 不能限制已获准脚本调用同页面交易对象。"},
+    {"layer":"页面与签名器隔离","risk":"HttpOnly 防读 Cookie，不阻止同源恶意脚本借现有会话发请求；闭包或 React 状态不是安全边界。","implementation":"监控走低权限遥测通道或独立源 iframe；桥接只允许白名单统计字段，验证 origin/source/schema；不向它暴露 signer。","limit":"仅改变量名、混淆、Trusted Types 或再加同页确认弹窗，不等于隔离已获准的恶意脚本。"},
+    {"layer":"签名前业务意图","risk":"HSM/MPC 能保护密钥，却可能对越权请求产生有效签名。","implementation":"从账本中的已批准提现意图构造消息，绑定链/资产/收款人/金额/nonce/有效期/策略版本/会话代次；签名器独立核对，不信任调用方 DTO 声明。","limit":"审批服务和签名器如果共用被攻陷的身份与发布链，双层校验仍可能一起失守。必须把工作负载身份、密钥和发布审批分开。"},
+    {"layer":"新协议与签名域","risk":"0x04 交易和 0x05 授权签名前像不是普通转账；chain_id=0 可能跨链生效。","implementation":"托管大额钱包默认拒绝未知签名域、任意 eth_sign、未审批委托与授权列表。需要7702时走专用变更流程，核验实现代码/升级权限/链/授权nonce/初始化。","limit":"只看外层交易发起人、gas付费人或转账金额为0，会漏掉账户权限改变。未知交易类型不做向下兼容放行。"},
+    {"layer":"基础设施与热钱包预算","risk":"运维终端或服务容器被控制后，工作负载凭据可能被冒用，签名调用可连续发生。","implementation":"短期工作负载身份、最小网络可达、出站限制、独立签名审批；热钱包低水位、单笔和滚动累计额度、全局熔断与地址冷静期。","limit":"单笔限额可被拆单规避；累计预算必须跨实例原子预占，并与撤销/失败/链上最终性区分，不能只在 Redis 或 JVM Map 里当最终资金事实。"}
+  ],
+  "runbook": [
+    {"phase":"0—15分钟：止血与保全","owner":"事故指挥 + 安全 + 钱包值班","actions":["从可信控制面关闭可疑签名/中继/提现能力，按风险保留只读或撤单。","固定时间、构建摘要、脚本内容摘要、签名审计和链上交易标识；先保全，不先清空日志。","通知供应商、托管方、法务和发行方；对外只讲已确认范围，不承诺未经核实的数字。"]},
+    {"phase":"15—60分钟：权限盘点","owner":"安全 + 身份平台 + 前端/钱包负责人","actions":["盘点脚本、CDN、tag manager 与已打开页面；轮换受影响会话/API/工作负载凭据并验证旧凭据不可用。","分别检查 ERC-20 allowance、Permit/Permit2、7702委托和智能钱包 owner/module；断开网站连接不等于撤销链上权限。","若疑似密钥失守，隔离旧签名域并由可信流程迁移到全新密钥；不要只改nonce或清一次委托后继续复用。"]},
+    {"phase":"1—24小时：重建与对账","owner":"平台 + 钱包 + 清结算 + 财务","actions":["从已验证制品重建容器和运维环境，验证策略与签名器不是同一受损发布域。","按链/资产/控制权核对用户负债、可用资产、冻结及追回状态，使用追加分录处理损失和注资。","排除历史补偿重复、未决提现/nonce冲突和Outbox重放；不能删除历史账务让对账变平。"]},
+    {"phase":"分阶段恢复与复盘","owner":"业务负责人 + 安全 + 风控 + 财务双签","actions":["撤销和轮换验证通过、环境可信、账务口径明确、限额/熔断可用后，先小额金丝雀再分批放量。","签名拒绝率、委托变更、异常收款人、滚动流出、队列与客服指标同时观察；失败回到限制态，不回滚到不安全旧制品。","发布带事实等级的复盘和客户通知；演练非办公时间、供应商失联、多链及审批系统失效场景。"]}
+  ]
+}

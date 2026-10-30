@@ -1,0 +1,552 @@
+{
+  "schemaVersion": 1,
+  "verifiedAt": "2026-10-30T12:53:45.385Z",
+  "asOf": "2026-10-30",
+  "passed": true,
+  "node": {
+    "tests": 11,
+    "durationMs": 71
+  },
+  "java": {
+    "passed": 16,
+    "cryptography": "Ed25519",
+    "walletConnected": false,
+    "chainTransactionBroadcast": false,
+    "concurrentAccepted": 2,
+    "concurrentRejected": 1,
+    "compileMs": 489,
+    "runMs": 95,
+    "release": 21
+  },
+  "totalDurationMs": 658,
+  "sourceSha256": {
+    "models.mjs": "6e319ca3e97edf2f25c047b1574b73c56b281377a89e8366ce578bc8e62f08e5",
+    "models.test.mjs": "89ab46539afcf557ed04627325dffb3b3d100a631d27518622e2f0c5724dd3c7",
+    "asset-audit.mjs": "58508a634e8d50014709f8c3942a291ddd071aba6da6a6679bc327b491360873",
+    "SigningIntentGuard.java": "c19ff5ce662f94120fc8c45e5b4af9cdf6fb432cb4d70f49ad8b365abbcc0a34",
+    "casebook.json": "e1a9f71a97daf5e9d0455f2c5c023da51e921bd99ce336d10abd5c4331138270",
+    "verify.mjs": "1689a4403900fa7a25ba776477d28ef472a50215182c26bea24f02711d3b6252",
+    "README.md": "0d4169babc89ff4d3e1773dbfcd938f6db9fbfad9acca77de2ddc52ff054edf0"
+  },
+  "scenarios": [
+    {
+      "id": "vendor-domain",
+      "timeline": [
+        {
+          "step": "供应商更新资源",
+          "fact": "域名不变、脚本字节改变；本例不加载任何外部代码。"
+        },
+        {
+          "step": "资源与能力校验",
+          "fact": "SAME_PAGE_AUTHORITY"
+        },
+        {
+          "step": "交易权限结果",
+          "fact": "监控脚本可触达同页能力，暴露未被解决。"
+        }
+      ],
+      "detail": {
+        "decision": "exposed",
+        "reason": "SAME_PAGE_AUTHORITY",
+        "authorityExposed": true
+      },
+      "scope": "确定性教学回放，不是对真实事故的攻击复现或修复证明。"
+    },
+    {
+      "id": "vendor-pinned",
+      "timeline": [
+        {
+          "step": "供应商更新资源",
+          "fact": "域名不变、脚本字节改变；本例不加载任何外部代码。"
+        },
+        {
+          "step": "资源与能力校验",
+          "fact": "INTEGRITY_MISMATCH"
+        },
+        {
+          "step": "交易权限结果",
+          "fact": "本模型没有把交易能力交给不可信脚本。"
+        }
+      ],
+      "detail": {
+        "decision": "blocked",
+        "reason": "INTEGRITY_MISMATCH",
+        "authorityExposed": false
+      },
+      "scope": "确定性教学回放，不是对真实事故的攻击复现或修复证明。"
+    },
+    {
+      "id": "vendor-isolated",
+      "timeline": [
+        {
+          "step": "供应商更新资源",
+          "fact": "域名不变、脚本字节改变；本例不加载任何外部代码。"
+        },
+        {
+          "step": "资源与能力校验",
+          "fact": "NO_TRADING_CAPABILITY"
+        },
+        {
+          "step": "交易权限结果",
+          "fact": "本模型没有把交易能力交给不可信脚本。"
+        }
+      ],
+      "detail": {
+        "decision": "contained",
+        "reason": "NO_TRADING_CAPABILITY",
+        "authorityExposed": false
+      },
+      "scope": "确定性教学回放，不是对真实事故的攻击复现或修复证明。"
+    },
+    {
+      "id": "nonce-batch",
+      "timeline": [
+        {
+          "step": "授权前",
+          "fact": "当前账户 nonce=49，委托为空；数字为合成输入。"
+        },
+        {
+          "step": "逐项核验",
+          "fact": "生效 1 项；无效项直接跳过。"
+        },
+        {
+          "step": "授权后",
+          "fact": "nonce=50；委托=illustrative-delegate；外层成功不决定已处理委托是否保留。"
+        }
+      ],
+      "detail": {
+        "nonce": "50",
+        "delegate": "illustrative-delegate",
+        "outerExecutionSucceeds": true,
+        "results": [
+          {
+            "index": 0,
+            "reason": "NONCE_MISMATCH",
+            "nonce": "49",
+            "delegate": null
+          },
+          {
+            "index": 1,
+            "reason": "NONCE_MISMATCH",
+            "nonce": "49",
+            "delegate": null
+          },
+          {
+            "index": 2,
+            "reason": "NONCE_MISMATCH",
+            "nonce": "49",
+            "delegate": null
+          },
+          {
+            "index": 3,
+            "reason": "NONCE_MISMATCH",
+            "nonce": "49",
+            "delegate": null
+          },
+          {
+            "index": 4,
+            "reason": "NONCE_MISMATCH",
+            "nonce": "49",
+            "delegate": null
+          },
+          {
+            "index": 5,
+            "reason": "NONCE_MISMATCH",
+            "nonce": "49",
+            "delegate": null
+          },
+          {
+            "index": 6,
+            "reason": "NONCE_MISMATCH",
+            "nonce": "49",
+            "delegate": null
+          },
+          {
+            "index": 7,
+            "reason": "NONCE_MISMATCH",
+            "nonce": "49",
+            "delegate": null
+          },
+          {
+            "index": 8,
+            "reason": "NONCE_MISMATCH",
+            "nonce": "49",
+            "delegate": null
+          },
+          {
+            "index": 9,
+            "reason": "NONCE_MISMATCH",
+            "nonce": "49",
+            "delegate": null
+          },
+          {
+            "index": 10,
+            "reason": "NONCE_MISMATCH",
+            "nonce": "49",
+            "delegate": null
+          },
+          {
+            "index": 11,
+            "reason": "NONCE_MISMATCH",
+            "nonce": "49",
+            "delegate": null
+          },
+          {
+            "index": 12,
+            "reason": "NONCE_MISMATCH",
+            "nonce": "49",
+            "delegate": null
+          },
+          {
+            "index": 13,
+            "reason": "NONCE_MISMATCH",
+            "nonce": "49",
+            "delegate": null
+          },
+          {
+            "index": 14,
+            "reason": "NONCE_MISMATCH",
+            "nonce": "49",
+            "delegate": null
+          },
+          {
+            "index": 15,
+            "reason": "NONCE_MISMATCH",
+            "nonce": "49",
+            "delegate": null
+          },
+          {
+            "index": 16,
+            "reason": "NONCE_MISMATCH",
+            "nonce": "49",
+            "delegate": null
+          },
+          {
+            "index": 17,
+            "reason": "NONCE_MISMATCH",
+            "nonce": "49",
+            "delegate": null
+          },
+          {
+            "index": 18,
+            "reason": "NONCE_MISMATCH",
+            "nonce": "49",
+            "delegate": null
+          },
+          {
+            "index": 19,
+            "reason": "NONCE_MISMATCH",
+            "nonce": "49",
+            "delegate": null
+          },
+          {
+            "index": 20,
+            "reason": "NONCE_MISMATCH",
+            "nonce": "49",
+            "delegate": null
+          },
+          {
+            "index": 21,
+            "reason": "NONCE_MISMATCH",
+            "nonce": "49",
+            "delegate": null
+          },
+          {
+            "index": 22,
+            "reason": "NONCE_MISMATCH",
+            "nonce": "49",
+            "delegate": null
+          },
+          {
+            "index": 23,
+            "reason": "NONCE_MISMATCH",
+            "nonce": "49",
+            "delegate": null
+          },
+          {
+            "index": 24,
+            "reason": "NONCE_MISMATCH",
+            "nonce": "49",
+            "delegate": null
+          },
+          {
+            "index": 25,
+            "reason": "NONCE_MISMATCH",
+            "nonce": "49",
+            "delegate": null
+          },
+          {
+            "index": 26,
+            "reason": "NONCE_MISMATCH",
+            "nonce": "49",
+            "delegate": null
+          },
+          {
+            "index": 27,
+            "reason": "NONCE_MISMATCH",
+            "nonce": "49",
+            "delegate": null
+          },
+          {
+            "index": 28,
+            "reason": "NONCE_MISMATCH",
+            "nonce": "49",
+            "delegate": null
+          },
+          {
+            "index": 29,
+            "reason": "NONCE_MISMATCH",
+            "nonce": "49",
+            "delegate": null
+          },
+          {
+            "index": 30,
+            "reason": "NONCE_MISMATCH",
+            "nonce": "49",
+            "delegate": null
+          },
+          {
+            "index": 31,
+            "reason": "NONCE_MISMATCH",
+            "nonce": "49",
+            "delegate": null
+          },
+          {
+            "index": 32,
+            "reason": "NONCE_MISMATCH",
+            "nonce": "49",
+            "delegate": null
+          },
+          {
+            "index": 33,
+            "reason": "NONCE_MISMATCH",
+            "nonce": "49",
+            "delegate": null
+          },
+          {
+            "index": 34,
+            "reason": "NONCE_MISMATCH",
+            "nonce": "49",
+            "delegate": null
+          },
+          {
+            "index": 35,
+            "reason": "NONCE_MISMATCH",
+            "nonce": "49",
+            "delegate": null
+          },
+          {
+            "index": 36,
+            "reason": "NONCE_MISMATCH",
+            "nonce": "49",
+            "delegate": null
+          },
+          {
+            "index": 37,
+            "reason": "NONCE_MISMATCH",
+            "nonce": "49",
+            "delegate": null
+          },
+          {
+            "index": 38,
+            "reason": "NONCE_MISMATCH",
+            "nonce": "49",
+            "delegate": null
+          },
+          {
+            "index": 39,
+            "reason": "NONCE_MISMATCH",
+            "nonce": "49",
+            "delegate": null
+          },
+          {
+            "index": 40,
+            "reason": "NONCE_MISMATCH",
+            "nonce": "49",
+            "delegate": null
+          },
+          {
+            "index": 41,
+            "reason": "NONCE_MISMATCH",
+            "nonce": "49",
+            "delegate": null
+          },
+          {
+            "index": 42,
+            "reason": "NONCE_MISMATCH",
+            "nonce": "49",
+            "delegate": null
+          },
+          {
+            "index": 43,
+            "reason": "NONCE_MISMATCH",
+            "nonce": "49",
+            "delegate": null
+          },
+          {
+            "index": 44,
+            "reason": "NONCE_MISMATCH",
+            "nonce": "49",
+            "delegate": null
+          },
+          {
+            "index": 45,
+            "reason": "NONCE_MISMATCH",
+            "nonce": "49",
+            "delegate": null
+          },
+          {
+            "index": 46,
+            "reason": "NONCE_MISMATCH",
+            "nonce": "49",
+            "delegate": null
+          },
+          {
+            "index": 47,
+            "reason": "NONCE_MISMATCH",
+            "nonce": "49",
+            "delegate": null
+          },
+          {
+            "index": 48,
+            "reason": "NONCE_MISMATCH",
+            "nonce": "49",
+            "delegate": null
+          },
+          {
+            "index": 49,
+            "reason": "APPLIED",
+            "nonce": "50",
+            "delegate": "illustrative-delegate"
+          }
+        ],
+        "note": "已处理的委托不随外层执行失败回滚；本模型省略gas、地址恢复、账户代码资格、RLP和真实签名校验。"
+      },
+      "scope": "确定性教学回放，不是对真实事故的攻击复现或修复证明。"
+    },
+    {
+      "id": "nonce-no-signature",
+      "timeline": [
+        {
+          "step": "授权前",
+          "fact": "当前账户 nonce=49，委托为空；数字为合成输入。"
+        },
+        {
+          "step": "逐项核验",
+          "fact": "生效 0 项；无效项直接跳过。"
+        },
+        {
+          "step": "授权后",
+          "fact": "nonce=49；委托=无；外层成功不决定已处理委托是否保留。"
+        }
+      ],
+      "detail": {
+        "nonce": "49",
+        "delegate": null,
+        "outerExecutionSucceeds": true,
+        "results": [
+          {
+            "index": 0,
+            "reason": "INVALID_SIGNATURE",
+            "nonce": "49",
+            "delegate": null
+          }
+        ],
+        "note": "已处理的委托不随外层执行失败回滚；本模型省略gas、地址恢复、账户代码资格、RLP和真实签名校验。"
+      },
+      "scope": "确定性教学回放，不是对真实事故的攻击复现或修复证明。"
+    },
+    {
+      "id": "revert-persistence",
+      "timeline": [
+        {
+          "step": "授权前",
+          "fact": "当前账户 nonce=49，委托为空；数字为合成输入。"
+        },
+        {
+          "step": "逐项核验",
+          "fact": "生效 1 项；无效项直接跳过。"
+        },
+        {
+          "step": "授权后",
+          "fact": "nonce=50；委托=illustrative-delegate；外层失败不决定已处理委托是否保留。"
+        }
+      ],
+      "detail": {
+        "nonce": "50",
+        "delegate": "illustrative-delegate",
+        "outerExecutionSucceeds": false,
+        "results": [
+          {
+            "index": 0,
+            "reason": "APPLIED",
+            "nonce": "50",
+            "delegate": "illustrative-delegate"
+          }
+        ],
+        "note": "已处理的委托不随外层执行失败回滚；本模型省略gas、地址恢复、账户代码资格、RLP和真实签名校验。"
+      },
+      "scope": "确定性教学回放，不是对真实事故的攻击复现或修复证明。"
+    },
+    {
+      "id": "recovery-frozen",
+      "timeline": [
+        {
+          "step": "损失确认",
+          "fact": "用户负债100000最小单位不因资产转出自动消失。"
+        },
+        {
+          "step": "冻结与控制权",
+          "fact": "60000已冻结但未返还，不计为可用资产。"
+        },
+        {
+          "step": "恢复判断",
+          "fact": "仍缺少：oldAuthorityRevoked、credentialsRotated、cleanEnvironment、reconciled、canaryReady、CONTROLLED_ASSET_SHORTFALL"
+        }
+      ],
+      "detail": {
+        "allowed": false,
+        "missing": [
+          "oldAuthorityRevoked",
+          "credentialsRotated",
+          "cleanEnvironment",
+          "reconciled",
+          "canaryReady",
+          "CONTROLLED_ASSET_SHORTFALL"
+        ],
+        "availableMinor": "0",
+        "frozenMinor": "60000",
+        "frozenCountsAsAvailable": false,
+        "scope": "仅教学验收门禁；不自行解除真实提现限制。"
+      },
+      "scope": "确定性教学回放，不是对真实事故的攻击复现或修复证明。"
+    },
+    {
+      "id": "recovery-ready",
+      "timeline": [
+        {
+          "step": "损失确认",
+          "fact": "用户负债100000最小单位不因资产转出自动消失。"
+        },
+        {
+          "step": "冻结与控制权",
+          "fact": "60000已冻结但未返还，不计为可用资产。"
+        },
+        {
+          "step": "恢复判断",
+          "fact": "各项条件满足，仅进入小额金丝雀验证，不自动全量开放。"
+        }
+      ],
+      "detail": {
+        "allowed": true,
+        "missing": [],
+        "availableMinor": "100000",
+        "frozenMinor": "60000",
+        "frozenCountsAsAvailable": false,
+        "scope": "仅教学验收门禁；不自行解除真实提现限制。"
+      },
+      "scope": "确定性教学回放，不是对真实事故的攻击复现或修复证明。"
+    }
+  ],
+  "scope": "真实运行Node规则测试与Java签名/并发防御实验；八个回放为合成模型。未执行恶意脚本、未重放EVM、未调用钱包或验证真实平台补丁。"
+}
